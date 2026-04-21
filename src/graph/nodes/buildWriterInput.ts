@@ -12,12 +12,16 @@ export async function buildWriterInput(
     userRequest: state.userRequest,
     taskPlan: state.taskPlan,
     retrievalContext: state.retrievalContext,
+    analystOutput: state.analystOutput ?? undefined,
   });
+
+  const kpiCount = writerInput.analystOutput?.kpis.length ?? 0;
+  const chartCount = writerInput.analystOutput?.chartCandidates.length ?? 0;
 
   return {
     writerInput,
     debugTrace: [
-      `[build_writer_input] writer input assembled sections=${writerInput.taskPlan.targetSections.length}`,
+      `[build_writer_input] sections=${writerInput.taskPlan.targetSections.length} kpis=${kpiCount} charts=${chartCount}`,
     ],
   };
 }

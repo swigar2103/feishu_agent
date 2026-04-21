@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export const TaskIntentSchema = z.enum([
+  "weekly_report",
+  "daily_report",
+  "review_report",
+  "analysis_report",
+  "general_report",
+]);
+
+export type TaskIntent = z.infer<typeof TaskIntentSchema>;
+
 export const UserRequestSchema = z.object({
   userId: z.string().min(1),
   sessionId: z.string().min(1),
@@ -42,14 +52,42 @@ export const SkillSchema = z.object({
 
 export type Skill = z.infer<typeof SkillSchema>;
 
+/**
+ * 注入到 retrievalContext 的 userMemory 视图（Writer 直接消费的字段）。
+ * 与持久化的 UserMemorySchema 相比不含 usageCount/recentTones 等元数据。
+ */
+export const UserMemoryViewSchema = z.object({
+  preferredTone: z.string().optional(),
+  preferredStructure: z.array(z.string()).optional().default([]),
+  commonTerms: z.array(z.string()).optional().default([]),
+  styleNotes: z.array(z.string()).optional().default([]),
+});
+
+export type UserMemoryView = z.infer<typeof UserMemoryViewSchema>;
+
+/**
+ * 持久化到 data/memory/<userId>.json 的完整用户记忆。
+ * Phase 3 引入元数据以支持 "越用越聪明"：
+ *   - usageCount: 该用户累计生成次数
+ *   - lastUsedAt: 最近一次生成时间（ISO）
+ *   - recentTones: 最近 N 次 taskPlan.targetTone，用多数投票/最近优先得到 preferredTone
+ *   - recentSkillIds: 最近使用过的 skillId
+ *   - schemaVersion: 便于未来迁移
+ */
+export const UserMemorySchema = UserMemoryViewSchema.extend({
+  userId: z.string().min(1),
+  usageCount: z.number().int().nonnegative().default(0),
+  lastUsedAt: z.string().optional(),
+  recentTones: z.array(z.string()).default([]),
+  recentSkillIds: z.array(z.string()).default([]),
+  schemaVersion: z.number().int().positive().default(1),
+});
+
+export type UserMemory = z.infer<typeof UserMemorySchema>;
+
 export const RetrievalContextSchema = z.object({
   matchedSkill: SkillSchema,
-  userMemory: z.object({
-    preferredTone: z.string().optional(),
-    preferredStructure: z.array(z.string()).optional().default([]),
-    commonTerms: z.array(z.string()).optional().default([]),
-    styleNotes: z.array(z.string()).optional().default([]),
-  }),
+  userMemory: UserMemoryViewSchema,
   projectContext: z.array(
     z.object({
       sourceId: z.string(),
@@ -74,13 +112,74 @@ export const TaskPlanSchema = z.object({
 
 export type TaskPlan = z.infer<typeof TaskPlanSchema>;
 
+export const KpiTrendSchema = z.enum(["up", "down", "flat", "unknown"]);
+
+export const KpiEntrySchema = z.object({
+  name: z.string().min(1),
+  value: z.string().optional(),
+  unit: z.string().optional(),
+  trend: KpiTrendSchema.default("unknown"),
+  delta: z.string().optional(),
+  sourceId: z.string().optional(),
+  note: z.string().optional(),
+});
+
+export type KpiEntry = z.infer<typeof KpiEntrySchema>;
+
+export const ChartCandidateSchema = z.object({
+  type: z.enum(["line", "bar", "pie", "area", "scatter", "table"]),
+  title: z.string().min(1),
+  purpose: z.string().min(1),
+  dataHint: z.string().min(1),
+  priority: z.number().min(0).max(1).default(0.5),
+});
+
+export type ChartCandidate = z.infer<typeof ChartCandidateSchema>;
+
+export const AnalystOutputSchema = z.object({
+  kpis: z.array(KpiEntrySchema).default([]),
+  chartCandidates: z.array(ChartCandidateSchema).default([]),
+  dataQualityNotes: z.array(z.string()).default([]),
+  highlights: z.array(z.string()).default([]),
+});
+
+export type AnalystOutput = z.infer<typeof AnalystOutputSchema>;
+
 export const WriterInputSchema = z.object({
   userRequest: UserRequestSchema,
   taskPlan: TaskPlanSchema,
   retrievalContext: RetrievalContextSchema,
+  analystOutput: AnalystOutputSchema.optional(),
 });
 
 export type WriterInput = z.infer<typeof WriterInputSchema>;
+
+export const ReviewIssueSchema = z.object({
+  type: z.enum([
+    "coverage",       // 章节覆盖不全
+    "style",          // 语气/行文风格与 styleRules 不符
+    "data_quality",   // 数据口径 / KPI 使用不当
+    "terminology",    // 术语未统一
+    "structure",      // 结构/顺序不合理
+    "completeness",   // 结论/行动项不完整
+    "other",
+  ]),
+  severity: z.enum(["error", "warning", "info"]),
+  message: z.string().min(1),
+  suggestion: z.string().optional(),
+  targetSection: z.string().optional(),
+});
+
+export type ReviewIssue = z.infer<typeof ReviewIssueSchema>;
+
+export const ReviewReportSchema = z.object({
+  pass: z.boolean(),
+  overallScore: z.number().min(0).max(1).default(0.6),
+  issues: z.array(ReviewIssueSchema).default([]),
+  summary: z.string().default(""),
+});
+
+export type ReviewReport = z.infer<typeof ReviewReportSchema>;
 
 export const WriterOutputSchema = z.object({
   title: z.string().min(1),

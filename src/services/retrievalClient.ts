@@ -4,6 +4,15 @@ import { RetrievalEngine } from "./retrieval/engine.js";
 // 实例化检索引擎（作为单例运行）
 const engine = new RetrievalEngine();
 
+export function getRetrievalDiagnostic(): ReturnType<RetrievalEngine["getFeishuDiagnostic"]> {
+  return engine.getFeishuDiagnostic();
+}
+
+/** 给非 Retrieval 模块（如飞书通知节点）复用同一个鉴权 client；mock 模式返回 null */
+export function getFeishuClient(): ReturnType<RetrievalEngine["getFeishuClient"]> {
+  return engine.getFeishuClient();
+}
+
 /**
  * 暴露给主流程 (Report Pipeline / LangGraph) 的唯一检索入口
  * * @param userRequest 从外部传入的用户标准化请求

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { env } from "./config/env.js";
 import { registerReportRoutes } from "./api/report.js";
+import { getRetrievalDiagnostic } from "./services/retrievalClient.js";
 import { logger } from "./shared/logger.js";
 
 async function buildApp() {
@@ -11,7 +12,10 @@ async function buildApp() {
   });
 
   await registerReportRoutes(app);
-  app.get("/healthz", async () => ({ ok: true }));
+  app.get("/healthz", async () => ({
+    ok: true,
+    feishu: getRetrievalDiagnostic(),
+  }));
 
   const webRoot = path.resolve(process.cwd(), "src", "web");
   app.get("/", async (_, reply) => {

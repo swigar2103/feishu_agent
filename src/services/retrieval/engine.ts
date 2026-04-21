@@ -2,32 +2,99 @@ import fs from "node:fs";
 import path from "node:path";
 import type { RetrievalContext, Skill, UserRequest } from "../../schemas/index.js";
 import { SkillSchema } from "../../schemas/index.js";
-import { FeishuMockAdapter } from "./feishuAdapter.js";
-import { parseJsonFromMd, parseSkillDocFromMd, type SkillDoc } from "./mdParser.js";
+import type { FeishuClient } from "../feishu/client.js";
+import type { FeishuConfig } from "../feishu/config.js";
+import { getMemoryStore } from "../memory/store.js";
+import {
+  createFeishuAdapter,
+  FeishuRealAdapter,
+  type FeishuAdapter,
+} from "./feishuAdapter.js";
+import { parseSkillDocFromMd, type SkillDoc } from "./mdParser.js";
+import { SkillRanker, type RankScore } from "./skillRanker.js";
 
 export class RetrievalEngine {
-  private adapter = new FeishuMockAdapter();
+  private readonly adapter: FeishuAdapter;
+  private readonly feishuConfig: FeishuConfig;
+  private readonly feishuDegraded: boolean;
+  private readonly feishuDegradationReason?: string;
   private skillDocs: SkillDoc[];
-  private memories: Record<string, RetrievalContext["userMemory"]>;
   private readonly skillsRoot = path.resolve(process.cwd(), "SKILLS");
   private readonly legacySkillsRoot = path.resolve(process.cwd(), "src", "skills");
+  private readonly ranker = new SkillRanker();
+  private rankerInitPromise: Promise<void> | null = null;
+  private readonly memoryStore = getMemoryStore();
 
   constructor() {
+    const created = createFeishuAdapter();
+    this.adapter = created.adapter;
+    this.feishuConfig = created.config;
+    this.feishuDegraded = created.degraded;
+    this.feishuDegradationReason = created.degradationReason;
+
+    // 启动时对 real 模式做一次异步健康检查，失败只记录、不阻塞构造
+    if (this.adapter instanceof FeishuRealAdapter) {
+      void this.adapter.healthCheck().then((result) => {
+        if (!result.healthy) {
+          console.warn(`[RetrievalEngine] 飞书健康检查失败: ${result.message}`);
+        }
+      });
+    }
+
     try {
       this.skillDocs = this.loadSkillDocs();
     } catch (error) {
       console.warn("[RetrievalEngine] SKILLS 读取失败，使用空技能集", error);
       this.skillDocs = [];
     }
+  }
 
-    try {
-      this.memories = parseJsonFromMd<Record<string, RetrievalContext["userMemory"]>>(
-        "src/data/memories.md",
-      );
-    } catch (error) {
-      console.warn("[RetrievalEngine] memories.md 读取失败，使用空记忆集", error);
-      this.memories = {};
+  /** 供其他模块（如 Feishu 通知节点）复用鉴权过的 client；mock 模式下返回 null */
+  getFeishuClient(): FeishuClient | null {
+    if (this.adapter instanceof FeishuRealAdapter) {
+      return this.adapter.internalClient();
     }
+    return null;
+  }
+
+  /** 给 /healthz 用的诊断快照（不含凭证） */
+  getFeishuDiagnostic(): {
+    mode: "mock" | "real";
+    domain: string;
+    degraded: boolean;
+    degradationReason?: string;
+    resolvedReason: string;
+    requestedMode: "auto" | "true" | "false";
+    hasAppId: boolean;
+    hasAppSecret: boolean;
+    health?: { healthy: boolean; at: string; message: string };
+    token?: { cached: boolean; expiresInMs: number | null };
+  } {
+    const base = {
+      mode: this.adapter.mode,
+      domain: this.feishuConfig.domain,
+      degraded: this.feishuDegraded,
+      degradationReason: this.feishuDegradationReason,
+      resolvedReason: this.feishuConfig.diagnostic.resolvedReason,
+      requestedMode: this.feishuConfig.diagnostic.requestedMode,
+      hasAppId: this.feishuConfig.diagnostic.hasAppId,
+      hasAppSecret: this.feishuConfig.diagnostic.hasAppSecret,
+    };
+    if (this.adapter instanceof FeishuRealAdapter) {
+      return {
+        ...base,
+        health: this.adapter.getLastHealth(),
+        token: this.adapter.tokenManager.describe(),
+      };
+    }
+    return base;
+  }
+
+  private ensureRankerReady(): Promise<void> {
+    if (!this.rankerInitPromise) {
+      this.rankerInitPromise = this.ranker.init(this.skillDocs);
+    }
+    return this.rankerInitPromise;
   }
 
   private collectSkillFiles(rootAbs: string): string[] {
@@ -87,43 +154,34 @@ export class RetrievalEngine {
     };
   }
 
-  private pickBestSkillDoc(request: UserRequest): SkillDoc | null {
-    if (this.skillDocs.length === 0) return null;
+  private async pickBestSkillDoc(request: UserRequest): Promise<{
+    doc: SkillDoc | null;
+    rank: RankScore | null;
+  }> {
+    if (this.skillDocs.length === 0) return { doc: null, rank: null };
 
-    const reportType = (request.reportType ?? "").toLowerCase().trim();
-    const industry = (request.industry ?? "").toLowerCase().trim();
+    await this.ensureRankerReady();
+    const top = await this.ranker.pickBest(request);
+    if (top && top.score > 0) {
+      return { doc: top.doc, rank: top };
+    }
 
-    const exact = this.skillDocs.find((doc) => {
-      return (
-        doc.skill.reportType.toLowerCase() === reportType &&
-        doc.skill.industry.toLowerCase() === industry
-      );
-    });
-    if (exact) return exact;
-
-    const reportMatched = this.skillDocs.find(
-      (doc) => doc.skill.reportType.toLowerCase() === reportType,
-    );
-    if (reportMatched) return reportMatched;
-
-    const industryMatched = this.skillDocs.find(
-      (doc) => doc.skill.industry.toLowerCase() === industry,
-    );
-    if (industryMatched) return industryMatched;
-
-    return this.skillDocs[0] ?? null;
+    // ranker 打分全是 0（既没语义信号也没规则信号），退回首个 skill 保证流程可跑
+    return { doc: this.skillDocs[0] ?? null, rank: top };
   }
 
   async getContextForReport(request: UserRequest): Promise<RetrievalContext> {
-    const matchedSkillDoc = this.pickBestSkillDoc(request);
+    const { doc: matchedSkillDoc, rank } = await this.pickBestSkillDoc(request);
     const matchedSkill = matchedSkillDoc?.skill ?? this.buildFallbackSkill(request);
 
-    const memoryData = this.memories[request.userId];
-    const userMemory = memoryData || {
-      preferredTone: "Professional",
-      preferredStructure: [],
-      commonTerms: [],
-      styleNotes: [],
+    // Phase 3：从 MemoryStore 取最新持久化的 userMemory；
+    // 若该用户从未落盘，store 会自动从 memories.md 里的 seed 初始化。
+    const persistedMemory = this.memoryStore.load(request.userId);
+    const userMemory = {
+      preferredTone: persistedMemory.preferredTone ?? "Professional",
+      preferredStructure: persistedMemory.preferredStructure ?? [],
+      commonTerms: persistedMemory.commonTerms ?? [],
+      styleNotes: persistedMemory.styleNotes ?? [],
     };
 
     const retrievedContext = await this.adapter.searchEverything(request.prompt);
@@ -176,6 +234,11 @@ export class RetrievalEngine {
       glossary: matchedSkill.terminology,
       styleHints: [
         `SKILL_SOURCE: ${matchedSkillDoc?.sourcePath ?? "fallback"}`,
+        ...(rank
+          ? [
+              `SKILL_RANK: score=${rank.score.toFixed(3)} semantic=${rank.breakdown.semantic.toFixed(3)} reportType=${rank.breakdown.reportType.toFixed(3)} industry=${rank.breakdown.industry.toFixed(3)} keyword=${rank.breakdown.keyword.toFixed(3)}`,
+            ]
+          : []),
         ...(matchedSkillDoc?.meta.description
           ? [`SKILL_DESC: ${matchedSkillDoc.meta.description}`]
           : []),
