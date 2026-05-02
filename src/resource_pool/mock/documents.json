@@ -1,0 +1,20 @@
+[
+  {
+    "id": "doc_market_cn_001",
+    "title": "2025下沉市场竞品调研节选",
+    "summary": "汇总竞品在下沉渗透率、轻量化入口与补贴政策上的公开信息与内部纪要片段。",
+    "tags": ["下沉", "竞品", "调研"],
+    "feishuDocToken": "mock_doc_token_market_cn_001",
+    "weight": 1,
+    "updatedAt": "2026-01-08T06:30:00.000Z"
+  },
+  {
+    "id": "doc_med_procurement_014",
+    "title": "医疗集采第二批器械目录草稿说明",
+    "summary": "梳理器械类条目、预计调价区间与法务合规注意点（内部草案）。",
+    "tags": ["医疗", "集采", "合规"],
+    "feishuDocToken": "mock_doc_token_med_014",
+    "weight": 1,
+    "updatedAt": "2026-02-02T03:15:00.000Z"
+  }
+]

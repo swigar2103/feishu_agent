@@ -1,12 +1,26 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { RetrievalContext, Skill, UserRequest } from "../../schemas/index.js";
+import type {
+  RetrievalContext,
+  Skill,
+  TaskPlan,
+  UserRequest,
+} from "../../schemas/index.js";
 import { SkillSchema } from "../../schemas/index.js";
-import { FeishuMockAdapter } from "./feishuAdapter.js";
+import { env } from "../../config/env.js";
+import { taskContextPackToProjectSlices } from "../../resource_pool/context_bridge.js";
+import type { ResourceDataAdapter } from "../../resource_pool/feishu/adapterTypes.js";
+import { FeishuBackedResourceDataAdapter } from "../../resource_pool/feishu/feishuBackedAdapter.js";
+import { MockResourceDataAdapter } from "../../resource_pool/feishu/mockResourceAdapter.js";
+import { buildHybridResourcePoolFromFeishuFolder } from "../../resource_pool/feishuHybridPool.js";
+import { hydrateTaskContext } from "../../resource_pool/hydrator.js";
+import { ResourcePoolManager } from "../../resource_pool/manager.js";
+import { runResourceScreening } from "../../resource_pool/screening.js";
 import { parseJsonFromMd, parseSkillDocFromMd, type SkillDoc } from "./mdParser.js";
 
 export class RetrievalEngine {
-  private adapter = new FeishuMockAdapter();
+  private resourcePool = ResourcePoolManager.fromMockFiles();
+  private readonly mockFeishuData = new MockResourceDataAdapter();
   private skillDocs: SkillDoc[];
   private memories: Record<string, RetrievalContext["userMemory"]>;
   private readonly skillsRoot = path.resolve(process.cwd(), "SKILLS");
@@ -114,7 +128,12 @@ export class RetrievalEngine {
     return this.skillDocs[0] ?? null;
   }
 
-  async getContextForReport(request: UserRequest): Promise<RetrievalContext> {
+  /** LangGraph 完成记忆/反馈后可将 B4 `applyResourceUsage` 的产物挂回检索引擎实例 */
+  replaceResourcePoolManager(nextPool: ResourcePoolManager): void {
+    this.resourcePool = nextPool;
+  }
+
+  async getContextForReport(request: UserRequest, taskPlan?: TaskPlan | null): Promise<RetrievalContext> {
     const matchedSkillDoc = this.pickBestSkillDoc(request);
     const matchedSkill = matchedSkillDoc?.skill ?? this.buildFallbackSkill(request);
 
@@ -126,7 +145,41 @@ export class RetrievalEngine {
       styleNotes: [],
     };
 
-    const retrievedContext = await this.adapter.searchEverything(request.prompt);
+    let poolMgr: ResourcePoolManager = this.resourcePool;
+    let adapter: ResourceDataAdapter = this.mockFeishuData;
+
+    if (
+      env.FEISHU_RESOURCE_POOL_SOURCE === "real" &&
+      env.FEISHU_RESOURCE_FOLDER_TOKEN.trim().length > 0 &&
+      env.FEISHU_APP_ID.trim().length > 0 &&
+      env.FEISHU_APP_SECRET.trim().length > 0
+    ) {
+      try {
+        poolMgr = await buildHybridResourcePoolFromFeishuFolder({
+          folderToken: env.FEISHU_RESOURCE_FOLDER_TOKEN.trim(),
+          maxDocx: env.FEISHU_RESOURCE_MAX_DOCX,
+        });
+        adapter = new FeishuBackedResourceDataAdapter();
+      } catch (error) {
+        console.warn("[RetrievalEngine] 真飞书资源池不可用，回退本地 mock。", error);
+      }
+    }
+
+    const screening = await runResourceScreening({
+      manager: poolMgr,
+      userRequest: request,
+      taskPlan: taskPlan ?? null,
+    });
+
+    const pack = await hydrateTaskContext({
+      manager: poolMgr,
+      screening,
+      adapter,
+      taskPlan: taskPlan ?? null,
+      attachSampleImThreadId: null,
+    });
+
+    const poolSlices = taskContextPackToProjectSlices(pack);
     const personalKnowledgeContext = request.personalKnowledge.map((content, idx) => ({
       sourceId: `pk_${idx + 1}`,
       sourceType: "history" as const,
@@ -153,7 +206,7 @@ export class RetrievalEngine {
       content: "外部检索占位：待接入搜索/行业数据库后补充外部证据。",
     };
     const projectContext = [
-      ...retrievedContext,
+      ...poolSlices,
       ...personalKnowledgeContext,
       ...historyDocsContext,
       ...imContactsContext,
@@ -191,6 +244,9 @@ export class RetrievalEngine {
           : []),
         ...(matchedSkill.styleRules || []),
         ...(userMemory.styleNotes || []),
+        `B2_SCREENING(llm_fallback=${screening.llmFallbackUsed};kw=${screening.trace.keywordSignals.length})`,
+        `B3_POOL(slices=${poolSlices.length};docs=${pack.documents.length};contacts=${pack.contacts.length};projects=${pack.projects.length};personas=${pack.personas.length})`,
+        `RESOURCE_POOL(source=${env.FEISHU_RESOURCE_POOL_SOURCE};pool_docs=${poolMgr.getPool().documents.length})`,
       ],
     };
   }

@@ -10,7 +10,7 @@ export async function retrieverNode(
   }
 
   const retrievalContext = RetrievalContextSchema.parse(
-    await getContextForReport(state.userRequest),
+    await getContextForReport(state.userRequest, state.taskPlan ?? undefined),
   );
 
   return {

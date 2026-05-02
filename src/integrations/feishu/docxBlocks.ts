@@ -148,4 +148,23 @@ export async function replaceBlockWithPlainText(
   }
 }
 
+export function docxBlocksToOutlineAndMarkdown(blocks: BlockItem[]): {
+  outline: string[];
+  bodyMarkdown: string;
+} {
+  const outline: string[] = [];
+  const paragraphs: string[] = [];
+  for (const block of blocks) {
+    const t = block.block_type;
+    const line = blockPlainText(block).replace(/\s+/g, " ").trim();
+    if (!line) continue;
+    if (t !== undefined && t >= 3 && t <= 11) outline.push(line);
+    paragraphs.push(line);
+  }
+  return {
+    outline: outline.length > 0 ? outline : ["正文"],
+    bodyMarkdown: paragraphs.join("\n\n").trim(),
+  };
+}
+
 export type { BlockItem };
