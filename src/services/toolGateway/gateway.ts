@@ -1,3 +1,4 @@
+import { env } from "../../config/env.js";
 import { logger } from "../../shared/logger.js";
 import { FeishuMcpAdapter } from "./feishuMcpAdapter.js";
 import { FeishuOpenApiAdapter } from "./feishuOpenApiAdapter.js";
@@ -16,6 +17,9 @@ export class ToolGateway implements FeishuToolGatewayApi {
   private readonly fallback = new FeishuOpenApiAdapter();
 
   private async withFallback<T>(name: string, runMcp: () => Promise<T>, runFallback: () => Promise<T>): Promise<T> {
+    if (!env.FEISHU_MCP_URL.trim()) {
+      return runFallback();
+    }
     try {
       return await runMcp();
     } catch (error) {

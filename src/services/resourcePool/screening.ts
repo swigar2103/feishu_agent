@@ -7,6 +7,7 @@ import {
 import type { UserRequest } from "../../schemas/index.js";
 import { invokeJsonModel } from "../../llm/jsonModel.js";
 import { toolGateway } from "../toolGateway/gateway.js";
+import { expandMemPalaceTerms } from "./memPalace.js";
 
 function scoreByRules(prompt: string, resource: ResourceSummary): number {
   const lowerPrompt = prompt.toLowerCase();
@@ -98,19 +99,47 @@ async function fetchExternalCandidates(query: string): Promise<ResourceSummary[]
   ];
 }
 
+function mentionSoftBoost(
+  resource: ResourceSummary,
+  mentioned: string[] | undefined,
+): number {
+  if (!mentioned?.length) return 0;
+  return mentioned.includes(resource.resourceId) ? 0.28 : 0;
+}
+
 export async function screenResources(input: {
   request: UserRequest;
   resourcePool: ResourceSummary[];
 }): Promise<CandidateResourceList> {
+  const { extraTerms } = expandMemPalaceTerms(input.request.prompt);
+  const extraForScreening = (input.request.extraContext ?? []).join("\n").slice(0, 8_000);
+  const palaceAugmentedPrompt = [
+    input.request.prompt,
+    input.request.chatPriorArtifactDigest ?? "",
+    extraForScreening,
+    ...extraTerms,
+  ].join(" ");
+
+  const mentioned = input.request.mentionedResourceIds ?? [];
+
   const scored = input.resourcePool
-    .map((resource) => ({
-      ...resource,
-      score: scoreByRules(input.request.prompt, resource),
-    }))
+    .map((resource) => {
+      const base = scoreByRules(palaceAugmentedPrompt, resource);
+      const soft = mentionSoftBoost(resource, mentioned);
+      return {
+        ...resource,
+        score: Math.min(1, base + soft),
+      };
+    })
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
   const ruleCandidates = scored.filter((item) => (item.score ?? 0) >= 0.25).slice(0, 8);
-  const reasons = [`规则筛选命中=${ruleCandidates.length}`];
+  const { matchedRoomIds } = expandMemPalaceTerms(input.request.prompt);
+  const reasons = [
+    `规则筛选命中=${ruleCandidates.length}`,
+    `memPalace_rooms=${matchedRoomIds.join("|") || "—"}`,
+    `mention_soft=${mentioned.length}`,
+  ];
 
   if (ruleCandidates.length >= 3) {
     return CandidateResourceListSchema.parse({

@@ -1,5 +1,6 @@
 import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
 import { listAllDocumentBlocks, replaceBlockWithPlainText } from "../../integrations/feishu/docxBlocks.js";
+import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { getTenantAccessToken } from "../../integrations/feishu/token.js";
 import { parseJsonFromMd } from "../retrieval/mdParser.js";
 import { ResourcePoolStore } from "../../storage/resourcePoolStore.js";
@@ -144,7 +145,7 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
 
     const access = await getTenantAccessToken(c);
     const url = `${c.baseUrl}/open-apis/docx/v1/documents`;
-    const res = await fetch(url, {
+    const res = await feishuHttpFetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${access}`,

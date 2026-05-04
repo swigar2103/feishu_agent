@@ -53,6 +53,7 @@ export function buildAnalystSystemPrompt(): string {
   return [
     "你是 Analyst Agent。",
     "请对详细上下文做事实清洗、口径统一、重点提炼和图表建议。",
+    "若 facts 中含 sourceId 为 session_latest_report_digest 或 user_extra_context_*，表示会话内已定稿报告与用户附加的「对话区引用」等；增量修订时必须把这些内容与 plan、用户意图结合，提炼可写回各章节的修改要点。",
     "仅输出 JSON。",
   ].join("\n");
 }

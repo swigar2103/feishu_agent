@@ -7,11 +7,16 @@ export function guardRequest(userRequest: UserRequest): TaskRequest {
   const normalizedPrompt = normalizeText(parsed.prompt);
   const guardHints: string[] = [];
   const hasActionVerb =
-    /(生成|输出|整理|分析|汇总|复盘|写|做|制作|评估|report|analy|summar)/i.test(
+    /(生成|输出|整理|分析|汇总|复盘|写|做|制作|评估|修改|修订|调整|删|删改|补充|重写|更新|改写|润色|优化|替换|参照|对照|缩写|扩写|迁移|合并|拆分|删减|提炼|沿用|保留|剔除|改|增删|report|analy|summar)/i.test(
       normalizedPrompt,
     );
-  const isTooShort = normalizedPrompt.length < 6;
-  const isLikelyChatOnly = !hasActionVerb && normalizedPrompt.length < 20;
+  /** 来自 chat 页的 Add to Chat，正文在 extraContext 的大段「对话区引用」里 */
+  const hasChatSelectionExtra = (parsed.extraContext ?? []).some((block) =>
+    block.includes("对话区引用"),
+  );
+  const isTooShort = normalizedPrompt.length < 6 && !hasChatSelectionExtra;
+  const isLikelyChatOnly =
+    !hasActionVerb && normalizedPrompt.length < 20 && !hasChatSelectionExtra;
   const isValid = !isTooShort && !isLikelyChatOnly;
   const validityLevel = isValid
     ? "accepted"

@@ -1,5 +1,6 @@
 import { logger } from "../../shared/logger.js";
 import type { FeishuMvpConfig } from "./feishuConfig.js";
+import { feishuHttpFetch } from "./httpFetch.js";
 import { getTenantAccessToken } from "./token.js";
 
 type BlockItem = Record<string, unknown> & {
@@ -85,7 +86,7 @@ export async function listAllDocumentBlocks(
     if (pageToken) qs.set("page_token", pageToken);
 
     const url = `${c.baseUrl}/open-apis/docx/v1/documents/${encodeURIComponent(documentId)}/blocks?${qs.toString()}`;
-    const res = await fetch(url, {
+    const res = await feishuHttpFetch(url, {
       headers: { Authorization: `Bearer ${access}` },
     });
     const data = (await res.json()) as ListBlocksResponse;
@@ -131,7 +132,7 @@ export async function replaceBlockWithPlainText(
       },
     ],
   };
-  const res = await fetch(url, {
+  const res = await feishuHttpFetch(url, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${access}`,

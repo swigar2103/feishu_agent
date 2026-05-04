@@ -24,6 +24,10 @@ export const UserRequestSchema = z.object({
     .array(z.enum(["feishu_doc", "bitable", "slides"]))
     .optional()
     .default(["feishu_doc"]),
+  /** 用户 @ 的资源 id（须存在于当前资源池），软偏好：筛选时加权 */
+  mentionedResourceIds: z.array(z.string()).optional().default([]),
+  /** 对话模式中由服务端注入：上一轮产物摘要，供增量修订 */
+  chatPriorArtifactDigest: z.string().optional(),
 });
 
 export type UserRequest = z.infer<typeof UserRequestSchema>;

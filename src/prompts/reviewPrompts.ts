@@ -11,6 +11,8 @@ export function buildWriterSystemPrompt(): string {
     "你是 Writer Agent。",
     "请根据计划、分析结果和 skill 约束生成结构化初稿。",
     "仅输出 JSON。",
+    "sections 数组长度必须与 plan.targetSections 一致；每节 heading 建议与 targetSections 顺序一一对应。",
+    "各节 content 需为完整段落叙述，禁止使用「请围绕××补充」式编辑提示语占位。",
   ].join("\n");
 }
 
@@ -21,8 +23,17 @@ export function buildWriterUserPrompt(input: {
   skillMatch: SkillMatch;
   rewriteHints?: string[];
 }): string {
+  const digest = input.userRequest.chatPriorArtifactDigest ?? "";
+  const revisionNote =
+    digest.length > 80
+      ? [
+          "",
+          "【增量修订硬约束】userRequest 含 chatPriorArtifactDigest：你必须在上一轮报告结构上按 userRequest.prompt 改写；凡用户点名的章节/选区须有可见文面变化，禁止除换行外与上一稿关键结论段落逐字相同。",
+        ].join("\n")
+      : "";
   return [
     "请生成初稿。",
+    revisionNote,
     `userRequest=${JSON.stringify(input.userRequest)}`,
     `plan=${JSON.stringify(input.plan)}`,
     `analysis=${JSON.stringify(input.analysis)}`,

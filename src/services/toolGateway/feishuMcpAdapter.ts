@@ -1,7 +1,8 @@
 import { env } from "../../config/env.js";
-import { logger } from "../../shared/logger.js";
+import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
 import { getTenantAccessToken } from "../../integrations/feishu/token.js";
+import { logger } from "../../shared/logger.js";
 import type {
   AddCommentInput,
   CreateDocumentInput,
@@ -57,7 +58,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
       },
     };
 
-    const res = await fetch(this.endpoint, {
+    const res = await feishuHttpFetch(this.endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",

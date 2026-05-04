@@ -1,4 +1,5 @@
 import { logger } from "../../shared/logger.js";
+import { feishuHttpFetch } from "./httpFetch.js";
 import type { FeishuMvpConfig } from "./feishuConfig.js";
 
 type TokenResponse = {
@@ -20,7 +21,7 @@ export async function getTenantAccessToken(
   }
 
   const url = `${c.baseUrl}/open-apis/auth/v3/tenant_access_token/internal`;
-  const res = await fetch(url, {
+  const res = await feishuHttpFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify({ app_id: c.appId, app_secret: c.appSecret }),

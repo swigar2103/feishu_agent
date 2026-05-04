@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { env } from "./config/env.js";
+import { registerChatRoutes } from "./api/chat.js";
 import { registerPhase1Routes } from "./api/phase1.js";
 import { registerReportRoutes } from "./api/report.js";
 import { logger } from "./shared/logger.js";
@@ -13,21 +14,23 @@ async function buildApp() {
 
   await registerReportRoutes(app);
   await registerPhase1Routes(app);
+  await registerChatRoutes(app);
   app.get("/healthz", async () => ({ ok: true }));
 
   const webRoot = path.resolve(process.cwd(), "src", "web");
   app.get("/", async (_, reply) => {
-    const html = await readFile(path.join(webRoot, "index.html"), "utf-8");
+    const html = await readFile(path.join(webRoot, "chat.html"), "utf-8");
     reply.type("text/html; charset=utf-8");
     return reply.send(html);
   });
-  app.get("/ui.css", async (_, reply) => {
-    const css = await readFile(path.join(webRoot, "styles.css"), "utf-8");
+  app.get("/chat", async (_, reply) => reply.redirect("/", 302));
+  app.get("/chat.css", async (_, reply) => {
+    const css = await readFile(path.join(webRoot, "chat.css"), "utf-8");
     reply.type("text/css; charset=utf-8");
     return reply.send(css);
   });
-  app.get("/ui.js", async (_, reply) => {
-    const js = await readFile(path.join(webRoot, "app.js"), "utf-8");
+  app.get("/chat.js", async (_, reply) => {
+    const js = await readFile(path.join(webRoot, "chat.js"), "utf-8");
     reply.type("application/javascript; charset=utf-8");
     return reply.send(js);
   });

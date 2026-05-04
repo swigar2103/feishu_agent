@@ -9,12 +9,48 @@ type RawAsset = {
   content: string;
 };
 
-function toFact(sourceId: string, content: string) {
+function toFact(sourceId: string, content: string, evidence?: string) {
   return {
     sourceId,
     fact: content,
-    evidence: `来自资源 ${sourceId}`,
+    ...(evidence ? { evidence } : {}),
   };
+}
+
+/** 会话内增量修订：把 latestReport 摘要与用户 extraContext 注入事实层，否则 Analyst/Writer 只看资产池，上一稿等于从未出现。 */
+function buildSessionAnchoredFacts(request: UserRequest): Array<{
+  sourceId: string;
+  fact: string;
+  evidence?: string;
+}> {
+  const out: Array<{ sourceId: string; fact: string; evidence?: string }> = [];
+  const cap = (s: string, max: number) =>
+    s.length <= max ? s : `${s.slice(0, max)}\n…（已截断，完整内容见用户请求 extraContext）`;
+
+  if (request.chatPriorArtifactDigest?.trim()) {
+    out.push(
+      toFact(
+        "session_latest_report_digest",
+        cap(request.chatPriorArtifactDigest.trim(), 18_000),
+        "【增量修订基线】当前会话最近一次已定稿报告（JSON 文本）；修订必须以此为出发点改写相应小节，不得无视用户意见重复原句。",
+      ),
+    );
+  }
+
+  const extras = request.extraContext ?? [];
+  for (let i = 0; i < extras.length; i++) {
+    const block = extras[i]?.trim();
+    if (!block) continue;
+    out.push(
+      toFact(
+        `user_extra_context_${i + 1}`,
+        cap(block, 18_000),
+        "【用户附加】含「对话区引用」及内嵌报告 JSON 片段；与摘要型 digest 冲突时，以用户意见与显式引用文字为准。",
+      ),
+    );
+  }
+
+  return out;
 }
 
 export async function deepRetrieveContext(input: {
@@ -81,9 +117,16 @@ export async function deepRetrieveContext(input: {
     ),
   );
 
+  const anchored = buildSessionAnchoredFacts(input.request);
+  const anchoredDetails = anchored.map((a) => ({
+    resourceId: a.sourceId,
+    detail: a.fact,
+  }));
+
   return DetailedContextSchema.parse({
-    facts: [...assetFacts, ...externalFacts, ...historyFacts, ...contactFacts],
+    facts: [...anchored, ...assetFacts, ...externalFacts, ...historyFacts, ...contactFacts],
     sourceDetails: [
+      ...anchoredDetails,
       ...matchedAssets.map((asset) => ({
         resourceId: asset.sourceId,
         detail: asset.content,
