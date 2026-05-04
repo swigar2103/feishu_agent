@@ -46,6 +46,34 @@ const EnvSchema = z.object({
   FEISHU_MCP_ALLOWED_TOOLS: z.string().default(
     "search-docs,fetch-doc,list-docs,get-file-content,create-doc,update-doc,get-comments,add-comment,search-users,get-user-info",
   ),
+  /** 启用 lark-cli 文档发布增强（docs +create/+update/+fetch） */
+  LARK_CLI_ENABLED: z.coerce.boolean().default(false),
+  /** lark-cli 可执行文件名或绝对路径 */
+  LARK_CLI_BIN: z.string().default("lark-cli"),
+  /** lark-cli 默认身份，等价于命令行的 --as */
+  LARK_CLI_DEFAULT_AS: z.enum(["bot", "user"]).default("bot"),
+  /** lark-cli 单次命令超时（毫秒） */
+  LARK_CLI_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  /** docs +create 的文件夹 token；为空时回退 FEISHU_TARGET_FOLDER_TOKEN */
+  LARK_CLI_FOLDER_TOKEN: z.string().default(""),
+  /** 命令模板：文档搜索（支持 {query} 占位） */
+  LARK_CLI_CMD_DOCS_SEARCH: z.string().default("docs +search"),
+  /** 命令模板：用户搜索（支持 {query} 占位）；留空表示禁用 */
+  LARK_CLI_CMD_CONTACT_SEARCH: z.string().default(""),
+  /** 命令模板：用户详情（支持 {userId} 占位）；留空则由 searchUsers 兜底 */
+  LARK_CLI_CMD_CONTACT_GET: z.string().default(""),
+  /** 命令模板：Slides 创建（支持 {title}/{outline} 占位）；留空表示禁用 */
+  LARK_CLI_CMD_SLIDES_CREATE: z.string().default(""),
+  /** Slides 交付层级：outline_only 必做；artifact_best_effort 尝试真实发布 */
+  FEISHU_SLIDES_DELIVERY_LEVEL: z
+    .enum(["outline_only", "artifact_best_effort"])
+    .default("outline_only"),
+  /** 文档发布策略：gateway_only 保持原路由；lark_cli_first 优先尝试 lark-cli */
+  FEISHU_DOC_PUBLISH_STRATEGY: z.enum(["gateway_only", "lark_cli_first"]).default("gateway_only"),
+  /** Resource Screening: 本地候选低于该数量时触发外部补检索 */
+  RESOURCE_SCREENING_MIN_CANDIDATE_COUNT: z.coerce.number().int().positive().default(3),
+  /** Resource Screening: topN 候选平均分低于该阈值时触发外部补检索 */
+  RESOURCE_SCREENING_MIN_CANDIDATE_SCORE: z.coerce.number().min(0).max(1).default(0.35),
   /** 飞书 OpenAPI / MCP 的 fetch 超时（毫秒）；0 表示不限制 */
   FEISHU_HTTP_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(90_000),
   /**

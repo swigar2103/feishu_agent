@@ -22,6 +22,7 @@ export function feishuImEventToUserRequest(
     imContacts: [],
     outputFormat: "structured",
     outputTargets: ["feishu_doc"],
+    mentionedResourceIds: [],
   };
 }
 

@@ -6,9 +6,11 @@ import { logger } from "../../shared/logger.js";
 import type {
   AddCommentInput,
   CreateDocumentInput,
+  CreateSlidesInput,
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
+  GatewaySlides,
   GatewayUser,
   UpdateDocumentInput,
 } from "./types.js";
@@ -214,6 +216,21 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
       name: parsed.name ?? userId,
       department: parsed.department,
       role: parsed.role,
+      source: "mcp",
+    };
+  }
+
+  async createSlides(input: CreateSlidesInput): Promise<GatewaySlides> {
+    const data = await this.callTool("create-slides", {
+      title: input.title,
+      outline: input.outline,
+    });
+    const parsed = parseMcpPayload<{ id?: string; title?: string; url?: string }>(data);
+    return {
+      id: parsed?.id ?? `mcp_slides_${Date.now()}`,
+      title: parsed?.title ?? input.title,
+      outline: input.outline,
+      url: parsed?.url ?? `https://mock.feishu.local/slides/${Date.now()}`,
       source: "mcp",
     };
   }

@@ -4,7 +4,7 @@ export type GatewayDocument = {
   summary?: string;
   content?: string;
   url?: string;
-  source?: "mcp" | "openapi";
+  source?: "mcp" | "openapi" | "lark_cli";
 };
 
 export type GatewayUser = {
@@ -12,7 +12,7 @@ export type GatewayUser = {
   name: string;
   department?: string;
   role?: string;
-  source?: "mcp" | "openapi";
+  source?: "mcp" | "openapi" | "lark_cli";
 };
 
 export type GatewayComment = {
@@ -20,7 +20,7 @@ export type GatewayComment = {
   author?: string;
   content: string;
   createdAt?: string;
-  source?: "mcp" | "openapi";
+  source?: "mcp" | "openapi" | "lark_cli";
 };
 
 export type CreateDocumentInput = {
@@ -38,6 +38,19 @@ export type AddCommentInput = {
   content: string;
 };
 
+export type CreateSlidesInput = {
+  title: string;
+  outline: string;
+};
+
+export type GatewaySlides = {
+  id: string;
+  title: string;
+  outline?: string;
+  url?: string;
+  source?: "mcp" | "openapi" | "lark_cli";
+};
+
 export interface FeishuToolGatewayApi {
   searchDocuments(query: string): Promise<GatewayDocument[]>;
   listDocuments(query?: string): Promise<GatewayDocument[]>;
@@ -49,4 +62,5 @@ export interface FeishuToolGatewayApi {
   addComment(input: AddCommentInput): Promise<boolean>;
   searchUsers(query: string): Promise<GatewayUser[]>;
   getUserInfo(userId: string): Promise<GatewayUser | null>;
+  createSlides(input: CreateSlidesInput): Promise<GatewaySlides>;
 }

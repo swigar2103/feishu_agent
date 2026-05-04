@@ -34,10 +34,18 @@ export function buildWriterUserPrompt(input: {
   return [
     "请生成初稿。",
     revisionNote,
+    input.skillMatch.larkCliGuidance?.enabled
+      ? "【lark-cli 规范增强】请优先遵循 larkCliGuidance.templateHints 与 qualityChecks 约束输出。"
+      : "",
+    input.skillMatch.workflowMeta
+      ? "【官方 workflow 命中】请优先满足 workflowMeta.reviewRules，输出目标参考 workflowMeta.outputTargets。"
+      : "",
     `userRequest=${JSON.stringify(input.userRequest)}`,
     `plan=${JSON.stringify(input.plan)}`,
     `analysis=${JSON.stringify(input.analysis)}`,
     `skillMatch=${JSON.stringify(input.skillMatch)}`,
+    `larkCliGuidance=${JSON.stringify(input.skillMatch.larkCliGuidance ?? null)}`,
+    `workflowMeta=${JSON.stringify(input.skillMatch.workflowMeta ?? null)}`,
     `rewriteHints=${JSON.stringify(input.rewriteHints ?? [])}`,
   ].join("\n");
 }
@@ -77,6 +85,7 @@ export function buildComplianceUserPrompt(input: {
   plan: ExecutionPlan;
   requiredInputs: string[];
   terminology: string[];
+  reviewRules?: string[];
 }): string {
   return [
     "请进行规范审查。",
@@ -84,5 +93,6 @@ export function buildComplianceUserPrompt(input: {
     `plan=${JSON.stringify(input.plan)}`,
     `requiredInputs=${JSON.stringify(input.requiredInputs)}`,
     `terminology=${JSON.stringify(input.terminology)}`,
+    `reviewRules=${JSON.stringify(input.reviewRules ?? [])}`,
   ].join("\n");
 }

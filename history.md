@@ -2,6 +2,53 @@
 
 ## 2026-05-04
 
+### workflow registry / capability probe / 阈值化补检索
+
+- **目标**：补齐“官方 workflow skill 可追踪命中 + Adapter 能力探测 + Screening 阈值化 + Slides 双层交付”，并保持 reviewer callback 回环不退化。
+- **处理**：
+  - `src/services/agent/workflowSkillRegistry.ts`：新增官方 workflow 注册表，包含 `outputTargets`、`reviewRules`、`workflowSourceId`、`toolHints`、`priority`。
+  - `src/services/agent/skillRouter.ts`：先匹配官方 workflow，再回退自定义 skill；命中时写入 `workflowMeta`。
+  - `src/schemas/agentContracts.ts`：扩展 `SkillMatch`，新增 `workflowMeta` 与 `source=lark_cli_workflow`。
+  - `src/prompts/agentPrompts.ts`、`src/prompts/reviewPrompts.ts`：Planner/Writer/Compliance 注入 `workflowMeta` 与 `reviewRules`。
+  - `src/services/toolGateway/larkCliAdapter.ts`：新增 capability probe（`docsSearch/contactSearch/slidesPublish`）并缓存；扩展 `searchDocuments/searchUsers/getUserInfo/createSlides`。
+  - `src/services/toolGateway/types.ts`、`gateway.ts`、`feishuMcpAdapter.ts`、`feishuOpenApiAdapter.ts`：补齐 Slides 统一接口与策略回退。
+  - `src/services/resourcePool/screening.ts`：新增 `minCandidateCount/minCandidateScore` 触发阈值，并把外部来源打到 tags。
+  - `src/services/retrieval/deepRetriever.ts`：限制深读边界，仅允许 screening 入选候选资源。
+  - `src/services/output/publisher.ts`：Slides 改为双层交付（`outline_only` / `artifact_best_effort`）。
+  - `src/config/env.ts`、`env.example`：新增 CLI 命令模板、Slides 层级、筛选阈值配置。
+  - `README.md`：补充 workflow 与自定义 skill 的优先级/叠加规则、CLI 能力矩阵与阈值说明。
+- **验证**：`npm run check` 通过；保持 API/chat/IM 共享同一 pipeline 与 callback 闭环。
+
+### lark-cli 中层接入（全入口增强，不替代）
+
+- **目标**：接入 `cli-main` 提供的 docs 命令契约与模板规范，提升报告产出与发布标准化；保留现有 LangGraph 主链路与 Gateway 回退机制。
+- **处理**：
+  - `src/services/agent/larkCliGuidance.ts`：新增 `lark-cli` 规范提供器，提取 `cli-main/tests/cli_e2e/docs` 的命令约定与质量检查提示。
+  - `src/schemas/agentContracts.ts`：`SkillMatch` 新增可选 `larkCliGuidance` 契约。
+  - `src/services/agent/skillRouter.ts`：路由命中后合并 `lark-cli` 规范到 `styleRules`，并透传 `larkCliGuidance`。
+  - `src/prompts/reviewPrompts.ts`：Writer Prompt 注入 `larkCliGuidance`，作为可开关写作约束。
+  - `src/services/toolGateway/larkCliAdapter.ts`：新增 CLI 适配层，封装 `docs +create/+update/+fetch` 与 stdout JSON 解析。
+  - `src/services/toolGateway/gateway.ts`：文档能力新增策略路由（`lark_cli_first` 时优先 CLI，失败回退 MCP/OpenAPI）。
+  - `src/services/output/publisher.ts`：抽象文档发布函数，支持按策略执行发布后 fetch 复核。
+  - `src/config/env.ts` / `env.example`：新增 `LARK_CLI_*` 与 `FEISHU_DOC_PUBLISH_STRATEGY` 配置项。
+  - `README.md`：补充 lark-cli 增强策略、配置说明与接入边界。
+- **验证**：执行 `npm run check`，通过后确认 API/chat/飞书IM 均复用同一 `runReportPipeline`，因此自动共享规范注入与发布策略。
+
+### 前端页面彻底替换为新问答页（chat）
+
+- **目标**：将旧静态页入口完全切换到新上传的问答式前端，避免旧资源路径残留导致页面不一致。
+- **处理**：
+  - `src/app.ts`：根路由 `/` 固定返回 `chat.html`；新增 `/index.html -> /` 重定向。
+  - `src/app.ts`：保留 `/chat.css`、`/chat.js` 静态资源路由，并新增旧路径兼容：
+    - `/ui.css -> /chat.css`
+    - `/ui.js -> /chat.js`
+  - 删除旧样式文件：`src/web/styles.css`（不再使用）。
+- **结果**：访问 `/`、`/index.html`、以及历史缓存中可能请求的 `/ui.css`、`/ui.js` 时，都会落到新问答页面资源。
+
+### 类型检查附带修复（非前端替换主线）
+
+- `src/integrations/feishu/reportImDelivery.ts`：补齐 `UserRequest.mentionedResourceIds`，解决 `npm run check` 的 TS 报错（字段缺失）。
+
 ### Git 合并冲突修复（env.ts / app.ts）
 
 - **原因**：分支合并留下 `<<<<<<<` 标记；`env` 需在「飞书 HTTP 超时」与「机器人链路 / 可写目录 / URL 校验 token」间同时保留；`app` 需在「先 webhook」与「chat 路由」间合并，且避免在 `buildApp` 与 `start` 中对 report/phase1 **重复注册**。
@@ -56,6 +103,7 @@
 ```
 feishu_agent/
 ├── SKILLS/
+├── cli-main/               # lark-cli docs E2E 契约样例（create/fetch/update）
 ├── docs/
 ├── src/
 │   ├── api/
@@ -66,6 +114,9 @@ feishu_agent/
 │   ├── phase1/
 │   ├── prompts/
 │   ├── services/
+│   │   ├── agent/larkCliGuidance.ts
+│   │   ├── output/publisher.ts
+│   │   └── toolGateway/larkCliAdapter.ts
 │   ├── shared/
 │   ├── storage/
 │   ├── types/

@@ -15,6 +15,7 @@ export async function complianceReviewerNode(
     plan: state.executionPlan,
     requiredInputs: state.skillMatch.selectedSkill.requiredInputs,
     terminology: state.skillMatch.selectedSkill.terminology,
+    reviewRules: state.skillMatch.workflowMeta?.reviewRules ?? [],
   });
 
   const loop = state.complianceLoopCount + 1;

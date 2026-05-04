@@ -15,8 +15,14 @@ function fallbackCompliance(input: {
   plan: ExecutionPlan;
   requiredInputs: string[];
   terminology: string[];
+  reviewRules?: string[];
 }): ComplianceReviewResult {
   const issues: string[] = [];
+  const fullText = [
+    input.draft.title,
+    input.draft.summary,
+    ...input.draft.sections.map((s) => `${s.heading}\n${s.content}`),
+  ].join("\n");
   const missingSections = input.plan.targetSections.filter(
     (section) => !input.draft.sections.some((item) => item.heading.includes(section)),
   );
@@ -25,6 +31,15 @@ function fallbackCompliance(input: {
   }
   if (input.plan.missingFields.length > 0) {
     issues.push(`仍存在缺失字段: ${input.plan.missingFields.join("、")}`);
+  }
+  for (const rule of input.reviewRules ?? []) {
+    const keyword = rule
+      .replace(/^是否包含/, "")
+      .replace(/[：:]/g, "")
+      .trim();
+    if (keyword && !fullText.includes(keyword)) {
+      issues.push(`未满足审查规则: ${rule}`);
+    }
   }
 
   if (issues.length > 0) {
@@ -47,6 +62,7 @@ export async function reviewCompliance(input: {
   plan: ExecutionPlan;
   requiredInputs: string[];
   terminology: string[];
+  reviewRules?: string[];
 }): Promise<ComplianceReviewResult> {
   try {
     const result = await invokeJsonModel(ComplianceReviewResultSchema, {

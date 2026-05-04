@@ -46,6 +46,7 @@ async function buildApp() {
     reply.type("text/html; charset=utf-8");
     return reply.send(html);
   });
+  app.get("/index.html", async (_, reply) => reply.redirect("/", 302));
   app.get("/chat", async (_, reply) => reply.redirect("/", 302));
   app.get("/chat.css", async (_, reply) => {
     const css = await readFile(path.join(webRoot, "chat.css"), "utf-8");
@@ -57,6 +58,9 @@ async function buildApp() {
     reply.type("application/javascript; charset=utf-8");
     return reply.send(js);
   });
+  // 兼容旧前端静态资源路径，统一落到新 chat 页面资源。
+  app.get("/ui.css", async (_, reply) => reply.redirect("/chat.css", 302));
+  app.get("/ui.js", async (_, reply) => reply.redirect("/chat.js", 302));
 
   return app;
 }

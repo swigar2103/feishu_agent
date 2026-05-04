@@ -69,10 +69,34 @@ export const IntentResultSchema = z.object({
 
 export type IntentResult = z.infer<typeof IntentResultSchema>;
 
+export const LarkCliGuidanceSchema = z.object({
+  enabled: z.boolean().default(false),
+  sourceRoot: z.string().default(""),
+  supportedDocsCommands: z.array(z.string()).default([]),
+  commandPatterns: z.array(z.string()).default([]),
+  templateHints: z.array(z.string()).default([]),
+  qualityChecks: z.array(z.string()).default([]),
+});
+
+export const WorkflowMetaSchema = z.object({
+  workflowSourceId: z.string().min(1),
+  workflowTemplateId: z.string().optional(),
+  confidence: z.number().min(0).max(1),
+  recommendedTools: z.array(z.string()).default([]),
+  outputTargets: z
+    .array(z.enum(["feishu_doc", "bitable", "slides"]))
+    .default([]),
+  reviewRules: z.array(z.string()).default([]),
+});
+
 export const SkillMatchSchema = z.object({
   selectedSkill: SkillSchema,
   matchReason: z.string().min(1),
-  source: z.enum(["reference", "anchor", "fallback"]).default("fallback"),
+  source: z
+    .enum(["reference", "anchor", "fallback", "lark_cli_workflow"])
+    .default("fallback"),
+  larkCliGuidance: LarkCliGuidanceSchema.optional(),
+  workflowMeta: WorkflowMetaSchema.optional(),
 });
 
 export type SkillMatch = z.infer<typeof SkillMatchSchema>;

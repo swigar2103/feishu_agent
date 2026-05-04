@@ -45,6 +45,7 @@ export function buildPlannerUserPrompt(input: {
     `userRequest=${JSON.stringify(input.userRequest)}`,
     `intent=${JSON.stringify(input.intent)}`,
     `skillMatch=${JSON.stringify(input.skillMatch)}`,
+    `workflowMeta=${JSON.stringify(input.skillMatch.workflowMeta ?? null)}`,
     `screened=${JSON.stringify(input.screened)}`,
   ].join("\n");
 }

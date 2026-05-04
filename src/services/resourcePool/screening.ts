@@ -6,6 +6,7 @@ import {
 } from "../../schemas/agentContracts.js";
 import type { UserRequest } from "../../schemas/index.js";
 import { invokeJsonModel } from "../../llm/jsonModel.js";
+import { env } from "../../config/env.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 import { expandMemPalaceTerms } from "./memPalace.js";
 
@@ -54,13 +55,14 @@ async function llmFallbackScreening(
 function mapDocToResourceSummary(
   doc: Awaited<ReturnType<typeof toolGateway.searchDocuments>>[number],
 ): ResourceSummary {
+  const sourceTag = doc.source ?? "unknown";
   return {
     resourceId: `ext_doc_${doc.id}`,
     resourceType: "doc_summary",
     title: doc.title || doc.id,
     summary: doc.summary ?? doc.content ?? "",
     project: "外部文档",
-    tags: ["external", "mcp_or_openapi"],
+    tags: ["external", sourceTag],
     keywords: `${doc.title} ${doc.summary ?? ""}`
       .split(/[，。,\s]/)
       .filter(Boolean)
@@ -74,13 +76,14 @@ function mapDocToResourceSummary(
 function mapUserToResourceSummary(
   user: Awaited<ReturnType<typeof toolGateway.searchUsers>>[number],
 ): ResourceSummary {
+  const sourceTag = user.source ?? "unknown";
   return {
     resourceId: `ext_user_${user.id}`,
     resourceType: "contact_summary",
     title: user.name,
     summary: `用户信息：${user.name} ${user.role ?? ""} ${user.department ?? ""}`.trim(),
     project: "人员资源",
-    tags: ["external", "user"],
+    tags: ["external", "user", sourceTag],
     keywords: [user.name, user.role ?? "", user.department ?? ""].filter(Boolean),
     updatedAt: new Date().toISOString(),
     score: 0.3,
@@ -134,14 +137,22 @@ export async function screenResources(input: {
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
   const ruleCandidates = scored.filter((item) => (item.score ?? 0) >= 0.25).slice(0, 8);
+  const topN = ruleCandidates.slice(0, 3);
+  const avgTopScore =
+    topN.length > 0 ? topN.reduce((sum, item) => sum + (item.score ?? 0), 0) / topN.length : 0;
+  const needExternalSupplement =
+    ruleCandidates.length < env.RESOURCE_SCREENING_MIN_CANDIDATE_COUNT ||
+    avgTopScore < env.RESOURCE_SCREENING_MIN_CANDIDATE_SCORE;
   const { matchedRoomIds } = expandMemPalaceTerms(input.request.prompt);
   const reasons = [
     `规则筛选命中=${ruleCandidates.length}`,
+    `规则候选top3均分=${avgTopScore.toFixed(3)}`,
+    `阈值count=${env.RESOURCE_SCREENING_MIN_CANDIDATE_COUNT} score=${env.RESOURCE_SCREENING_MIN_CANDIDATE_SCORE}`,
     `memPalace_rooms=${matchedRoomIds.join("|") || "—"}`,
     `mention_soft=${mentioned.length}`,
   ];
 
-  if (ruleCandidates.length >= 3) {
+  if (!needExternalSupplement) {
     return CandidateResourceListSchema.parse({
       candidates: ruleCandidates,
       usedLlmFallback: false,
@@ -157,7 +168,7 @@ export async function screenResources(input: {
   let merged: ResourceSummary[] = mergedBase;
   const screeningReason = [...reasons, ...llm.reason];
 
-  if (merged.length < 3) {
+  if (needExternalSupplement) {
     const external = await fetchExternalCandidates(input.request.prompt);
     const existing = new Set(merged.map((item) => item.resourceId));
     const supplements = external.filter((item) => !existing.has(item.resourceId));

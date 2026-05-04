@@ -7,9 +7,11 @@ import { ResourcePoolStore } from "../../storage/resourcePoolStore.js";
 import type {
   AddCommentInput,
   CreateDocumentInput,
+  CreateSlidesInput,
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
+  GatewaySlides,
   GatewayUser,
   UpdateDocumentInput,
 } from "./types.js";
@@ -223,6 +225,17 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       name: user.name,
       department: user.department,
       role: user.role,
+      source: "openapi",
+    };
+  }
+
+  async createSlides(input: CreateSlidesInput): Promise<GatewaySlides> {
+    const id = `openapi_slides_${Date.now()}`;
+    return {
+      id,
+      title: input.title,
+      outline: input.outline,
+      url: `https://mock.feishu.local/slides/${id}`,
       source: "openapi",
     };
   }

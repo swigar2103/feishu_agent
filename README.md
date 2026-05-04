@@ -5,6 +5,7 @@
 - 上层 Agent（Planner / Analyst / Writer / Reviewer / Memory）不变
 - 外部能力统一通过 Tool Gateway 调用
 - Tool Gateway 默认策略：**优先 MCP，失败自动回退 OpenAPI/SDK**
+- 可选增强：文档发布可切换为 **lark-cli 优先**，失败后自动回退 Gateway
 
 ---
 
@@ -60,6 +61,23 @@
 
 上层模块不直接依赖 MCP/OpenAPI 细节。
 
+### 2.3 lark-cli 文档增强（可选）
+
+- 开启后（`FEISHU_DOC_PUBLISH_STRATEGY=lark_cli_first` 且 `LARK_CLI_ENABLED=true`）：
+  - `viewDocument/createDocument/updateDocument` 优先走 `LarkCliAdapter`
+  - `LarkCliAdapter` 内部调用：`docs +fetch` / `docs +create` / `docs +update`
+  - CLI 异常自动回退原 Gateway（MCP -> OpenAPI）
+- 适用目标：增强报告发布阶段的标准化（命令契约、状态校验、fetch 复核），而不是替代现有 LangGraph 生成链路。
+
+### 2.4 官方 workflow skill 优先级规则
+
+- `Skill Router` 优先尝试命中官方 workflow skill（如 `standup-report`、`meeting-summary`），命中后写入 `workflowMeta`（含 `workflowSourceId`、`outputTargets`、`reviewRules`）。
+- 若未命中官方 workflow，再回退 `src/skills` 与 `SKILLS` 的自定义业务技能。
+- 叠加规则：
+  - 官方 workflow skill 可以与用户 style memory 共同生效；
+  - 官方 workflow 的 `reviewRules` 会参与 Reviewer 审查；
+  - 自定义 reviewer 规则仍保留，不会被替换。
+
 ---
 
 ## 3. 哪些模块已接入 Tool Gateway
@@ -70,7 +88,7 @@
 - `Retriever`
   - 对候选资源深读时通过 Gateway 调用文档查看、文件内容、评论读取
 - `Output Generator`（经 `publisher`）
-  - 文档输出优先走 Gateway 的创建/更新/评论
+  - 文档输出支持策略切换：`gateway_only`（默认）或 `lark_cli_first`（失败自动回退）
 - `Resource Pool Manager`（轻度）
   - 联系人信息可通过 Gateway 补充用户详情
 
@@ -139,6 +157,26 @@
   - 留空则直接走 fallback adapter
 - `FEISHU_MCP_ALLOWED_TOOLS`
   - 逗号分隔工具白名单
+
+### 6.4 lark-cli（可选增强）
+
+- `LARK_CLI_ENABLED`：是否启用 lark-cli 适配层（默认 `false`）
+- `LARK_CLI_BIN`：可执行文件名或绝对路径（默认 `lark-cli`）
+- `LARK_CLI_DEFAULT_AS`：默认身份（`bot`/`user`）
+- `LARK_CLI_TIMEOUT_MS`：单次命令超时（毫秒）
+- `LARK_CLI_FOLDER_TOKEN`：`docs +create` 目标目录；为空时回退 `FEISHU_TARGET_FOLDER_TOKEN`
+- `FEISHU_DOC_PUBLISH_STRATEGY`：`gateway_only`（默认）或 `lark_cli_first`
+- `LARK_CLI_CMD_DOCS_SEARCH`：文档搜索命令模板（支持 `{query}`）
+- `LARK_CLI_CMD_CONTACT_SEARCH`：用户搜索命令模板（支持 `{query}`）
+- `LARK_CLI_CMD_CONTACT_GET`：用户详情命令模板（支持 `{userId}`）
+- `LARK_CLI_CMD_SLIDES_CREATE`：Slides 创建命令模板（支持 `{title}`、`{outline}`）
+- `FEISHU_SLIDES_DELIVERY_LEVEL`：`outline_only`（默认）或 `artifact_best_effort`
+
+### 6.5 Resource Screening 阈值
+
+- `RESOURCE_SCREENING_MIN_CANDIDATE_COUNT`：本地候选最小数量阈值，低于该值才触发外部补检索。
+- `RESOURCE_SCREENING_MIN_CANDIDATE_SCORE`：topN 平均分阈值，低于该值才触发外部补检索。
+- 目标：避免“逢任务就外部查”，保留 Resource Pool 本地价值并控制延迟。
 
 ---
 

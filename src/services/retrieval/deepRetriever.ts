@@ -59,9 +59,9 @@ export async function deepRetrieveContext(input: {
   screened: CandidateResourceList;
 }): Promise<DetailedContext> {
   const assets = parseJsonFromMd<RawAsset[]>("src/data/assets.md");
-  const idSet = new Set(input.plan.prioritizedResourceIds);
   const screenedSet = new Set(input.screened.candidates.map((r) => r.resourceId));
-  const selectedIds = new Set([...idSet, ...screenedSet]);
+  // 深读边界：仅允许读取 screening 已入选资源，避免绕过分层无限扩搜
+  const selectedIds = screenedSet;
 
   const matchedAssets = assets.filter((item) => selectedIds.has(item.sourceId));
   const assetFacts = matchedAssets.map((item) => toFact(item.sourceId, item.content));
