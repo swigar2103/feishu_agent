@@ -2,6 +2,19 @@
 
 ## 2026-05-04
 
+### Git 合并冲突修复（env.ts / app.ts）
+
+- **原因**：分支合并留下 `<<<<<<<` 标记；`env` 需在「飞书 HTTP 超时」与「机器人链路 / 可写目录 / URL 校验 token」间同时保留；`app` 需在「先 webhook」与「chat 路由」间合并，且避免在 `buildApp` 与 `start` 中对 report/phase1 **重复注册**。
+- **处理**：
+  - `src/config/env.ts`：合并 `FEISHU_HTTP_TIMEOUT_MS` 与 `FEISHU_BOT_PIPELINE`、`FEISHU_WRITABLE_DATA_DIR`、`FEISHU_VERIFICATION_TOKEN`。
+  - `src/app.ts`：`buildApp` 内顺序为 `registerFeishuWebhookRoutes` → `registerChatRoutes`；移除对 `report`/`phase1` 的顶层静态 import；report/phase1 在 **`listen` 之前**于 `buildApp` 内动态 `import` 注册（见下条：Fastify 限制）。
+  - `env.example`：补充上述机器人/目录/token 示例项。
+
+### Fastify：`listen` 后不可再注册路由
+
+- **现象**：`registerReportRoutes` / `registerPhase1Routes` 在 `app.listen()` 之后执行时报 `Fastify instance is already listening. Cannot add route!`，报告与 Phase1 HTTP 接口实际未挂载，仅 webhook/chat/静态页可用。
+- **处理**：将上述注册移回 `buildApp()`，保证在 `listen()` 之前完成；仍用动态 `import()`，避免在 `app.ts` 顶层静态拉入 LangGraph。
+
 ### HEAD /api/feishu/webhook
 
 - **原因**：Vercel 日志出现 `HEAD /api/feishu/webhook` → 404；飞书或前置探测先 HEAD，无路由则影响保存/校验。
