@@ -1,10 +1,9 @@
 import Fastify from "fastify";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { registerFeishuWebhookRoutes } from "./api/feishuWebhook.js";
 import { env } from "./config/env.js";
 import { registerChatRoutes } from "./api/chat.js";
-import { registerPhase1Routes } from "./api/phase1.js";
-import { registerReportRoutes } from "./api/report.js";
 import { logger } from "./shared/logger.js";
 
 async function buildApp() {
@@ -12,9 +11,33 @@ async function buildApp() {
     logger: true,
   });
 
-  await registerReportRoutes(app);
-  await registerPhase1Routes(app);
+  /**
+   * 飞书 url_verification：webhook 路由须最先注册。
+   * report / phase1 须在 listen() 之前注册（Fastify listen 后无法再 add route），仍用动态 import 避免顶层静态拉满 LangGraph。
+   */
+  await registerFeishuWebhookRoutes(app);
   await registerChatRoutes(app);
+
+  try {
+    const { registerReportRoutes } = await import("./api/report.js");
+    await registerReportRoutes(app);
+    logger.info("report routes registered");
+  } catch (error) {
+    logger.error("registerReportRoutes 失败（webhook/UI 仍可用）", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    const { registerPhase1Routes } = await import("./api/phase1.js");
+    await registerPhase1Routes(app);
+    logger.info("phase1 routes registered");
+  } catch (error) {
+    logger.error("registerPhase1Routes 失败（webhook/UI 仍可用）", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   app.get("/healthz", async () => ({ ok: true }));
 
   const webRoot = path.resolve(process.cwd(), "src", "web");
@@ -39,15 +62,17 @@ async function buildApp() {
 }
 
 async function start(): Promise<void> {
+  let app;
   try {
-    const app = await buildApp();
+    app = await buildApp();
     await app.listen({ host: env.HOST, port: env.PORT });
     logger.info("server started", { host: env.HOST, port: env.PORT });
   } catch (error) {
-    logger.error("server failed to start", {
+    logger.error("server failed to start（含 webhook / 路由注册阶段）", {
       error: error instanceof Error ? error.message : String(error),
     });
     process.exit(1);
+    return;
   }
 }
 

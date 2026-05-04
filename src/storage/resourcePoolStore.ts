@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ResourceSummarySchema, type ResourceSummary } from "../schemas/agentContracts.js";
+import { getWritableDataDir } from "./writableDataDir.js";
 
-const RESOURCE_POOL_FILE = path.resolve(process.cwd(), "src", "data", "resource-pool.json");
+function resourcePoolFilePath(): string {
+  return path.join(getWritableDataDir(), "resource-pool.json");
+}
 
 type ResourcePoolSnapshot = {
   updatedAt: string;
@@ -10,11 +13,12 @@ type ResourcePoolSnapshot = {
 };
 
 function readSnapshot(): ResourcePoolSnapshot {
-  if (!fs.existsSync(RESOURCE_POOL_FILE)) {
+  const file = resourcePoolFilePath();
+  if (!fs.existsSync(file)) {
     return { updatedAt: new Date(0).toISOString(), resources: [] };
   }
 
-  const raw = fs.readFileSync(RESOURCE_POOL_FILE, "utf-8");
+  const raw = fs.readFileSync(file, "utf-8");
   const json = JSON.parse(raw) as ResourcePoolSnapshot;
   return {
     updatedAt: json.updatedAt ?? new Date(0).toISOString(),
@@ -25,8 +29,9 @@ function readSnapshot(): ResourcePoolSnapshot {
 }
 
 function writeSnapshot(snapshot: ResourcePoolSnapshot): void {
-  fs.mkdirSync(path.dirname(RESOURCE_POOL_FILE), { recursive: true });
-  fs.writeFileSync(RESOURCE_POOL_FILE, JSON.stringify(snapshot, null, 2), "utf-8");
+  const file = resourcePoolFilePath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(snapshot, null, 2), "utf-8");
 }
 
 export class ResourcePoolStore {

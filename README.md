@@ -84,9 +84,10 @@
 
 - `POST /api/feishu/webhook`
   - `url_verification` challenge
-  - 明文消息事件解析
-  - 触发 `handleBotMessageText(...)`
-  - 自动回发“生成文档”卡片
+  - 明文消息事件解析（忽略应用自身发送的消息）
+  - **默认（`FEISHU_BOT_PIPELINE=full`）**：异步触发 `runReportPipeline`（LangGraph 全链路），在会话内分条发送文字报告
+  - **`FEISHU_BOT_PIPELINE=phase1`**：异步触发 `handleBotMessageText`（云文档模板链），并回发「生成文档」交互卡片
+  - 回调尽快返回 200，避免飞书网关超时
 
 > 当前加密事件体 `encrypt` 仍为占位提示，后续可补解密逻辑。
 
@@ -100,8 +101,8 @@
 
 ## 5. 资源池与记忆持久化
 
-- 资源池存储：`src/data/resource-pool.json`
-- 记忆存储：`src/data/runtime-memories.json`
+- 资源池存储、记忆存储默认在可写数据目录下的 `resource-pool.json`、`runtime-memories.json`（本地为 `src/data/`；**Vercel Serverless** 上为 **`/tmp/feishu-agent-data`**，因部署目录只读）。
+- 可通过环境变量 `FEISHU_WRITABLE_DATA_DIR` 覆盖目录。
 - 资源治理入口：`POST /resource-pool/sync`
 
 ---
@@ -127,6 +128,9 @@
 - `FEISHU_TARGET_FOLDER_TOKEN`
 - `FEISHU_COPY_NAME_PREFIX`
 - `FEISHU_IM_NOTIFY_CHAT_ID`（可选）
+- `FEISHU_BOT_PIPELINE`：`full`（默认，Webhook 走 LangGraph 全链路并发会话文字）或 `phase1`（云文档模板 + 卡片）
+- `FEISHU_WRITABLE_DATA_DIR`（可选）：记忆/资源池 JSON 的目录；Vercel 未设置时默认 `/tmp/feishu-agent-data`（避免只读盘）
+- `FEISHU_VERIFICATION_TOKEN`（可选）：与开放平台事件配置里的 **Verification Token** 一致；配置后 URL 校验请求会校验 token，避免误配后台时仍显示通过
 
 ### 6.3 Tool Gateway MCP（可选但推荐）
 

@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getWritableDataDir } from "./writableDataDir.js";
 
-const MEMORY_FILE = path.resolve(process.cwd(), "src", "data", "runtime-memories.json");
+function memoryFilePath(): string {
+  return path.join(getWritableDataDir(), "runtime-memories.json");
+}
 
 export type RuntimeMemoryRecord = {
   preferredTone?: string;
@@ -14,16 +17,18 @@ export type RuntimeMemoryRecord = {
 type RuntimeMemoryMap = Record<string, RuntimeMemoryRecord>;
 
 function loadAllMemories(): RuntimeMemoryMap {
-  if (!fs.existsSync(MEMORY_FILE)) {
+  const file = memoryFilePath();
+  if (!fs.existsSync(file)) {
     return {};
   }
-  const raw = fs.readFileSync(MEMORY_FILE, "utf-8");
+  const raw = fs.readFileSync(file, "utf-8");
   return JSON.parse(raw) as RuntimeMemoryMap;
 }
 
 function saveAllMemories(memories: RuntimeMemoryMap): void {
-  fs.mkdirSync(path.dirname(MEMORY_FILE), { recursive: true });
-  fs.writeFileSync(MEMORY_FILE, JSON.stringify(memories, null, 2), "utf-8");
+  const file = memoryFilePath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(memories, null, 2), "utf-8");
 }
 
 export class MemoryStore {

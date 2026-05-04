@@ -1,15 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { UserRequestSchema } from "../schemas/index.js";
-import { runReportPipeline } from "../services/reportPipeline.js";
-import { generateReportDocxBuffer } from "../services/wordExport.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
-import { runResourceGovernanceSync } from "../sync/resourceGovernance.js";
 
 export async function registerReportRoutes(app: FastifyInstance): Promise<void> {
   app.post("/generate-report", async (request, reply) => {
     try {
       const userRequest = UserRequestSchema.parse(request.body);
+      const { runReportPipeline } = await import("../services/reportPipeline.js");
       const result = await runReportPipeline(userRequest);
       const response = GenerateReportResponseSchema.parse(result);
       return reply.send(response);
@@ -30,6 +28,8 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   app.post("/generate-report-docx", async (request, reply) => {
     try {
       const userRequest = UserRequestSchema.parse(request.body);
+      const { runReportPipeline } = await import("../services/reportPipeline.js");
+      const { generateReportDocxBuffer } = await import("../services/wordExport.js");
       const result = await runReportPipeline({
         ...userRequest,
         outputFormat: "word",
@@ -71,6 +71,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   });
 
   app.post("/resource-pool/sync", async () => {
+    const { runResourceGovernanceSync } = await import("../sync/resourceGovernance.js");
     return runResourceGovernanceSync();
   });
 }
