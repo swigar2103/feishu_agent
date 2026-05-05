@@ -9,7 +9,10 @@ export async function plannerNode(
   }
 
   const fallbackReportType =
-    state.userRequest.reportType ?? (state.taskIntent?.includes("周报") ? "周报" : "分析报告");
+    state.userRequest.reportType ??
+    (state.taskIntent === "weekly_report" || state.taskIntent?.includes("周报")
+      ? "周报"
+      : "分析报告");
   const taskPlan = TaskPlanSchema.parse({
     reportType: fallbackReportType,
     selectedSkillId: "pending-skill-selection",

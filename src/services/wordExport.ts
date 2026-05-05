@@ -3,6 +3,32 @@ import path from "node:path";
 import { Packer, Paragraph, TextRun, Document, HeadingLevel } from "docx";
 import type { TaskPlan, WriterOutput } from "../schemas/index.js";
 import type { TemplateProfile } from "../schemas/templateProfile.js";
+import { sanitizeWriterOutputReport } from "./writerOutputCleanup.js";
+
+/** 段间距（twips；约 20 twips ≈ 1 pt），减轻「整块挤在一起」观感 */
+const SP = {
+  titleAfter: 360,
+  sectionHeadingBefore: 360,
+  sectionHeadingAfter: 180,
+  blockHeadingBefore: 280,
+  blockHeadingAfter: 140,
+  bodyAfter: 140,
+  bulletAfter: 96,
+} as const;
+
+function bodyParagraph(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun(text)],
+    spacing: { after: SP.bodyAfter },
+  });
+}
+
+function bulletParagraph(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun(text)],
+    spacing: { after: SP.bulletAfter },
+  });
+}
 
 /** B：若配置了 dotx 路径且文件存在，当前版本仍走程序化排版；预留日志提示后续接入 OOXML 合并 */
 function logDotxPlaceholder(profile?: TemplateProfile | null): void {
@@ -64,10 +90,19 @@ function linesToDocxParagraphs(text: string): Paragraph[] {
           : depth === 2
             ? HeadingLevel.HEADING_2
             : HeadingLevel.HEADING_3;
-      out.push(new Paragraph({ text: body, heading: hl }));
+      out.push(
+        new Paragraph({
+          text: body,
+          heading: hl,
+          spacing: {
+            before: SP.blockHeadingBefore,
+            after: SP.blockHeadingAfter,
+          },
+        }),
+      );
       continue;
     }
-    out.push(new Paragraph(line));
+    out.push(bodyParagraph(line));
   }
   return out;
 }
@@ -91,7 +126,12 @@ function linesToNumberedOrPlainParagraphs(
     }
     const cleaned = line.replace(/^-\s*/, "").replace(/^\d+\.\s*/, "").trim();
     if (!cleaned) continue;
-    out.push(new Paragraph(`${i}. ${cleaned}`));
+    out.push(
+      new Paragraph({
+        children: [new TextRun(`${i}. ${cleaned}`)],
+        spacing: { after: SP.bulletAfter },
+      }),
+    );
     i += 1;
   }
   return out.length > 0 ? out : linesToDocxParagraphs(content);
@@ -114,25 +154,35 @@ export async function generateReportDocxBuffer(input: {
   logDotxPlaceholder(input.templateProfile ?? undefined);
 
   const profile = input.templateProfile ?? undefined;
+  const report = sanitizeWriterOutputReport(input.report);
 
   const sectionParagraphs: Paragraph[] = [
     new Paragraph({
-      text: input.report.title,
+      text: report.title,
       heading: HeadingLevel.TITLE,
+      spacing: { after: SP.titleAfter },
     }),
     new Paragraph({
       children: [new TextRun({ text: "摘要", bold: true })],
       heading: HeadingLevel.HEADING_1,
+      spacing: {
+        before: SP.blockHeadingBefore,
+        after: SP.blockHeadingAfter,
+      },
     }),
-    ...linesToDocxParagraphs(input.report.summary),
+    ...linesToDocxParagraphs(report.summary),
   ];
 
-  for (const section of input.report.sections) {
+  for (const section of report.sections) {
     const hl = resolveSectionHeadingLevel(section.heading, profile);
     sectionParagraphs.push(
       new Paragraph({
         text: section.heading,
         heading: hl,
+        spacing: {
+          before: SP.sectionHeadingBefore,
+          after: SP.sectionHeadingAfter,
+        },
       }),
     );
     const numbered = shouldUseNumberedList(section.heading, profile);
@@ -141,31 +191,39 @@ export async function generateReportDocxBuffer(input: {
     );
   }
 
-  if (input.report.chartSuggestions.length > 0) {
+  if (report.chartSuggestions.length > 0) {
     sectionParagraphs.push(
       new Paragraph({
         text: "图表建议",
         heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
       }),
     );
-    for (const chart of input.report.chartSuggestions) {
+    for (const chart of report.chartSuggestions) {
       sectionParagraphs.push(
-        new Paragraph(
+        bulletParagraph(
           `- ${chart.title}（${chart.type}）：${chart.purpose}；数据建议：${chart.dataHint}`,
         ),
       );
     }
   }
 
-  if (input.report.openQuestions.length > 0) {
+  if (report.openQuestions.length > 0) {
     sectionParagraphs.push(
       new Paragraph({
         text: "待补充问题",
         heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
       }),
     );
-    for (const q of input.report.openQuestions) {
-      sectionParagraphs.push(new Paragraph(`- ${q}`));
+    for (const q of report.openQuestions) {
+      sectionParagraphs.push(bulletParagraph(`- ${q}`));
     }
   }
 
@@ -174,10 +232,14 @@ export async function generateReportDocxBuffer(input: {
       new Paragraph({
         text: "执行计划摘要",
         heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
       }),
     );
     sectionParagraphs.push(
-      new Paragraph(
+      bodyParagraph(
         `报告类型：${input.taskPlan.reportType}；技能：${input.taskPlan.selectedSkillId}；语气：${input.taskPlan.targetTone}`,
       ),
     );
@@ -188,10 +250,14 @@ export async function generateReportDocxBuffer(input: {
       new Paragraph({
         text: "流程追踪",
         heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
       }),
     );
     for (const trace of input.debugTrace) {
-      sectionParagraphs.push(new Paragraph(`- ${trace}`));
+      sectionParagraphs.push(bulletParagraph(`- ${trace}`));
     }
   }
 

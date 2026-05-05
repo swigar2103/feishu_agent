@@ -24,6 +24,9 @@ export function buildWriterUserPrompt(writerInput: WriterInput): string {
     writerInput.userRequest,
     writerInput.retrievalContext,
   );
+  const isWeeklySkill =
+    /weekly/i.test(writerInput.taskPlan.selectedSkillId) ||
+    writerInput.taskPlan.reportType.includes("周报");
   const skillHints = writerInput.retrievalContext.styleHints.filter(
     (line) => line.startsWith("SKILL_GUIDE:") || line.startsWith("SKILL_DESC:"),
   );
@@ -43,6 +46,22 @@ export function buildWriterUserPrompt(writerInput: WriterInput): string {
     ? "2) sections：逐项对应 taskPlan.targetSections（见【模板版式优先】）；heading 必须用 taskPlan 中的字符串"
     : "2) sections 需覆盖 taskPlan.targetSections";
 
+  const qualityBlock = [
+    "【质量与版式（必读）】",
+    "- 每一个 sections[].content 必须是非空正文：至少 2 句完整中文句子（或等效信息量的条目组），禁止只写标题、禁止仅输出标点或空白。",
+    "- 【去重】同一具体事项（如某 PRD 冻结、某次会议）在全文最多用「完整段落级表述」出现两次：通常在「摘要」与「已完成/关键进展」之一详写，其它小节用短语指代或合并，不要复制粘贴整段。",
+    "- 【时间语义】若 userRequest 写明「下周计划」：小节标题含「本周计划」时只写本周安排；下一周期的条目归到「下周计划」或模板中等价章节，勿混用。",
+    "- openQuestions 只写真实业务待澄清点；禁止输出「请补充字段」「可通过 IM 联系人收集」等系统提示式话术。",
+  ];
+
+  const weeklyBlock = isWeeklySkill
+    ? [
+        "【周报专规】",
+        "- 语气像直属上级可读的一线周报：先事实后评价，避免同一句子在「工作内容」「已完成」「关键进展」之间重复粘贴。",
+        "- 「遇到的问题」只写本周实际卡点；若无则写「本周无新增阻塞」一句即可，勿编造。",
+      ]
+    : [];
+
   return [
     "请依据以下 WriterInput 生成报告 JSON：",
     JSON.stringify(writerInput),
@@ -53,6 +72,8 @@ export function buildWriterUserPrompt(writerInput: WriterInput): string {
     "3) chartSuggestions 与 chartRules、数据语义一致",
     "4) 明确遵循 skillHints 中的自然语言指导（若有）",
     "5) openQuestions 填写仍缺失的信息点",
+    ...qualityBlock,
+    ...weeklyBlock,
     ...templateBlock,
     "6) 仅输出 JSON 对象",
   ].join("\n");

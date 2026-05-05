@@ -92,6 +92,24 @@ feishu_agent/
 
 ---
 
+## 2026-05-05 补充：Writer 输出校验（修复 `sections[n].content` 空串）
+
+- **现象**：模型偶发返回空字符串 `sections[i].content`，Zod `min(1)` 触发 `too_small`，接口返回「请求参数或流程输出校验失败」。
+- **处理**：`WriterOutputSchema`（`src/schemas/index.ts`）对 `title`、`summary`、`sections[].heading`、`sections[].content`、`chartSuggestions` 各字段在 **`trim()` 后若为空则填入中文占位文案**，避免解析失败；`openQuestions` 去掉空串。
+- **实现**：统一使用 `.transform(...)`，去掉冗余 `.pipe(z.union(...))`，`npm run check` 已通过。
+
+---
+
+## 2026-05-05 补充：周报可读性、占位清理与 Word 段间距
+
+- **`sanitizeWriterOutputReport`**（`src/services/writerOutputCleanup.ts`）：在 **`format_output`** 解析通过后，把 schema 兜底句「本节暂无内容…」改写为中性说明；剔除明显系统口吻的 `openQuestions`（若 Writer 仍产出）。
+- **`writerPrompt.ts`**：增加「质量与版式」约束（禁止空小节、跨节去重、本周/下周语义）；对周报 skill / `reportType` 含「周报」时追加「周报专规」。
+- **`plannerNode.ts`**：`taskIntent === "weekly_report"` 时 preliminary **`reportType` 设为「周报」**（原先只匹配「周报」子串，误落成「分析报告」）。
+- **`analystNode.ts`**：`missingFields` 生成的追问改为 **`待补充信息：{field}`**，去掉「可通过 IM 联系人收集」模板句（避免混入成品追问列表）。
+- **`wordExport.ts`**：导出时为标题与正文设置 **`spacing`（twips）**，列表项统一带段后距；入口处对传入 `report` 再跑一次 **`sanitizeWriterOutputReport`**，独立导出也可去掉技术占位。
+
+---
+
 ## 2026-05-05 补充：模板蒸馏阶段 A / B / C（已实现）
 
 ### A — 结构化画像（入库即用）

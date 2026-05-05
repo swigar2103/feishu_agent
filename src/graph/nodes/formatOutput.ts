@@ -1,4 +1,5 @@
 import { WriterOutputSchema } from "../../schemas/index.js";
+import { sanitizeWriterOutputReport } from "../../services/writerOutputCleanup.js";
 import type { ReportGraphStateType } from "../state.js";
 
 export async function formatOutput(
@@ -8,12 +9,14 @@ export async function formatOutput(
     throw new Error("format_output 缺少 writerOutput");
   }
 
-  const writerOutput = WriterOutputSchema.parse({
-    ...state.writerOutput,
-    openQuestions: Array.from(
-      new Set([...(state.writerOutput.openQuestions ?? []), ...state.followUpQuestions]),
-    ),
-  });
+  const writerOutput = sanitizeWriterOutputReport(
+    WriterOutputSchema.parse({
+      ...state.writerOutput,
+      openQuestions: Array.from(
+        new Set([...(state.writerOutput.openQuestions ?? []), ...state.followUpQuestions]),
+      ),
+    }),
+  );
   return {
     writerOutput,
     debugTrace: [

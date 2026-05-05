@@ -86,23 +86,36 @@ export const WriterInputSchema = z.object({
 export type WriterInput = z.infer<typeof WriterInputSchema>;
 
 export const WriterOutputSchema = z.object({
-  title: z.string().min(1),
-  summary: z.string().min(1),
+  title: z.string().transform((s) => s.trim() || "未命名报告"),
+  summary: z.string().transform((s) => s.trim() || "（摘要待补充）"),
   sections: z.array(
     z.object({
-      heading: z.string().min(1),
-      content: z.string().min(1),
-    })
+      heading: z.string().transform((s) => s.trim() || "（未命名小节）"),
+      content: z
+        .string()
+        .transform(
+          (s) =>
+            s.trim() ||
+            "（本节暂无内容，请在 prompt 中补充本周事实后重试）",
+        ),
+    }),
   ),
-  chartSuggestions: z.array(
-    z.object({
-      type: z.string().min(1),
-      title: z.string().min(1),
-      purpose: z.string().min(1),
-      dataHint: z.string().min(1),
-    })
-  ).default([]),
-  openQuestions: z.array(z.string()).default([]),
+  chartSuggestions: z
+    .array(
+      z.object({
+        type: z.string().transform((s) => s.trim() || "chart"),
+        title: z.string().transform((s) => s.trim() || "图表"),
+        purpose: z.string().transform((s) => s.trim() || "说明待定"),
+        dataHint: z.string().transform((s) => s.trim() || "数据待定"),
+      }),
+    )
+    .default([]),
+  openQuestions: z
+    .array(z.string())
+    .optional()
+    .transform((rows) =>
+      (rows ?? []).map((s) => s.trim()).filter((s) => s.length > 0),
+    ),
 });
 
 export type WriterOutput = z.infer<typeof WriterOutputSchema>;
