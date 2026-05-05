@@ -11,9 +11,14 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
-  GatewaySlides,
+  GatewayMessage,
+  GatewaySlide,
   GatewayUser,
+  GatewayWhiteboard,
+  ListMessagesInput,
+  SendMessageInput,
   UpdateDocumentInput,
+  UpdateWhiteboardInput,
 } from "./types.js";
 
 type AssetRecord = {
@@ -99,7 +104,9 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       }));
     if (!query) return docs.slice(0, 20);
     const text = query.toLowerCase();
-    return docs.filter((item) => item.title.toLowerCase().includes(text) || (item.summary ?? "").toLowerCase().includes(text));
+    return docs.filter(
+      (item) => item.title.toLowerCase().includes(text) || (item.summary ?? "").toLowerCase().includes(text),
+    );
   }
 
   async viewDocument(documentId: string): Promise<GatewayDocument | null> {
@@ -188,7 +195,9 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     if (!c.appId || !c.appSecret) return false;
     const blocks = await listAllDocumentBlocks(c, input.documentId);
     const textOrHeading = blocks.find(
-      (item) => item.block_type === 2 || (typeof item.block_type === "number" && item.block_type >= 3 && item.block_type <= 11),
+      (item) =>
+        item.block_type === 2 ||
+        (typeof item.block_type === "number" && item.block_type >= 3 && item.block_type <= 11),
     );
     if (!textOrHeading?.block_id) return false;
     await replaceBlockWithPlainText(c, input.documentId, textOrHeading.block_id, input.content);
@@ -229,14 +238,35 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     };
   }
 
-  async createSlides(input: CreateSlidesInput): Promise<GatewaySlides> {
-    const id = `openapi_slides_${Date.now()}`;
+  async createSlides(input: CreateSlidesInput): Promise<GatewaySlide> {
     return {
-      id,
+      presentationId: `openapi_slides_${Date.now()}`,
       title: input.title,
-      outline: input.outline,
-      url: `https://mock.feishu.local/slides/${id}`,
+      url: `https://mock.feishu.local/slides/${Date.now()}`,
       source: "openapi",
     };
   }
+
+  async queryWhiteboard(token: string): Promise<GatewayWhiteboard | null> {
+    return {
+      token,
+      title: `whiteboard-${token}`,
+      content: "",
+      previewUrl: `https://mock.feishu.local/whiteboard/${token}`,
+      source: "openapi",
+    };
+  }
+
+  async updateWhiteboard(_input: UpdateWhiteboardInput): Promise<boolean> {
+    return false;
+  }
+
+  async sendMessage(_input: SendMessageInput): Promise<boolean> {
+    return false;
+  }
+
+  async listMessages(_input: ListMessagesInput): Promise<GatewayMessage[]> {
+    return [];
+  }
 }
+

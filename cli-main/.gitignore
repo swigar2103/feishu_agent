@@ -1,0 +1,41 @@
+# Build output
+/lark-cli
+.cache/
+dist/
+bin/
+
+# Node
+node_modules/
+
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Go
+docs/ref
+docs/
+vendor/
+
+
+#test
+test_scripts/
+tests/mail/reports/
+
+/log/
+
+
+# Generated / test artifacts
+.hammer/
+internal/registry/meta_data.json
+cmd/api/download.bin
+app.log
+/sidecar-server-demo
+/server-demo

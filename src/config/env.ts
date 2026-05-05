@@ -46,10 +46,12 @@ const EnvSchema = z.object({
   FEISHU_MCP_ALLOWED_TOOLS: z.string().default(
     "search-docs,fetch-doc,list-docs,get-file-content,create-doc,update-doc,get-comments,add-comment,search-users,get-user-info",
   ),
-  /** 启用 lark-cli 文档发布增强（docs +create/+update/+fetch） */
-  LARK_CLI_ENABLED: z.coerce.boolean().default(false),
+  /** Tool Gateway: 是否启用 lark-cli（auto 按能力与可用性探测） */
+  LARK_CLI_ENABLED: z.enum(["auto", "true", "false"]).default("auto"),
   /** lark-cli 可执行文件名或绝对路径 */
   LARK_CLI_BIN: z.string().default("lark-cli"),
+  /** Tool Gateway: lark-cli profile（可选） */
+  LARK_CLI_PROFILE: z.string().default(""),
   /** lark-cli 默认身份，等价于命令行的 --as */
   LARK_CLI_DEFAULT_AS: z.enum(["bot", "user"]).default("bot"),
   /** lark-cli 单次命令超时（毫秒） */

@@ -2,6 +2,7 @@ import type { Draft } from "../../schemas/agentContracts.js";
 import { env } from "../../config/env.js";
 import { logger } from "../../shared/logger.js";
 import { toolGateway } from "../toolGateway/gateway.js";
+import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
 
 export type PublishedArtifact = {
   type: "feishu_doc" | "bitable" | "slides";
@@ -28,6 +29,18 @@ function renderSlidesOutline(draft: Draft): string {
     .map((section) => `## ${section.heading}\n- ${section.content.replace(/\n+/g, "\n- ")}`)
     .join("\n\n");
   return `# ${draft.title}\n\n## 摘要\n- ${draft.summary}\n\n${sectionBullets}`.trim();
+}
+
+async function notifyChatIfNeeded(text: string): Promise<void> {
+  const notifyChatId = getFeishuMvpConfig().imNotifyChatId;
+  if (!notifyChatId) return;
+  await toolGateway
+    .sendMessage({
+      chatId: notifyChatId,
+      content: text,
+      msgType: "text",
+    })
+    .catch(() => false);
 }
 
 async function publishFeishuDoc(input: {
@@ -60,10 +73,12 @@ async function publishFeishuDoc(input: {
     documentId: doc.id,
     content: "由 Agent 自动生成，可在此处继续批注修改。",
   });
+  const url = doc.url ?? `https://mock.feishu.local/feishu_doc/${input.sessionId}/${input.index + 1}`;
+  await notifyChatIfNeeded(`报告文档已生成：${doc.title}\n${url}`);
   return {
     type: "feishu_doc",
     id: doc.id,
-    url: doc.url ?? `https://mock.feishu.local/feishu_doc/${input.sessionId}/${input.index + 1}`,
+    url,
     status: "mock_published",
   };
 }
@@ -76,14 +91,16 @@ async function publishSlides(input: {
   const outline = renderSlidesOutline(input.draft);
   if (env.FEISHU_SLIDES_DELIVERY_LEVEL === "artifact_best_effort") {
     try {
-      const slides = await toolGateway.createSlides({
+      const slide = await toolGateway.createSlides({
         title: input.draft.title,
         outline,
       });
+      const url = slide.url ?? `https://mock.feishu.local/slides/${input.sessionId}/${input.index + 1}`;
+      await notifyChatIfNeeded(`演示稿已生成：${slide.title ?? input.draft.title}\n${url}`);
       return {
         type: "slides",
-        id: slides.id,
-        url: slides.url ?? `https://mock.feishu.local/slides/${input.sessionId}/${input.index + 1}`,
+        id: slide.presentationId,
+        url,
         status: "mock_published",
       };
     } catch (error) {
@@ -109,12 +126,13 @@ export async function publishOutputs(input: {
 
   for (const [idx, target] of input.outputTargets.entries()) {
     if (target === "feishu_doc") {
-      const artifact = await publishFeishuDoc({
-        draft: input.draft,
-        sessionId: input.sessionId,
-        index: idx,
-      });
-      artifacts.push(artifact);
+      artifacts.push(
+        await publishFeishuDoc({
+          draft: input.draft,
+          sessionId: input.sessionId,
+          index: idx,
+        }),
+      );
       continue;
     }
 
@@ -139,3 +157,4 @@ export async function publishOutputs(input: {
 
   return artifacts;
 }
+

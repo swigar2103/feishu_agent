@@ -1,8 +1,11 @@
 import { env } from "../../config/env.js";
 import { logger } from "../../shared/logger.js";
+import type { GatewayCapability } from "./capabilities.js";
+import { isFallbackableGatewayError } from "./errors.js";
 import { FeishuMcpAdapter } from "./feishuMcpAdapter.js";
-import { FeishuOpenApiAdapter } from "./feishuOpenApiAdapter.js";
 import { LarkCliAdapter } from "./larkCliAdapter.js";
+import { FeishuOpenApiAdapter } from "./feishuOpenApiAdapter.js";
+import { getAdapterPriority, type GatewayAdapterName } from "./priority.js";
 import type {
   AddCommentInput,
   CreateDocumentInput,
@@ -10,156 +13,196 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
-  GatewaySlides,
+  GatewayMessage,
+  GatewaySlide,
   GatewayUser,
+  GatewayWhiteboard,
+  ListMessagesInput,
+  SendMessageInput,
   UpdateDocumentInput,
+  UpdateWhiteboardInput,
 } from "./types.js";
 
 export class ToolGateway implements FeishuToolGatewayApi {
   private readonly mcp = new FeishuMcpAdapter();
-  private readonly fallback = new FeishuOpenApiAdapter();
   private readonly larkCli = new LarkCliAdapter();
+  private readonly openapi = new FeishuOpenApiAdapter();
 
-  private async withFallback<T>(name: string, runMcp: () => Promise<T>, runFallback: () => Promise<T>): Promise<T> {
-    if (!env.FEISHU_MCP_URL.trim()) {
-      return runFallback();
-    }
-    try {
-      return await runMcp();
-    } catch (error) {
-      logger.warn(`[tool-gateway] ${name} mcp failed, fallback openapi`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return runFallback();
-    }
+  private pickAdapter(name: GatewayAdapterName): FeishuToolGatewayApi {
+    if (name === "mcp") return this.mcp;
+    if (name === "lark_cli") return this.larkCli;
+    return this.openapi;
   }
 
-  private async withLarkCliStrategy<T>(
-    name: string,
-    runLarkCli: () => Promise<T>,
-    runMcp: () => Promise<T>,
-    runFallback: () => Promise<T>,
-    canRunLarkCli?: () => Promise<boolean>,
+  private isDocumentCapability(capability: GatewayCapability): boolean {
+    return capability.startsWith("document.");
+  }
+
+  private async canUseLarkCli(capability: GatewayCapability): Promise<boolean> {
+    if (!this.larkCli.isEnabled()) return false;
+    if (capability === "document.search" || capability === "document.list") {
+      return this.larkCli.hasCapability("docsSearch");
+    }
+    if (capability === "user.search" || capability === "user.get") {
+      return this.larkCli.hasCapability("contactSearch");
+    }
+    if (capability === "slides.create") {
+      return this.larkCli.hasCapability("slidesPublish");
+    }
+    return true;
+  }
+
+  private getExecutionOrder(capability: GatewayCapability): GatewayAdapterName[] {
+    const baseOrder = getAdapterPriority(capability);
+    if (
+      env.FEISHU_DOC_PUBLISH_STRATEGY === "lark_cli_first" &&
+      this.isDocumentCapability(capability)
+    ) {
+      const withoutCli = baseOrder.filter((name) => name !== "lark_cli");
+      return ["lark_cli", ...withoutCli];
+    }
+    return baseOrder;
+  }
+
+  private async executeWithPolicy<T>(
+    capability: GatewayCapability,
+    operationName: string,
+    run: (adapter: FeishuToolGatewayApi) => Promise<T>,
   ): Promise<T> {
-    if (env.FEISHU_DOC_PUBLISH_STRATEGY === "lark_cli_first" && this.larkCli.isEnabled()) {
-      if (canRunLarkCli) {
-        const supported = await canRunLarkCli();
-        if (!supported) {
-          logger.info(`[tool-gateway] ${name} lark-cli capability=false, fallback gateway`);
-          return this.withFallback(name, runMcp, runFallback);
-        }
+    const order = this.getExecutionOrder(capability);
+    const startedAt = Date.now();
+    let latestError: unknown;
+
+    for (const adapterName of order) {
+      if (adapterName === "mcp" && !env.FEISHU_MCP_URL.trim()) {
+        logger.info(`[tool-gateway] ${operationName} skip mcp by config`);
+        continue;
       }
+      if (adapterName === "lark_cli" && !(await this.canUseLarkCli(capability))) {
+        logger.info(`[tool-gateway] ${operationName} skip lark-cli by capability`, {
+          capability,
+        });
+        continue;
+      }
+      const adapter = this.pickAdapter(adapterName);
       try {
-        return await runLarkCli();
+        const result = await run(adapter);
+        logger.info(`[tool-gateway] ${operationName} success`, {
+          capability,
+          adapter: adapterName,
+          elapsedMs: Date.now() - startedAt,
+        });
+        return result;
       } catch (error) {
-        logger.warn(`[tool-gateway] ${name} lark-cli failed, fallback gateway`, {
+        latestError = error;
+        const fallbackable = isFallbackableGatewayError(error);
+        logger.warn(`[tool-gateway] ${operationName} failed`, {
+          capability,
+          adapter: adapterName,
+          fallbackable,
           error: error instanceof Error ? error.message : String(error),
         });
+        if (!fallbackable) {
+          throw error;
+        }
       }
     }
-    return this.withFallback(name, runMcp, runFallback);
+
+    throw latestError instanceof Error
+      ? latestError
+      : new Error(`[tool-gateway] ${operationName} all adapters failed`);
   }
 
   searchDocuments(query: string): Promise<GatewayDocument[]> {
-    return this.withLarkCliStrategy(
-      "searchDocuments",
-      () => this.larkCli.searchDocuments(query),
-      () => this.mcp.searchDocuments(query),
-      () => this.fallback.searchDocuments(query),
-      () => this.larkCli.hasCapability("docsSearch"),
+    return this.executeWithPolicy("document.search", "searchDocuments", (adapter) =>
+      adapter.searchDocuments(query),
     );
   }
 
   listDocuments(query?: string): Promise<GatewayDocument[]> {
-    return this.withLarkCliStrategy(
-      "listDocuments",
-      () => this.larkCli.listDocuments(query),
-      () => this.mcp.listDocuments(query),
-      () => this.fallback.listDocuments(query),
-      () => this.larkCli.hasCapability("docsSearch"),
+    return this.executeWithPolicy("document.list", "listDocuments", (adapter) =>
+      adapter.listDocuments(query),
     );
   }
 
   viewDocument(documentId: string): Promise<GatewayDocument | null> {
-    return this.withLarkCliStrategy(
-      "viewDocument",
-      () => this.larkCli.viewDocument(documentId),
-      () => this.mcp.viewDocument(documentId),
-      () => this.fallback.viewDocument(documentId),
+    return this.executeWithPolicy("document.view", "viewDocument", (adapter) =>
+      adapter.viewDocument(documentId),
     );
   }
 
   getFileContent(fileToken: string): Promise<string> {
-    return this.withFallback(
-      "getFileContent",
-      () => this.mcp.getFileContent(fileToken),
-      () => this.fallback.getFileContent(fileToken),
+    return this.executeWithPolicy("document.fileContent", "getFileContent", (adapter) =>
+      adapter.getFileContent(fileToken),
     );
   }
 
   createDocument(input: CreateDocumentInput): Promise<GatewayDocument> {
-    return this.withLarkCliStrategy(
-      "createDocument",
-      () => this.larkCli.createDocument(input),
-      () => this.mcp.createDocument(input),
-      () => this.fallback.createDocument(input),
+    return this.executeWithPolicy("document.create", "createDocument", (adapter) =>
+      adapter.createDocument(input),
     );
   }
 
   updateDocument(input: UpdateDocumentInput): Promise<boolean> {
-    return this.withLarkCliStrategy(
-      "updateDocument",
-      () => this.larkCli.updateDocument(input),
-      () => this.mcp.updateDocument(input),
-      () => this.fallback.updateDocument(input),
+    return this.executeWithPolicy("document.update", "updateDocument", (adapter) =>
+      adapter.updateDocument(input),
     );
   }
 
   getComments(documentId: string): Promise<GatewayComment[]> {
-    return this.withFallback(
-      "getComments",
-      () => this.mcp.getComments(documentId),
-      () => this.fallback.getComments(documentId),
+    return this.executeWithPolicy("document.comment.list", "getComments", (adapter) =>
+      adapter.getComments(documentId),
     );
   }
 
   addComment(input: AddCommentInput): Promise<boolean> {
-    return this.withFallback(
-      "addComment",
-      () => this.mcp.addComment(input),
-      () => this.fallback.addComment(input),
+    return this.executeWithPolicy("document.comment.add", "addComment", (adapter) =>
+      adapter.addComment(input),
     );
   }
 
   searchUsers(query: string): Promise<GatewayUser[]> {
-    return this.withLarkCliStrategy(
-      "searchUsers",
-      () => this.larkCli.searchUsers(query),
-      () => this.mcp.searchUsers(query),
-      () => this.fallback.searchUsers(query),
-      () => this.larkCli.hasCapability("contactSearch"),
+    return this.executeWithPolicy("user.search", "searchUsers", (adapter) =>
+      adapter.searchUsers(query),
     );
   }
 
   getUserInfo(userId: string): Promise<GatewayUser | null> {
-    return this.withLarkCliStrategy(
-      "getUserInfo",
-      () => this.larkCli.getUserInfo(userId),
-      () => this.mcp.getUserInfo(userId),
-      () => this.fallback.getUserInfo(userId),
-      () => this.larkCli.hasCapability("contactSearch"),
+    return this.executeWithPolicy("user.get", "getUserInfo", (adapter) =>
+      adapter.getUserInfo(userId),
     );
   }
 
-  createSlides(input: CreateSlidesInput): Promise<GatewaySlides> {
-    return this.withLarkCliStrategy(
-      "createSlides",
-      () => this.larkCli.createSlides(input),
-      () => this.mcp.createSlides(input),
-      () => this.fallback.createSlides(input),
-      () => this.larkCli.hasCapability("slidesPublish"),
+  createSlides(input: CreateSlidesInput): Promise<GatewaySlide> {
+    return this.executeWithPolicy("slides.create", "createSlides", (adapter) =>
+      adapter.createSlides(input),
+    );
+  }
+
+  queryWhiteboard(token: string): Promise<GatewayWhiteboard | null> {
+    return this.executeWithPolicy("whiteboard.query", "queryWhiteboard", (adapter) =>
+      adapter.queryWhiteboard(token),
+    );
+  }
+
+  updateWhiteboard(input: UpdateWhiteboardInput): Promise<boolean> {
+    return this.executeWithPolicy("whiteboard.update", "updateWhiteboard", (adapter) =>
+      adapter.updateWhiteboard(input),
+    );
+  }
+
+  sendMessage(input: SendMessageInput): Promise<boolean> {
+    return this.executeWithPolicy("message.send", "sendMessage", (adapter) =>
+      adapter.sendMessage(input),
+    );
+  }
+
+  listMessages(input: ListMessagesInput): Promise<GatewayMessage[]> {
+    return this.executeWithPolicy("message.list", "listMessages", (adapter) =>
+      adapter.listMessages(input),
     );
   }
 }
 
 export const toolGateway = new ToolGateway();
+

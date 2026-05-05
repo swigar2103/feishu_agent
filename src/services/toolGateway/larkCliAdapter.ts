@@ -1,5 +1,4 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { logger } from "../../shared/logger.js";
 import { env } from "../../config/env.js";
 import type {
   AddCommentInput,
@@ -8,29 +7,26 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
-  GatewaySlides,
+  GatewayMessage,
+  GatewaySlide,
   GatewayUser,
+  GatewayWhiteboard,
+  ListMessagesInput,
+  SendMessageInput,
   UpdateDocumentInput,
+  UpdateWhiteboardInput,
 } from "./types.js";
-
-const execFileAsync = promisify(execFile);
-
-type LarkCliJson = {
-  status?: boolean;
-  message?: string;
-  data?: {
-    doc_id?: string;
-    title?: string;
-    url?: string;
-    content?: string;
-    docs?: Array<{ doc_id?: string; id?: string; title?: string; summary?: string; url?: string }>;
-    users?: Array<{ user_id?: string; id?: string; name?: string; role?: string; department?: string }>;
-    user?: { user_id?: string; id?: string; name?: string; role?: string; department?: string };
-    slide_id?: string;
-    slides_id?: string;
-    id?: string;
-  };
-};
+import { ToolGatewayError } from "./errors.js";
+import { execLarkCli } from "./larkCliExecutor.js";
+import {
+  parseCliJson,
+  parseDocuments,
+  parseMessages,
+  parseSingleUser,
+  parseSlides,
+  parseUsers,
+  parseWhiteboard,
+} from "./larkCliParsers.js";
 
 type LarkCliCapabilities = {
   docsSearch: boolean;
@@ -38,31 +34,36 @@ type LarkCliCapabilities = {
   slidesPublish: boolean;
 };
 
-function parseCliJson(raw: string): LarkCliJson {
-  const text = raw.trim();
-  if (!text) {
-    throw new Error("lark-cli 未返回 stdout");
-  }
-  try {
-    return JSON.parse(text) as LarkCliJson;
-  } catch {
-    throw new Error(`lark-cli stdout 非 JSON: ${text.slice(0, 300)}`);
-  }
+function stringifyJson(value: Record<string, unknown>): string {
+  return JSON.stringify(value);
 }
 
-function assertStatus(payload: LarkCliJson): void {
-  if (payload.status === false) {
-    throw new Error(payload.message || "lark-cli 返回 status=false");
+function classifyCliFailure(stderr: string, exitCode: number): ToolGatewayError {
+  const text = stderr.toLowerCase();
+  if (text.includes("unknown command") || text.includes("not found")) {
+    return new ToolGatewayError("NOT_SUPPORTED", "lark-cli 不支持当前子命令", {
+      causeText: stderr,
+    });
   }
+  if (text.includes("required") || text.includes("invalid") || text.includes("must")) {
+    return new ToolGatewayError("VALIDATION", "lark-cli 参数校验失败", {
+      causeText: stderr,
+    });
+  }
+  return new ToolGatewayError("UPSTREAM_TEMPORARY", `lark-cli 调用失败，exitCode=${exitCode}`, {
+    causeText: stderr,
+  });
 }
 
 export class LarkCliAdapter implements FeishuToolGatewayApi {
-  private readonly bin = env.LARK_CLI_BIN;
-  private readonly timeoutMs = env.LARK_CLI_TIMEOUT_MS;
   private capabilitiesPromise: Promise<LarkCliCapabilities> | null = null;
 
   isEnabled(): boolean {
-    return env.LARK_CLI_ENABLED;
+    return env.LARK_CLI_ENABLED !== "false";
+  }
+
+  private withDefaultAs(args: string[]): string[] {
+    return ["--as", env.LARK_CLI_DEFAULT_AS, ...args];
   }
 
   private splitCommand(command: string): string[] {
@@ -83,7 +84,7 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
         return values[key] ?? "";
       }),
     );
-    const out = [...this.defaultAsArg(), ...replaced];
+    const out = [...replaced];
     for (const [flag, value] of fallbackArgs) {
       const key = flag.replace(/^--/, "").replace(/-/g, "_");
       if (used.has(key)) continue;
@@ -93,19 +94,31 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     return out;
   }
 
+  private async runCli(args: string[]): Promise<unknown> {
+    const result = await execLarkCli(this.withDefaultAs([...args, "--format", "json"]));
+    if (result.exitCode !== 0) {
+      throw classifyCliFailure(result.stderr, result.exitCode);
+    }
+    logger.info("[tool-gateway] lark-cli command success", {
+      command: result.command,
+      args: result.args.join(" "),
+      elapsedMs: result.elapsedMs,
+    });
+    if (result.stderr.trim()) {
+      logger.warn("[tool-gateway] lark-cli stderr", {
+        stderr: result.stderr.slice(0, 200),
+      });
+    }
+    return parseCliJson(result.stdout);
+  }
+
   private async probeCommand(commandTemplate: string): Promise<boolean> {
     if (!commandTemplate.trim()) return false;
-    try {
-      const args = [...this.defaultAsArg(), ...this.splitCommand(commandTemplate), "--help"];
-      await execFileAsync(this.bin, args, {
-        timeout: Math.min(this.timeoutMs, 30_000),
-        maxBuffer: 1024 * 1024 * 2,
-        windowsHide: true,
-      });
-      return true;
-    } catch {
-      return false;
-    }
+    const helpArgs = this.splitCommand(commandTemplate);
+    const result = await execLarkCli(this.withDefaultAs([...helpArgs, "--help"]), 20_000).catch(
+      () => null,
+    );
+    return Boolean(result && result.exitCode === 0);
   }
 
   private async probeCapabilities(): Promise<LarkCliCapabilities> {
@@ -127,43 +140,11 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     return caps[name];
   }
 
-  private async runCli(args: string[]): Promise<LarkCliJson> {
-    if (!this.isEnabled()) {
-      throw new Error("LARK_CLI_ENABLED=false");
-    }
-    const { stdout } = await execFileAsync(this.bin, args, {
-      timeout: this.timeoutMs,
-      maxBuffer: 1024 * 1024 * 8,
-      windowsHide: true,
-    });
-    const payload = parseCliJson(stdout);
-    assertStatus(payload);
-    return payload;
-  }
-
-  private defaultAsArg(): string[] {
-    return ["--as", env.LARK_CLI_DEFAULT_AS];
-  }
-
   async searchDocuments(query: string): Promise<GatewayDocument[]> {
-    if (!(await this.hasCapability("docsSearch"))) {
-      throw new Error("LarkCliAdapter capability docsSearch=false");
-    }
     const payload = await this.runCli(
-      this.buildArgs(
-        env.LARK_CLI_CMD_DOCS_SEARCH,
-        { query },
-        [["--query", query]],
-      ),
+      this.buildArgs(env.LARK_CLI_CMD_DOCS_SEARCH, { query }, [["--query", query]]),
     );
-    const docs = payload.data?.docs ?? [];
-    return docs.map((doc, idx) => ({
-      id: doc.doc_id ?? doc.id ?? `lark_cli_doc_${idx + 1}`,
-      title: doc.title ?? `文档${idx + 1}`,
-      summary: doc.summary ?? "",
-      url: doc.url,
-      source: "lark_cli",
-    }));
+    return parseDocuments(payload);
   }
 
   async listDocuments(query?: string): Promise<GatewayDocument[]> {
@@ -171,35 +152,21 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
   }
 
   async viewDocument(documentId: string): Promise<GatewayDocument | null> {
-    const payload = await this.runCli([
-      ...this.defaultAsArg(),
-      "docs",
-      "+fetch",
-      "--doc",
-      documentId,
-    ]);
-    return {
-      id: payload.data?.doc_id ?? documentId,
-      title: payload.data?.title ?? `文档-${documentId}`,
-      content: payload.data?.content,
-      summary: payload.data?.content?.slice(0, 200),
-      url: payload.data?.url ?? `https://www.feishu.cn/docx/${documentId}`,
-      source: "lark_cli",
-    };
+    const payload = await this.runCli(["docs", "+fetch", "--doc", documentId]);
+    return parseDocuments(payload)[0] ?? null;
   }
 
-  async getFileContent(_fileToken: string): Promise<string> {
-    throw new Error("LarkCliAdapter 暂不支持 getFileContent");
+  async getFileContent(fileToken: string): Promise<string> {
+    const doc = await this.viewDocument(fileToken);
+    return doc?.content ?? "";
   }
 
   async createDocument(input: CreateDocumentInput): Promise<GatewayDocument> {
     const folderToken = env.LARK_CLI_FOLDER_TOKEN || env.FEISHU_TARGET_FOLDER_TOKEN;
     if (!folderToken.trim()) {
-      throw new Error("缺少 LARK_CLI_FOLDER_TOKEN/FEISHU_TARGET_FOLDER_TOKEN");
+      throw new ToolGatewayError("VALIDATION", "缺少 LARK_CLI_FOLDER_TOKEN/FEISHU_TARGET_FOLDER_TOKEN");
     }
-
     const payload = await this.runCli([
-      ...this.defaultAsArg(),
       "docs",
       "+create",
       "--folder-token",
@@ -209,24 +176,19 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
       "--markdown",
       input.content ?? "",
     ]);
-
-    const docId = payload.data?.doc_id;
-    if (!docId) {
-      throw new Error("lark-cli create 未返回 data.doc_id");
-    }
-    return {
-      id: docId,
-      title: payload.data?.title ?? input.title,
-      summary: input.content?.slice(0, 200),
-      content: input.content,
-      url: payload.data?.url ?? `https://www.feishu.cn/docx/${docId}`,
-      source: "lark_cli",
-    };
+    return (
+      parseDocuments(payload)[0] ?? {
+        id: `lark_cli_doc_${Date.now()}`,
+        title: input.title,
+        content: input.content,
+        summary: input.content?.slice(0, 200),
+        source: "lark_cli",
+      }
+    );
   }
 
   async updateDocument(input: UpdateDocumentInput): Promise<boolean> {
     await this.runCli([
-      ...this.defaultAsArg(),
       "docs",
       "+update",
       "--doc",
@@ -240,82 +202,102 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
   }
 
   async getComments(_documentId: string): Promise<GatewayComment[]> {
-    throw new Error("LarkCliAdapter 暂不支持 getComments");
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装评论查询命令");
   }
 
-  async addComment(_input: AddCommentInput): Promise<boolean> {
-    return false;
+  async addComment(input: AddCommentInput): Promise<boolean> {
+    await this.runCli([
+      "drive",
+      "+add-comment",
+      "--file-token",
+      input.documentId,
+      "--content",
+      input.content,
+    ]);
+    return true;
   }
 
   async searchUsers(query: string): Promise<GatewayUser[]> {
-    if (!(await this.hasCapability("contactSearch"))) {
-      throw new Error("LarkCliAdapter capability contactSearch=false");
-    }
     const payload = await this.runCli(
-      this.buildArgs(
-        env.LARK_CLI_CMD_CONTACT_SEARCH,
-        { query },
-        [["--query", query]],
-      ),
+      this.buildArgs(env.LARK_CLI_CMD_CONTACT_SEARCH, { query }, [["--query", query]]),
     );
-    const users = payload.data?.users ?? [];
-    return users.map((item, idx) => ({
-      id: item.user_id ?? item.id ?? `lark_cli_user_${idx + 1}`,
-      name: item.name ?? `用户${idx + 1}`,
-      role: item.role,
-      department: item.department,
-      source: "lark_cli",
-    }));
+    return parseUsers(payload);
   }
 
   async getUserInfo(userId: string): Promise<GatewayUser | null> {
-    if (!(await this.hasCapability("contactSearch"))) {
-      throw new Error("LarkCliAdapter capability contactSearch=false");
-    }
     if (env.LARK_CLI_CMD_CONTACT_GET.trim()) {
       const payload = await this.runCli(
-        this.buildArgs(
-          env.LARK_CLI_CMD_CONTACT_GET,
-          { userId },
-          [["--user-id", userId]],
-        ),
+        this.buildArgs(env.LARK_CLI_CMD_CONTACT_GET, { userId }, [["--user-id", userId]]),
       );
-      const user = payload.data?.user;
-      if (!user) return null;
-      return {
-        id: user.user_id ?? user.id ?? userId,
-        name: user.name ?? userId,
-        role: user.role,
-        department: user.department,
-        source: "lark_cli",
-      };
+      return parseSingleUser(payload);
     }
     const users = await this.searchUsers(userId);
-    return users.find((u) => u.id === userId || u.name === userId) ?? users[0] ?? null;
+    return users.find((item) => item.id === userId || item.name === userId) ?? users[0] ?? null;
   }
 
-  async createSlides(input: CreateSlidesInput): Promise<GatewaySlides> {
-    if (!(await this.hasCapability("slidesPublish"))) {
-      throw new Error("LarkCliAdapter capability slidesPublish=false");
-    }
+  async createSlides(input: CreateSlidesInput): Promise<GatewaySlide> {
     const payload = await this.runCli(
       this.buildArgs(
         env.LARK_CLI_CMD_SLIDES_CREATE,
-        { title: input.title, outline: input.outline },
+        { title: input.title, outline: input.outline ?? "" },
         [
           ["--title", input.title],
-          ["--markdown", input.outline],
+          ["--markdown", input.outline ?? ""],
         ],
       ),
     );
-    const id = payload.data?.slide_id ?? payload.data?.slides_id ?? payload.data?.id;
-    return {
-      id: id ?? `lark_cli_slides_${Date.now()}`,
-      title: payload.data?.title ?? input.title,
-      outline: input.outline,
-      url: payload.data?.url,
-      source: "lark_cli",
-    };
+    return parseSlides(payload);
+  }
+
+  async queryWhiteboard(token: string): Promise<GatewayWhiteboard | null> {
+    const payload = await this.runCli(["whiteboard", "+query", "--token", token]);
+    return parseWhiteboard(payload, token);
+  }
+
+  async updateWhiteboard(input: UpdateWhiteboardInput): Promise<boolean> {
+    await this.runCli([
+      "whiteboard",
+      "+update",
+      "--token",
+      input.token,
+      "--content",
+      input.content,
+      "--syntax",
+      input.syntax ?? "mermaid",
+    ]);
+    return true;
+  }
+
+  async sendMessage(input: SendMessageInput): Promise<boolean> {
+    if (!input.chatId && !input.userId) {
+      throw new ToolGatewayError("VALIDATION", "sendMessage 需要 chatId 或 userId");
+    }
+    const args = [
+      "im",
+      "+messages-send",
+      "--msg-type",
+      input.msgType ?? "text",
+      "--content",
+      input.content,
+    ];
+    if (input.chatId) args.push("--chat-id", input.chatId);
+    if (input.userId) args.push("--user-id", input.userId);
+    await this.runCli(args);
+    return true;
+  }
+
+  async listMessages(input: ListMessagesInput): Promise<GatewayMessage[]> {
+    if (!input.chatId && !input.userId) {
+      throw new ToolGatewayError("VALIDATION", "listMessages 需要 chatId 或 userId");
+    }
+    const args = ["im", "+chat-messages-list"];
+    if (input.chatId) args.push("--chat-id", input.chatId);
+    if (input.userId) args.push("--user-id", input.userId);
+    if (typeof input.limit === "number" && input.limit > 0) {
+      args.push("--page-size", String(input.limit));
+    }
+    const payload = await this.runCli(args);
+    return parseMessages(payload);
   }
 }
 

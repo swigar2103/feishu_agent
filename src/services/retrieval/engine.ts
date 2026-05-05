@@ -2,11 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import type { RetrievalContext, Skill, UserRequest } from "../../schemas/index.js";
 import { SkillSchema } from "../../schemas/index.js";
-import { FeishuMockAdapter } from "./feishuAdapter.js";
 import { parseJsonFromMd, parseSkillDocFromMd, type SkillDoc } from "./mdParser.js";
+import { toolGateway } from "../toolGateway/gateway.js";
 
 export class RetrievalEngine {
-  private adapter = new FeishuMockAdapter();
   private referenceSkillDocs: SkillDoc[];
   private anchorSkillDocs: SkillDoc[];
   private memories: Record<string, RetrievalContext["userMemory"]>;
@@ -134,6 +133,34 @@ export class RetrievalEngine {
     return { doc: null, source: "none" };
   }
 
+  private async fetchGatewayContext(query: string): Promise<RetrievalContext["projectContext"]> {
+    const [docs, users] = await Promise.all([
+      toolGateway.searchDocuments(query).catch(() => []),
+      toolGateway.searchUsers(query).catch(() => []),
+    ]);
+    const docContexts = docs.slice(0, 5).map((doc) => ({
+      sourceId: `gateway_doc_${doc.id}`,
+      sourceType: "doc" as const,
+      content: doc.content ?? doc.summary ?? doc.title,
+    }));
+    const userContexts = users.slice(0, 3).map((user) => ({
+      sourceId: `gateway_user_${user.id}`,
+      sourceType: "im" as const,
+      content: `联系人: ${user.name}${user.role ? `, 角色: ${user.role}` : ""}${user.department ? `, 部门: ${user.department}` : ""}`,
+    }));
+    if (docContexts.length + userContexts.length > 0) {
+      return [...docContexts, ...userContexts];
+    }
+    const fallback = parseJsonFromMd<Array<{ sourceId: string; sourceType: "message" | "doc" | "table"; content: string }>>(
+      "src/data/assets.md",
+    );
+    return fallback.slice(0, 3).map((item) => ({
+      sourceId: item.sourceId,
+      sourceType: item.sourceType,
+      content: item.content,
+    }));
+  }
+
   async getContextForReport(request: UserRequest): Promise<RetrievalContext> {
     const matched = this.pickBestSkillDoc(request);
     const matchedSkillDoc = matched.doc;
@@ -147,7 +174,7 @@ export class RetrievalEngine {
       styleNotes: [],
     };
 
-    const retrievedContext = await this.adapter.searchEverything(request.prompt);
+    const retrievedContext = await this.fetchGatewayContext(request.prompt);
     const personalKnowledgeContext = request.personalKnowledge.map((content, idx) => ({
       sourceId: `pk_${idx + 1}`,
       sourceType: "history" as const,

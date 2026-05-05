@@ -160,8 +160,9 @@
 
 ### 6.4 lark-cli（可选增强）
 
-- `LARK_CLI_ENABLED`：是否启用 lark-cli 适配层（默认 `false`）
+- `LARK_CLI_ENABLED`：`auto`/`true`/`false`
 - `LARK_CLI_BIN`：可执行文件名或绝对路径（默认 `lark-cli`）
+- `LARK_CLI_PROFILE`：可选 profile
 - `LARK_CLI_DEFAULT_AS`：默认身份（`bot`/`user`）
 - `LARK_CLI_TIMEOUT_MS`：单次命令超时（毫秒）
 - `LARK_CLI_FOLDER_TOKEN`：`docs +create` 目标目录；为空时回退 `FEISHU_TARGET_FOLDER_TOKEN`
@@ -171,6 +172,16 @@
 - `LARK_CLI_CMD_CONTACT_GET`：用户详情命令模板（支持 `{userId}`）
 - `LARK_CLI_CMD_SLIDES_CREATE`：Slides 创建命令模板（支持 `{title}`、`{outline}`）
 - `FEISHU_SLIDES_DELIVERY_LEVEL`：`outline_only`（默认）或 `artifact_best_effort`
+
+初始化示例：
+
+```bash
+npm install -g @larksuite/cli
+npx skills add larksuite/cli -y -g
+lark-cli config init --new
+lark-cli auth login --recommend
+lark-cli auth status
+```
 
 ### 6.5 Resource Screening 阈值
 

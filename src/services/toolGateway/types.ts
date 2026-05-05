@@ -4,7 +4,7 @@ export type GatewayDocument = {
   summary?: string;
   content?: string;
   url?: string;
-  source?: "mcp" | "openapi" | "lark_cli";
+  source?: "mcp" | "lark_cli" | "openapi";
 };
 
 export type GatewayUser = {
@@ -12,7 +12,7 @@ export type GatewayUser = {
   name: string;
   department?: string;
   role?: string;
-  source?: "mcp" | "openapi" | "lark_cli";
+  source?: "mcp" | "lark_cli" | "openapi";
 };
 
 export type GatewayComment = {
@@ -20,7 +20,31 @@ export type GatewayComment = {
   author?: string;
   content: string;
   createdAt?: string;
-  source?: "mcp" | "openapi" | "lark_cli";
+  source?: "mcp" | "lark_cli" | "openapi";
+};
+
+export type GatewayMessage = {
+  id: string;
+  chatId?: string;
+  sender?: string;
+  content: string;
+  createdAt?: string;
+  source?: "mcp" | "lark_cli" | "openapi";
+};
+
+export type GatewaySlide = {
+  presentationId: string;
+  title?: string;
+  url?: string;
+  source?: "mcp" | "lark_cli" | "openapi";
+};
+
+export type GatewayWhiteboard = {
+  token: string;
+  title?: string;
+  content?: string;
+  previewUrl?: string;
+  source?: "mcp" | "lark_cli" | "openapi";
 };
 
 export type CreateDocumentInput = {
@@ -40,15 +64,26 @@ export type AddCommentInput = {
 
 export type CreateSlidesInput = {
   title: string;
-  outline: string;
+  outline?: string;
 };
 
-export type GatewaySlides = {
-  id: string;
-  title: string;
-  outline?: string;
-  url?: string;
-  source?: "mcp" | "openapi" | "lark_cli";
+export type UpdateWhiteboardInput = {
+  token: string;
+  content: string;
+  syntax?: "mermaid" | "plantuml" | "dsl";
+};
+
+export type SendMessageInput = {
+  chatId?: string;
+  userId?: string;
+  content: string;
+  msgType?: "text" | "md";
+};
+
+export type ListMessagesInput = {
+  chatId?: string;
+  userId?: string;
+  limit?: number;
 };
 
 export interface FeishuToolGatewayApi {
@@ -62,5 +97,9 @@ export interface FeishuToolGatewayApi {
   addComment(input: AddCommentInput): Promise<boolean>;
   searchUsers(query: string): Promise<GatewayUser[]>;
   getUserInfo(userId: string): Promise<GatewayUser | null>;
-  createSlides(input: CreateSlidesInput): Promise<GatewaySlides>;
+  createSlides(input: CreateSlidesInput): Promise<GatewaySlide>;
+  queryWhiteboard(token: string): Promise<GatewayWhiteboard | null>;
+  updateWhiteboard(input: UpdateWhiteboardInput): Promise<boolean>;
+  sendMessage(input: SendMessageInput): Promise<boolean>;
+  listMessages(input: ListMessagesInput): Promise<GatewayMessage[]>;
 }

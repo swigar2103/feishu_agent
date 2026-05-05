@@ -3,6 +3,9 @@ import type { RetrievalContext } from "../../schemas/index.js";
 
 type AssetType = RetrievalContext["projectContext"][0];
 
+/**
+ * @deprecated 仅用于历史兼容，主流程请改走 Tool Gateway。
+ */
 export class FeishuMockAdapter {
   private assets: AssetType[] = [];
 

@@ -1,0 +1,28 @@
+import type { GatewayCapability } from "./capabilities.js";
+
+export type GatewayAdapterName = "mcp" | "lark_cli" | "openapi";
+
+const DEFAULT_ORDER: GatewayAdapterName[] = ["mcp", "lark_cli", "openapi"];
+
+const CAPABILITY_ORDER: Partial<Record<GatewayCapability, GatewayAdapterName[]>> = {
+  "document.search": ["mcp", "lark_cli", "openapi"],
+  "document.list": ["mcp", "lark_cli", "openapi"],
+  "document.view": ["mcp", "lark_cli", "openapi"],
+  "document.fileContent": ["mcp", "lark_cli", "openapi"],
+  "document.create": ["mcp", "lark_cli", "openapi"],
+  "document.update": ["mcp", "lark_cli", "openapi"],
+  "document.comment.list": ["mcp", "lark_cli", "openapi"],
+  "document.comment.add": ["mcp", "lark_cli", "openapi"],
+  "user.search": ["mcp", "lark_cli", "openapi"],
+  "user.get": ["mcp", "lark_cli", "openapi"],
+  "slides.create": ["mcp", "lark_cli", "openapi"],
+  "whiteboard.query": ["mcp", "lark_cli", "openapi"],
+  "whiteboard.update": ["mcp", "lark_cli", "openapi"],
+  "message.send": ["mcp", "lark_cli", "openapi"],
+  "message.list": ["mcp", "lark_cli", "openapi"],
+};
+
+export function getAdapterPriority(capability: GatewayCapability): GatewayAdapterName[] {
+  return CAPABILITY_ORDER[capability] ?? DEFAULT_ORDER;
+}
+

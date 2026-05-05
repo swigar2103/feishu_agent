@@ -10,10 +10,16 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
-  GatewaySlides,
+  GatewayMessage,
+  GatewaySlide,
   GatewayUser,
+  GatewayWhiteboard,
+  ListMessagesInput,
+  SendMessageInput,
   UpdateDocumentInput,
+  UpdateWhiteboardInput,
 } from "./types.js";
+import { ToolGatewayError } from "./errors.js";
 
 type McpToolCallResult = {
   content?: Array<{ type?: string; text?: string }>;
@@ -43,11 +49,11 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
 
   private async callTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
     if (!this.endpoint) {
-      throw new Error("FEISHU_MCP_URL 未配置");
+      throw new ToolGatewayError("NOT_CONFIGURED", "FEISHU_MCP_URL 未配置");
     }
     const c = getFeishuMvpConfig();
     if (!c.appId || !c.appSecret) {
-      throw new Error("缺少 FEISHU_APP_ID/FEISHU_APP_SECRET，无法调用 MCP");
+      throw new ToolGatewayError("NOT_CONFIGURED", "缺少 FEISHU_APP_ID/FEISHU_APP_SECRET，无法调用 MCP");
     }
     const tat = await getTenantAccessToken(c);
     const body = {
@@ -72,14 +78,18 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
 
     const raw = await res.text();
     if (!res.ok) {
-      throw new Error(`MCP tool ${toolName} http=${res.status} body=${raw.slice(0, 300)}`);
+      throw new ToolGatewayError("UPSTREAM_TEMPORARY", `MCP tool ${toolName} http=${res.status}`, {
+        causeText: raw.slice(0, 300),
+      });
     }
     const json = JSON.parse(raw) as {
       result?: McpToolCallResult;
       error?: { message?: string };
     };
     if (json.error) {
-      throw new Error(`MCP tool ${toolName} error=${json.error.message ?? "unknown"}`);
+      throw new ToolGatewayError("UPSTREAM_TEMPORARY", `MCP tool ${toolName} error`, {
+        causeText: json.error.message ?? "unknown",
+      });
     }
     const result = json.result;
     if (!result) return null;
@@ -220,18 +230,24 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     };
   }
 
-  async createSlides(input: CreateSlidesInput): Promise<GatewaySlides> {
-    const data = await this.callTool("create-slides", {
-      title: input.title,
-      outline: input.outline,
-    });
-    const parsed = parseMcpPayload<{ id?: string; title?: string; url?: string }>(data);
-    return {
-      id: parsed?.id ?? `mcp_slides_${Date.now()}`,
-      title: parsed?.title ?? input.title,
-      outline: input.outline,
-      url: parsed?.url ?? `https://mock.feishu.local/slides/${Date.now()}`,
-      source: "mcp",
-    };
+  async createSlides(_input: CreateSlidesInput): Promise<GatewaySlide> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 slides create 工具");
+  }
+
+  async queryWhiteboard(_token: string): Promise<GatewayWhiteboard | null> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 whiteboard query 工具");
+  }
+
+  async updateWhiteboard(_input: UpdateWhiteboardInput): Promise<boolean> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 whiteboard update 工具");
+  }
+
+  async sendMessage(_input: SendMessageInput): Promise<boolean> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 message send 工具");
+  }
+
+  async listMessages(_input: ListMessagesInput): Promise<GatewayMessage[]> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 message list 工具");
   }
 }
+
