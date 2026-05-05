@@ -9,6 +9,10 @@
 
 ---
 
+开始前请先：
+lark-cli auth login --scope "drive:drive docx:document"
+赋予授权
+
 ## 1. 在线主流程（LangGraph）
 
 主流程由 `src/graph/reportGraph.ts` 执行：

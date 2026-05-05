@@ -1,5 +1,25 @@
 # 项目变更记录
 
+## 2026-05-05
+
+### lark-cli 文档创建改为“个人目录优先 + 可回退”
+
+- **原因**：`LARK_CLI_ENABLED=auto` 且命中文档创建时，若未配置 `LARK_CLI_FOLDER_TOKEN/FEISHU_TARGET_FOLDER_TOKEN` 会抛 `VALIDATION` 并中断链路，不符合“用户身份直连个人目录”的预期。
+- **处理**：
+  - `src/services/toolGateway/larkCliAdapter.ts`：
+    - `createDocument` 改为使用 `docs +create --api-version v2`；
+    - 有目录 token 时使用 `--parent-token`；
+    - 无 token 且 `LARK_CLI_DEFAULT_AS=user` 时自动使用 `--parent-position my_library`；
+    - 无 token 且 `--as bot` 时抛 `NOT_CONFIGURED`（可回退），不再阻断后续 adapter。
+  - `env.example`：
+    - 默认 `LARK_CLI_DEFAULT_AS` 调整为 `user`（本地联调更符合个人资源访问）；
+    - 增加“无 token 自动落个人知识库”的注释说明。
+- **验证建议**：`LARK_CLI_DEFAULT_AS=user` + 已执行 `lark-cli auth login` 后，再触发 IM/API 生成；若 CLI 不可用，将自动回退到 OpenAPI。
+
+### 当前项目结构（概要）
+
+- 本次未新增目录结构，核心代码仍集中在 `src/services/toolGateway/`、`src/config/`、`src/integrations/feishu/`。
+
 ## 2026-05-04
 
 ### workflow registry / capability probe / 阈值化补检索

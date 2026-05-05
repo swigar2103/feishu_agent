@@ -38,6 +38,17 @@ function stringifyJson(value: Record<string, unknown>): string {
   return JSON.stringify(value);
 }
 
+function buildMarkdownCreateContent(title: string, body?: string): string {
+  const trimmedBody = (body ?? "").trim();
+  if (!trimmedBody) {
+    return `# ${title}`;
+  }
+  if (trimmedBody.startsWith("#")) {
+    return trimmedBody;
+  }
+  return `# ${title}\n\n${trimmedBody}`;
+}
+
 function classifyCliFailure(stderr: string, exitCode: number): ToolGatewayError {
   const text = stderr.toLowerCase();
   if (text.includes("unknown command") || text.includes("not found")) {
@@ -163,19 +174,28 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
 
   async createDocument(input: CreateDocumentInput): Promise<GatewayDocument> {
     const folderToken = env.LARK_CLI_FOLDER_TOKEN || env.FEISHU_TARGET_FOLDER_TOKEN;
-    if (!folderToken.trim()) {
-      throw new ToolGatewayError("VALIDATION", "缺少 LARK_CLI_FOLDER_TOKEN/FEISHU_TARGET_FOLDER_TOKEN");
-    }
-    const payload = await this.runCli([
+    const args = [
       "docs",
       "+create",
-      "--folder-token",
-      folderToken,
-      "--title",
-      input.title,
-      "--markdown",
-      input.content ?? "",
-    ]);
+      "--api-version",
+      "v2",
+      "--doc-format",
+      "markdown",
+      "--content",
+      buildMarkdownCreateContent(input.title, input.content),
+    ];
+    if (folderToken.trim()) {
+      args.push("--parent-token", folderToken);
+    } else if (env.LARK_CLI_DEFAULT_AS === "user") {
+      // user 身份下，允许直接落到个人知识库，避免强制要求手工配置 folder token。
+      args.push("--parent-position", "my_library");
+    } else {
+      throw new ToolGatewayError(
+        "NOT_CONFIGURED",
+        "lark-cli(bot) 缺少目标目录：请配置 LARK_CLI_FOLDER_TOKEN/FEISHU_TARGET_FOLDER_TOKEN，或改用 --as user",
+      );
+    }
+    const payload = await this.runCli(args);
     return (
       parseDocuments(payload)[0] ?? {
         id: `lark_cli_doc_${Date.now()}`,
