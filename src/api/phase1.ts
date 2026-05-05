@@ -91,23 +91,58 @@ export async function registerPhase1Routes(app: FastifyInstance): Promise<void> 
       return reply.send({ challenge: body.challenge });
     }
 
-    const messageId =
-      body.event?.open_message_id ?? body.open_message_id ?? "";
+    const messageId = body.event?.open_message_id ?? body.open_message_id ?? "";
     const action = body.event?.action?.value;
     const actionName =
       action && typeof action === "object" && typeof action.action === "string"
         ? action.action
         : "";
-    if (!messageId || actionName !== "mark_done") {
+    if (!messageId || !actionName) {
       return reply.status(200).send({ message: "ok" });
     }
 
     try {
       const c = getFeishuMvpConfig();
-      await updateCardMessage(c, {
-        messageId,
-        card: buildResolvedCard(),
-      });
+      if (actionName === "mark_done") {
+        await updateCardMessage(c, {
+          messageId,
+          card: buildResolvedCard(),
+        });
+      } else if (actionName === "continue_generate") {
+        await updateCardMessage(c, {
+          messageId,
+          card: {
+            schema: "2.0",
+            config: { update_multi: true },
+            body: {
+              direction: "vertical",
+              elements: [
+                {
+                  tag: "markdown",
+                  content: "已收到“继续生成”操作，请在会话中补充你的新要求（例如：加强数据对比、增加风险章节）。",
+                },
+              ],
+            },
+          },
+        });
+      } else if (actionName === "need_more_info") {
+        await updateCardMessage(c, {
+          messageId,
+          card: {
+            schema: "2.0",
+            config: { update_multi: true },
+            body: {
+              direction: "vertical",
+              elements: [
+                {
+                  tag: "markdown",
+                  content: "请直接在会话中补充信息：时间范围、目标受众、重点指标、输出格式偏好等。",
+                },
+              ],
+            },
+          },
+        });
+      }
     } catch (error) {
       logger.error("card callback update failed", { error });
     }

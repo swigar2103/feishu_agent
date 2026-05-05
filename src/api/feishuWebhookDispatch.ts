@@ -75,6 +75,12 @@ export async function continueFeishuWebhookAfterChallenge(
       }
     })();
   } else {
+    logger.info("webhook full pipeline accepted", {
+      chatId: imEvent.chatId,
+      userId: imEvent.userId,
+      messageId: imEvent.messageId,
+      identityMode: env.FEISHU_IDENTITY_MODE,
+    });
     void (async () => {
       try {
         const { runFullPipelineAndNotifyChat } = await import(

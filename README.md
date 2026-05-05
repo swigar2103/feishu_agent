@@ -9,10 +9,6 @@
 
 ---
 
-开始前请先：
-lark-cli auth login --scope "drive:drive docx:document"
-赋予授权
-
 ## 1. 在线主流程（LangGraph）
 
 主流程由 `src/graph/reportGraph.ts` 执行：
@@ -107,7 +103,7 @@ lark-cli auth login --scope "drive:drive docx:document"
 - `POST /api/feishu/webhook`
   - `url_verification` challenge
   - 明文消息事件解析（忽略应用自身发送的消息）
-  - **默认（`FEISHU_BOT_PIPELINE=full`）**：异步触发 `runReportPipeline`（LangGraph 全链路），在会话内分条发送文字报告
+  - **默认（`FEISHU_BOT_PIPELINE=full`）**：异步触发 `runReportPipeline`（LangGraph 全链路），回发“结果链接为主 + 结构化摘要为辅 + 状态卡片交互”
   - **`FEISHU_BOT_PIPELINE=phase1`**：异步触发 `handleBotMessageText`（云文档模板链），并回发「生成文档」交互卡片
   - 回调尽快返回 200，避免飞书网关超时
 
@@ -116,7 +112,7 @@ lark-cli auth login --scope "drive:drive docx:document"
 ### 4.2 卡片回调
 
 - `POST /api/feishu/card-callback`
-  - 支持卡片动作 `mark_done`
+  - 支持卡片动作 `mark_done` / `continue_generate` / `need_more_info`
   - 收到后更新原卡片为“已处理”
 
 ---
@@ -151,6 +147,10 @@ lark-cli auth login --scope "drive:drive docx:document"
 - `FEISHU_COPY_NAME_PREFIX`
 - `FEISHU_IM_NOTIFY_CHAT_ID`（可选）
 - `FEISHU_BOT_PIPELINE`：`full`（默认，Webhook 走 LangGraph 全链路并发会话文字）或 `phase1`（云文档模板 + 卡片）
+- `FEISHU_IDENTITY_MODE`：`bot_default`（推荐，服务端应用身份主导）或 `user_default`（联调）
+- `FEISHU_USER_OAUTH_REDIRECT_URI`：用户授权增强回调地址（需与开放平台一致）
+- `FEISHU_USER_OAUTH_SCOPES`：用户授权增强 scopes（空格分隔）
+- `FEISHU_USER_OAUTH_AUTHORIZE_URL`：用户授权页地址（默认内置）
 - `FEISHU_WRITABLE_DATA_DIR`（可选）：记忆/资源池 JSON 的目录；Vercel 未设置时默认 `/tmp/feishu-agent-data`（避免只读盘）
 - `FEISHU_VERIFICATION_TOKEN`（可选）：与开放平台事件配置里的 **Verification Token** 一致；配置后 URL 校验请求会校验 token，避免误配后台时仍显示通过
 
@@ -167,7 +167,7 @@ lark-cli auth login --scope "drive:drive docx:document"
 - `LARK_CLI_ENABLED`：`auto`/`true`/`false`
 - `LARK_CLI_BIN`：可执行文件名或绝对路径（默认 `lark-cli`）
 - `LARK_CLI_PROFILE`：可选 profile
-- `LARK_CLI_DEFAULT_AS`：默认身份（`bot`/`user`）
+- `LARK_CLI_DEFAULT_AS`：默认身份（推荐 `bot`，作为服务端主流程）
 - `LARK_CLI_TIMEOUT_MS`：单次命令超时（毫秒）
 - `LARK_CLI_FOLDER_TOKEN`：`docs +create` 目标目录；为空时回退 `FEISHU_TARGET_FOLDER_TOKEN`
 - `FEISHU_DOC_PUBLISH_STRATEGY`：`gateway_only`（默认）或 `lark_cli_first`
@@ -183,8 +183,20 @@ lark-cli auth login --scope "drive:drive docx:document"
 npm install -g @larksuite/cli
 npx skills add larksuite/cli -y -g
 lark-cli config init --new
-lark-cli auth login --recommend
 lark-cli auth status
+```
+
+用户授权增强（可选，仅在需要用户私域资源时）：
+
+```bash
+# 1) 服务端生成授权链接（示例）
+GET /api/feishu/auth/start?userId=ou_xxx
+
+# 2) 用户浏览器完成授权后由回调落库
+GET /api/feishu/auth/callback?code=...&state=...
+
+# 3) 查询授权状态
+GET /api/feishu/auth/status?userId=ou_xxx
 ```
 
 ### 6.5 Resource Screening 阈值
@@ -192,6 +204,23 @@ lark-cli auth status
 - `RESOURCE_SCREENING_MIN_CANDIDATE_COUNT`：本地候选最小数量阈值，低于该值才触发外部补检索。
 - `RESOURCE_SCREENING_MIN_CANDIDATE_SCORE`：topN 平均分阈值，低于该值才触发外部补检索。
 - 目标：避免“逢任务就外部查”，保留 Resource Pool 本地价值并控制延迟。
+
+---
+
+## 6.6 IM 回归检查（建议）
+
+建议至少覆盖以下场景：
+
+1. 未授权用户（`FEISHU_IDENTITY_MODE=bot_default`）：
+   - 可收到“处理中”卡片
+   - 完成后可收到成果链接卡片（文档/演示稿）
+2. 已授权用户（调用 `/api/feishu/auth/start` 完成授权）：
+   - `/api/feishu/auth/status?userId=...` 返回 `authorized=true`
+   - 同类请求可继续走增强路径（日志会带 `userOAuthReady=true`）
+3. 卡片发送失败：
+   - 自动回退文本摘要，不丢主结果
+4. 产物部分失败：
+   - 结果卡片状态显示“部分完成”，并保留已成功链接
 
 ---
 
@@ -204,6 +233,9 @@ lark-cli auth status
 - `POST /api/phase1/bot-message`：机器人文本入口
 - `POST /api/feishu/webhook`：飞书事件回调
 - `POST /api/feishu/card-callback`：卡片动作回调
+- `GET /api/feishu/auth/start`：生成用户授权增强链接
+- `GET /api/feishu/auth/callback`：用户授权增强回调
+- `GET /api/feishu/auth/status`：查询用户授权状态
 - `GET /api/phase1/config-check`：飞书配置自检
 - `GET /api/phase1/debug-resource-check`：模板/目标目录可读写探针
 - `GET /healthz`：健康检查

@@ -80,10 +80,24 @@ const EnvSchema = z.object({
   FEISHU_HTTP_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(90_000),
   /**
    * 飞书机器人 webhook（/api/feishu/webhook）收到 IM 文本后走哪条链路：
-   * - full：LangGraph 全链路 runReportPipeline，会话内分条回文字报告
+   * - full：LangGraph 全链路 runReportPipeline，优先回结果卡片（链接+摘要），文本兜底
    * - phase1：复制云文档模板并按锚点填小节，回交互卡片链
    */
   FEISHU_BOT_PIPELINE: z.enum(["full", "phase1"]).default("full"),
+  /**
+   * 双层身份策略：
+   * - bot_default：主流程走应用身份，用户授权仅作增强能力
+   * - user_default：优先用户身份（仅建议联调）
+   */
+  FEISHU_IDENTITY_MODE: z.enum(["bot_default", "user_default"]).default("bot_default"),
+  /** 用户授权增强：回调地址（需与开放平台一致） */
+  FEISHU_USER_OAUTH_REDIRECT_URI: z.string().default(""),
+  /** 用户授权增强：scope 列表（空格分隔） */
+  FEISHU_USER_OAUTH_SCOPES: z.string().default("drive:drive docx:document"),
+  /** 用户授权增强：授权页地址 */
+  FEISHU_USER_OAUTH_AUTHORIZE_URL: z
+    .string()
+    .default("https://open.feishu.cn/open-apis/authen/v1/authorize"),
   /**
    * 可写数据目录（runtime-memories.json、resource-pool.json）。
    * 不设且 VERCEL=1 时默认 /tmp/feishu-agent-data；本地默认 src/data。

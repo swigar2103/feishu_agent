@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { registerFeishuWebhookRoutes } from "./api/feishuWebhook.js";
+import { registerFeishuAuthRoutes } from "./api/feishuAuth.js";
 import { env } from "./config/env.js";
 import { registerChatRoutes } from "./api/chat.js";
 import { logger } from "./shared/logger.js";
@@ -16,6 +17,7 @@ async function buildApp() {
    * report / phase1 须在 listen() 之前注册（Fastify listen 后无法再 add route），仍用动态 import 避免顶层静态拉满 LangGraph。
    */
   await registerFeishuWebhookRoutes(app);
+  await registerFeishuAuthRoutes(app);
   await registerChatRoutes(app);
 
   try {

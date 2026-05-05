@@ -11,24 +11,59 @@ export type PublishedArtifact = {
   status: "mock_published";
 };
 
-function renderDraftAsPlainText(draft: Draft): string {
-  const sectionText = draft.sections
-    .map((section) => `${section.heading}\n${section.content}`)
+function normalizeMultilineToBullets(text: string): string {
+  return text
+    .split(/\n+/g)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `- ${line}`)
+    .join("\n");
+}
+
+function renderDraftAsTemplateMarkdown(draft: Draft): string {
+  const sections = draft.sections
+    .map((section) => `## ${section.heading}\n${section.content}`)
     .join("\n\n");
-  const chartText =
+  const chartBlock =
     draft.chartSuggestions.length > 0
-      ? `\n\n图表建议:\n${draft.chartSuggestions
-          .map((item) => `- ${item.title}(${item.type})：${item.purpose}，数据建议：${item.dataHint}`)
-          .join("\n")}`
-      : "";
-  return `${draft.title}\n\n摘要：${draft.summary}\n\n${sectionText}${chartText}`.trim();
+      ? [
+          "## 图表规划（模板区块）",
+          "| 图表 | 类型 | 目的 | 数据建议 |",
+          "|---|---|---|---|",
+          ...draft.chartSuggestions.map(
+            (item) => `| ${item.title} | ${item.type} | ${item.purpose} | ${item.dataHint} |`,
+          ),
+        ].join("\n")
+      : "## 图表规划（模板区块）\n- 当前未生成图表建议，可按业务重点追加";
+  const riskTodoBlock = [
+    "## 风险与待办（模板区块）",
+    "- 风险：补充关键数据来源与口径说明",
+    "- 待办：确认最终受众与汇报时间范围",
+  ].join("\n");
+  return [
+    `# ${draft.title}`,
+    "## 摘要",
+    normalizeMultilineToBullets(draft.summary || "待补充摘要"),
+    sections,
+    chartBlock,
+    riskTodoBlock,
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
 }
 
 function renderSlidesOutline(draft: Draft): string {
   const sectionBullets = draft.sections
     .map((section) => `## ${section.heading}\n- ${section.content.replace(/\n+/g, "\n- ")}`)
     .join("\n\n");
-  return `# ${draft.title}\n\n## 摘要\n- ${draft.summary}\n\n${sectionBullets}`.trim();
+  const chartSlides =
+    draft.chartSuggestions.length > 0
+      ? `\n\n## 图表页建议\n${draft.chartSuggestions
+          .map((item) => `- ${item.title}（${item.type}）：${item.purpose}；数据：${item.dataHint}`)
+          .join("\n")}`
+      : "";
+  return `# ${draft.title}\n\n## 摘要\n- ${draft.summary}\n\n${sectionBullets}${chartSlides}`.trim();
 }
 
 async function notifyChatIfNeeded(text: string): Promise<void> {
@@ -48,7 +83,7 @@ async function publishFeishuDoc(input: {
   sessionId: string;
   index: number;
 }): Promise<PublishedArtifact> {
-  const content = renderDraftAsPlainText(input.draft);
+  const content = renderDraftAsTemplateMarkdown(input.draft);
   const doc = await toolGateway.createDocument({
     title: input.draft.title,
     content,

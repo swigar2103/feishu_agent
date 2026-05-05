@@ -2,6 +2,35 @@
 
 ## 2026-05-05
 
+### 双层身份（bot 主导 + 用户授权增强）与 IM 成果化交付
+
+- **目标**：
+  - 主流程改为“服务端统一运行 + 应用身份主导”，不再依赖每台开发机都执行 `lark-cli auth login`。
+  - 飞书 IM 交付改为“成果链接主导 + 结构化摘要 + 状态/操作卡片”。
+- **处理**：
+  - 身份与授权：
+    - `src/config/env.ts`：新增 `FEISHU_IDENTITY_MODE`、`FEISHU_USER_OAUTH_REDIRECT_URI`、`FEISHU_USER_OAUTH_SCOPES`、`FEISHU_USER_OAUTH_AUTHORIZE_URL`。
+    - `src/api/feishuAuth.ts`：新增用户授权增强通道（`/api/feishu/auth/start`、`/api/feishu/auth/callback`、`/api/feishu/auth/status`）。
+    - `src/storage/userOAuthStore.ts`：新增用户 OAuth token 本地持久化与有效性查询。
+    - `src/app.ts`：注册 `feishuAuth` 路由。
+  - IM 交付：
+    - `src/integrations/feishu/reportImDelivery.ts`：
+      - 默认输出目标升级为 `feishu_doc + slides`；
+      - 先发“处理中卡片”，完成后更新“成果卡片”；
+      - 卡片失败自动降级文本摘要；
+      - 引入 `finalDeliverable.publishedArtifacts` 作为链接主数据源。
+    - `src/integrations/feishu/cards.ts`：新增 `buildPipelineProgressCard`、`buildPipelineResultCard`。
+    - `src/api/phase1.ts`：卡片回调新增 `continue_generate` / `need_more_info` 动作处理。
+    - `src/api/feishuWebhookDispatch.ts`：补充 full 链路接单日志（identityMode、chatId、userId）。
+  - 模板化输出：
+    - `src/services/output/publisher.ts`：
+      - 文档发布从纯文本升级为模板化 Markdown（摘要区、章节区、图表规划区、风险待办区）；
+      - `chartSuggestions` 同步映射到文档表格和 slides 大纲。
+  - 文档与配置：
+    - `env.example`：默认恢复 `LARK_CLI_DEFAULT_AS=bot`，补齐双层身份配置项。
+    - `README.md`：更新 IM 输出行为、新增授权增强接口说明与 IM 回归检查清单。
+- **验证**：`npm run check` 通过。
+
 ### lark-cli 文档创建改为“个人目录优先 + 可回退”
 
 - **原因**：`LARK_CLI_ENABLED=auto` 且命中文档创建时，若未配置 `LARK_CLI_FOLDER_TOKEN/FEISHU_TARGET_FOLDER_TOKEN` 会抛 `VALIDATION` 并中断链路，不符合“用户身份直连个人目录”的预期。
