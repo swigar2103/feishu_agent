@@ -112,6 +112,15 @@ const EnvSchema = z.object({
    * 与开放平台事件配置页一致时填上（也可不配，服务端不校验 token）。
    */
   FEISHU_VERIFICATION_TOKEN: z.string().optional(),
+
+  /** B 真飞书资源池：mock = 仅本地 JSON；real = 文档从云盘文件夹同步进池 */
+  FEISHU_RESOURCE_POOL_SOURCE: z.enum(["mock", "real"]).default("mock"),
+  /** 云盘文件夹 token（浏览器 /drive/folder/<TOKEN>）；FEISHU_RESOURCE_POOL_SOURCE=real 时必填 */
+  FEISHU_RESOURCE_FOLDER_TOKEN: z.string().default(""),
+  /** 单次最多把多少篇 docx 纳入资源池（上限 100） */
+  FEISHU_RESOURCE_MAX_DOCX: z.coerce.number().int().positive().max(100).default(20),
+  /** 真飞书资源池：自根文件夹向下最多遍历几层子文件夹（防过深目录） */
+  FEISHU_RESOURCE_MAX_FOLDER_DEPTH: z.coerce.number().int().positive().max(64).default(16),
 });
 
 export const env = EnvSchema.parse(process.env);

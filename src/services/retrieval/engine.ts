@@ -1,13 +1,34 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { RetrievalContext, Skill, UserRequest } from "../../schemas/index.js";
-import { SkillSchema } from "../../schemas/index.js";
+import {
+  SkillSchema,
+  RetrievalContextSchema,
+  type RetrievalContext,
+  type Skill,
+  type TaskPlan,
+  type UserRequest,
+} from "../../schemas/index.js";
+import { env } from "../../config/env.js";
+import {
+  TemplateDistillationSchema,
+} from "../../schemas/templateProfile.js";
+import { distillTemplateProfilesFromPack } from "../../llm/templateDistiller.js";
+import { taskContextPackToProjectSlices } from "../../resource_pool/context_bridge.js";
+import type { ResourceDataAdapter } from "../../resource_pool/feishu/adapterTypes.js";
+import { FeishuBackedResourceDataAdapter } from "../../resource_pool/feishu/feishuBackedAdapter.js";
+import { MockResourceDataAdapter } from "../../resource_pool/feishu/mockResourceAdapter.js";
+import { buildHybridResourcePoolFromFeishuFolder } from "../../resource_pool/feishuHybridPool.js";
+import { hydrateTaskContext } from "../../resource_pool/hydrator.js";
+import { ResourcePoolManager } from "../../resource_pool/manager.js";
+import { runResourceScreening } from "../../resource_pool/screening.js";
 import { parseJsonFromMd, parseSkillDocFromMd, type SkillDoc } from "./mdParser.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 
 export class RetrievalEngine {
   private referenceSkillDocs: SkillDoc[];
   private anchorSkillDocs: SkillDoc[];
+  private resourcePool = ResourcePoolManager.fromMockFiles();
+  private readonly mockFeishuData = new MockResourceDataAdapter();
   private memories: Record<string, RetrievalContext["userMemory"]>;
   private readonly referenceSkillsRoot = path.resolve(process.cwd(), "src", "skills");
   private readonly anchorSkillsRoot = path.resolve(process.cwd(), "SKILLS");
@@ -86,8 +107,20 @@ export class RetrievalEngine {
   private pickBestSkillDocFrom(
     docs: SkillDoc[],
     request: UserRequest,
+    taskIntent?: string | null,
   ): SkillDoc | null {
     if (docs.length === 0) return null;
+
+    const intent = (taskIntent ?? "").toLowerCase();
+    if (intent.includes("weekly")) {
+      const weekly = docs.find(
+        (doc) =>
+          doc.skill.skillId.toLowerCase().includes("weekly") ||
+          doc.skill.reportType.includes("周报") ||
+          doc.skill.name.includes("周报"),
+      );
+      if (weekly) return weekly;
+    }
 
     const reportType = (request.reportType ?? "").toLowerCase().trim();
     const industry = (request.industry ?? "").toLowerCase().trim();
@@ -113,19 +146,27 @@ export class RetrievalEngine {
     return docs[0] ?? null;
   }
 
-  private pickBestSkillDoc(request: UserRequest): {
+  private pickBestSkillDoc(
+    request: UserRequest,
+    taskIntent?: string | null,
+  ): {
     doc: SkillDoc | null;
     source: "reference" | "anchor" | "none";
   } {
     const referenceMatched = this.pickBestSkillDocFrom(
       this.referenceSkillDocs,
       request,
+      taskIntent,
     );
     if (referenceMatched) {
       return { doc: referenceMatched, source: "reference" };
     }
 
-    const anchorMatched = this.pickBestSkillDocFrom(this.anchorSkillDocs, request);
+    const anchorMatched = this.pickBestSkillDocFrom(
+      this.anchorSkillDocs,
+      request,
+      taskIntent,
+    );
     if (anchorMatched) {
       return { doc: anchorMatched, source: "anchor" };
     }
@@ -161,8 +202,17 @@ export class RetrievalEngine {
     }));
   }
 
-  async getContextForReport(request: UserRequest): Promise<RetrievalContext> {
-    const matched = this.pickBestSkillDoc(request);
+  /** LangGraph 完成记忆/反馈后可将 B4 `applyResourceUsage` 的产物挂回检索引擎实例 */
+  replaceResourcePoolManager(nextPool: ResourcePoolManager): void {
+    this.resourcePool = nextPool;
+  }
+
+  async getContextForReport(
+    request: UserRequest,
+    taskPlan?: TaskPlan | null,
+    opts?: { taskIntent?: string | null },
+  ): Promise<RetrievalContext> {
+    const matched = this.pickBestSkillDoc(request, opts?.taskIntent ?? null);
     const matchedSkillDoc = matched.doc;
     const matchedSkill = matchedSkillDoc?.skill ?? this.buildFallbackSkill(request);
 
@@ -174,6 +224,64 @@ export class RetrievalEngine {
       styleNotes: [],
     };
 
+    let poolMgr: ResourcePoolManager = this.resourcePool;
+    let adapter: ResourceDataAdapter = this.mockFeishuData;
+
+    if (
+      env.FEISHU_RESOURCE_POOL_SOURCE === "real" &&
+      env.FEISHU_RESOURCE_FOLDER_TOKEN.trim().length > 0 &&
+      env.FEISHU_APP_ID.trim().length > 0 &&
+      env.FEISHU_APP_SECRET.trim().length > 0
+    ) {
+      try {
+        poolMgr = await buildHybridResourcePoolFromFeishuFolder({
+          folderToken: env.FEISHU_RESOURCE_FOLDER_TOKEN.trim(),
+          maxDocx: env.FEISHU_RESOURCE_MAX_DOCX,
+        });
+        adapter = new FeishuBackedResourceDataAdapter();
+      } catch (error) {
+        console.warn("[RetrievalEngine] 真飞书资源池不可用，回退本地 mock。", error);
+      }
+    }
+
+    const screening = await runResourceScreening({
+      manager: poolMgr,
+      userRequest: request,
+      taskPlan: taskPlan ?? null,
+    });
+
+    const ts = screening.trace.threeStageDocs;
+    const threeStageStr = ts
+      ? `afterFolderPath=${ts.afterFolderPath};afterFileTitle=${ts.afterFileTitle};afterContentSummary=${ts.afterContentSummary}`
+      : "skipped(no_docs_or_trace)";
+    const docPickLines = screening.candidates
+      .filter((c) => c.kind === "document")
+      .map((c) => {
+        const d = poolMgr.documentById(c.id);
+        const pathSeg = d ? (d.folderPathSegments ?? []).join("/") : "";
+        const title = d?.title ?? c.id;
+        return `id=${c.id}|path=${pathSeg}|title=${title}|score=${c.coarseScore.toFixed(4)}`;
+      });
+    const kwPreview = screening.trace.keywordSignals.slice(0, 10).join("|");
+
+    const pack = await hydrateTaskContext({
+      manager: poolMgr,
+      screening,
+      adapter,
+      taskPlan: taskPlan ?? null,
+      attachSampleImThreadId: null,
+    });
+
+    const profilesByResourceId = await distillTemplateProfilesFromPack(pack.documents);
+    const templateDistillation =
+      Object.keys(profilesByResourceId).length > 0
+        ? TemplateDistillationSchema.parse({ profilesByResourceId })
+        : undefined;
+
+    const poolSlices = taskContextPackToProjectSlices(
+      pack,
+      templateDistillation ? profilesByResourceId : undefined,
+    );
     const retrievedContext = await this.fetchGatewayContext(request.prompt);
     const personalKnowledgeContext = request.personalKnowledge.map((content, idx) => ({
       sourceId: `pk_${idx + 1}`,
@@ -201,6 +309,7 @@ export class RetrievalEngine {
       content: "外部检索占位：待接入搜索/行业数据库后补充外部证据。",
     };
     const projectContext = [
+      ...poolSlices,
       ...retrievedContext,
       ...personalKnowledgeContext,
       ...historyDocsContext,
@@ -212,7 +321,7 @@ export class RetrievalEngine {
       (line) => `SKILL_GUIDE: ${line}`,
     );
 
-    return {
+    return RetrievalContextSchema.parse({
       matchedSkill,
       userMemory: {
         preferredTone: userMemory.preferredTone,
@@ -222,6 +331,7 @@ export class RetrievalEngine {
       },
       projectContext,
       glossary: matchedSkill.terminology,
+      templateDistillation,
       styleHints: [
         `SKILL_SOURCE: ${matchedSkillDoc?.sourcePath ?? "fallback"}`,
         `SKILL_SOURCE_TYPE: ${matched.source}`,
@@ -240,7 +350,14 @@ export class RetrievalEngine {
           : []),
         ...(matchedSkill.styleRules || []),
         ...(userMemory.styleNotes || []),
+        `B2_THREE_STAGE(${threeStageStr})`,
+        docPickLines.length > 0
+          ? `B2_SELECTED_DOCS: ${docPickLines.join(" :: ")}`
+          : "B2_SELECTED_DOCS: (none)",
+        `B2_SCREENING(llm_fallback=${screening.llmFallbackUsed};signals_preview=${kwPreview || "(empty)"};signal_count=${screening.trace.keywordSignals.length})`,
+        `B3_POOL(slices=${poolSlices.length};docs=${pack.documents.length};contacts=${pack.contacts.length};projects=${pack.projects.length};personas=${pack.personas.length})`,
+        `RESOURCE_POOL(source=${env.FEISHU_RESOURCE_POOL_SOURCE};pool_docs=${poolMgr.getPool().documents.length})`,
       ],
-    };
+    });
   }
 }

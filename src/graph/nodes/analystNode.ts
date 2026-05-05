@@ -10,7 +10,7 @@ export async function analystNode(
 
   const taskPlan = await generateTaskPlan(state.userRequest, state.retrievalContext);
   const followUpQuestions = taskPlan.missingFields.map(
-    (field) => `请补充字段：${field}（可通过 IM 联系人收集）`,
+    (field) => `待补充信息：${field}`,
   );
 
   return {
