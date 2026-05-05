@@ -1,5 +1,9 @@
 import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
-import { listAllDocumentBlocks, replaceBlockWithPlainText } from "../../integrations/feishu/docxBlocks.js";
+import {
+  createTextChildrenBlocks,
+  listAllDocumentBlocks,
+  replaceBlockWithPlainText,
+} from "../../integrations/feishu/docxBlocks.js";
 import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { getTenantAccessToken } from "../../integrations/feishu/token.js";
 import { parseJsonFromMd } from "../retrieval/mdParser.js";
@@ -12,6 +16,7 @@ import type {
   GatewayComment,
   GatewayDocument,
   GatewayMessage,
+  GatewayRequestContext,
   GatewaySlide,
   GatewayUser,
   GatewayWhiteboard,
@@ -57,7 +62,7 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     return users;
   }
 
-  async searchDocuments(query: string): Promise<GatewayDocument[]> {
+  async searchDocuments(query: string, _context?: GatewayRequestContext): Promise<GatewayDocument[]> {
     const text = query.toLowerCase();
     const fromPool = this.poolStore
       .loadAll()
@@ -91,7 +96,7 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       }));
   }
 
-  async listDocuments(query?: string): Promise<GatewayDocument[]> {
+  async listDocuments(query?: string, _context?: GatewayRequestContext): Promise<GatewayDocument[]> {
     const docs = this.poolStore
       .loadAll()
       .filter((item) => item.resourceType === "doc_summary" || item.resourceType === "project_memory")
@@ -109,7 +114,7 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     );
   }
 
-  async viewDocument(documentId: string): Promise<GatewayDocument | null> {
+  async viewDocument(documentId: string, _context?: GatewayRequestContext): Promise<GatewayDocument | null> {
     const poolHit = this.poolStore.loadAll().find((item) => item.resourceId === documentId);
     if (poolHit) {
       return {
@@ -133,12 +138,12 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     };
   }
 
-  async getFileContent(fileToken: string): Promise<string> {
-    const doc = await this.viewDocument(fileToken);
+  async getFileContent(fileToken: string, context?: GatewayRequestContext): Promise<string> {
+    const doc = await this.viewDocument(fileToken, context);
     return doc?.content ?? "";
   }
 
-  async createDocument(input: CreateDocumentInput): Promise<GatewayDocument> {
+  async createDocument(input: CreateDocumentInput, _context?: GatewayRequestContext): Promise<GatewayDocument> {
     const c = getFeishuMvpConfig();
     if (!c.appId || !c.appSecret) {
       const id = `openapi_doc_${Date.now()}`;
@@ -190,29 +195,40 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     };
   }
 
-  async updateDocument(input: UpdateDocumentInput): Promise<boolean> {
+  async updateDocument(input: UpdateDocumentInput, _context?: GatewayRequestContext): Promise<boolean> {
     const c = getFeishuMvpConfig();
     if (!c.appId || !c.appSecret) return false;
     const blocks = await listAllDocumentBlocks(c, input.documentId);
+    const pageBlock = blocks.find((item) => item.block_type === 1);
     const textOrHeading = blocks.find(
       (item) =>
         item.block_type === 2 ||
         (typeof item.block_type === "number" && item.block_type >= 3 && item.block_type <= 11),
     );
-    if (!textOrHeading?.block_id) return false;
-    await replaceBlockWithPlainText(c, input.documentId, textOrHeading.block_id, input.content);
+    if (textOrHeading?.block_id) {
+      await replaceBlockWithPlainText(c, input.documentId, textOrHeading.block_id, input.content);
+      return true;
+    }
+    if (!pageBlock?.block_id) return false;
+
+    const lines = input.content
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    await createTextChildrenBlocks(c, input.documentId, pageBlock.block_id, lines);
     return true;
   }
 
-  async getComments(_documentId: string): Promise<GatewayComment[]> {
+  async getComments(_documentId: string, _context?: GatewayRequestContext): Promise<GatewayComment[]> {
     return [];
   }
 
-  async addComment(_input: AddCommentInput): Promise<boolean> {
+  async addComment(_input: AddCommentInput, _context?: GatewayRequestContext): Promise<boolean> {
     return false;
   }
 
-  async searchUsers(query: string): Promise<GatewayUser[]> {
+  async searchUsers(query: string, _context?: GatewayRequestContext): Promise<GatewayUser[]> {
     const text = query.toLowerCase();
     return this.getUsersFromAssets()
       .filter((user) => user.name.toLowerCase().includes(text) || (user.role ?? "").toLowerCase().includes(text))
@@ -226,7 +242,7 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       }));
   }
 
-  async getUserInfo(userId: string): Promise<GatewayUser | null> {
+  async getUserInfo(userId: string, _context?: GatewayRequestContext): Promise<GatewayUser | null> {
     const user = this.getUsersFromAssets().find((item) => item.id === userId);
     if (!user) return null;
     return {

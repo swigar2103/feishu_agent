@@ -2,6 +2,7 @@ import { DetailedContextSchema, type CandidateResourceList, type DetailedContext
 import type { UserRequest } from "../../schemas/index.js";
 import { parseJsonFromMd } from "./mdParser.js";
 import { toolGateway } from "../toolGateway/gateway.js";
+import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
 
 type RawAsset = {
   sourceId: string;
@@ -58,6 +59,10 @@ export async function deepRetrieveContext(input: {
   plan: ExecutionPlan;
   screened: CandidateResourceList;
 }): Promise<DetailedContext> {
+  const context =
+    input.request.userId && hasValidUserOAuth(input.request.userId)
+      ? { userId: input.request.userId, preferUserScope: true as const }
+      : undefined;
   const assets = parseJsonFromMd<RawAsset[]>("src/data/assets.md");
   const screenedSet = new Set(input.screened.candidates.map((r) => r.resourceId));
   // 深读边界：仅允许读取 screening 已入选资源，避免绕过分层无限扩搜
@@ -80,7 +85,7 @@ export async function deepRetrieveContext(input: {
     const rawId = doc.resourceId.startsWith("ext_doc_")
       ? doc.resourceId.replace("ext_doc_", "")
       : doc.resourceId;
-    const viewed = await toolGateway.viewDocument(rawId);
+    const viewed = await toolGateway.viewDocument(rawId, context);
     if (viewed?.content) {
       externalFacts.push(toFact(doc.resourceId, viewed.content.slice(0, 500)));
       externalDetails.push({
@@ -88,7 +93,7 @@ export async function deepRetrieveContext(input: {
         detail: viewed.content,
       });
     } else {
-      const content = await toolGateway.getFileContent(rawId);
+      const content = await toolGateway.getFileContent(rawId, context);
       if (content) {
         externalFacts.push(toFact(doc.resourceId, content.slice(0, 500)));
         externalDetails.push({
@@ -98,7 +103,7 @@ export async function deepRetrieveContext(input: {
       }
     }
 
-    const comments = await toolGateway.getComments(rawId);
+    const comments = await toolGateway.getComments(rawId, context);
     for (const comment of comments.slice(0, 3)) {
       externalFacts.push(
         toFact(doc.resourceId, `评论(${comment.author ?? "匿名"}): ${comment.content}`),

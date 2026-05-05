@@ -11,6 +11,7 @@ export function buildWriterSystemPrompt(): string {
     "你是 Writer Agent。",
     "请根据计划、分析结果和 skill 约束生成结构化初稿。",
     "仅输出 JSON。",
+    "禁止输出空 title/summary；sections 每一项必须包含非空 heading/content。",
     "sections 数组长度必须与 plan.targetSections 一致；每节 heading 建议与 targetSections 顺序一一对应。",
     "各节 content 需为完整段落叙述，禁止使用「请围绕××补充」式编辑提示语占位。",
   ].join("\n");
@@ -37,6 +38,9 @@ export function buildWriterUserPrompt(input: {
     input.skillMatch.larkCliGuidance?.enabled
       ? "【lark-cli 规范增强】请优先遵循 larkCliGuidance.templateHints 与 qualityChecks 约束输出。"
       : "",
+    input.skillMatch.larkCliGuidance?.hardRules?.length
+      ? "【强制规则】必须满足 larkCliGuidance.hardRules，不得省略。"
+      : "",
     input.skillMatch.workflowMeta
       ? "【官方 workflow 命中】请优先满足 workflowMeta.reviewRules，输出目标参考 workflowMeta.outputTargets。"
       : "",
@@ -45,6 +49,8 @@ export function buildWriterUserPrompt(input: {
     `analysis=${JSON.stringify(input.analysis)}`,
     `skillMatch=${JSON.stringify(input.skillMatch)}`,
     `larkCliGuidance=${JSON.stringify(input.skillMatch.larkCliGuidance ?? null)}`,
+    `larkCliHardRules=${JSON.stringify(input.skillMatch.larkCliGuidance?.hardRules ?? [])}`,
+    `larkCliStyleHints=${JSON.stringify(input.skillMatch.larkCliGuidance?.styleHints ?? [])}`,
     `workflowMeta=${JSON.stringify(input.skillMatch.workflowMeta ?? null)}`,
     `rewriteHints=${JSON.stringify(input.rewriteHints ?? [])}`,
   ].join("\n");

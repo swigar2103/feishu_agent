@@ -11,6 +11,7 @@ import type {
   GatewayComment,
   GatewayDocument,
   GatewayMessage,
+  GatewayRequestContext,
   GatewaySlide,
   GatewayUser,
   GatewayWhiteboard,
@@ -98,7 +99,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     return text || null;
   }
 
-  async searchDocuments(query: string): Promise<GatewayDocument[]> {
+  async searchDocuments(query: string, _context?: GatewayRequestContext): Promise<GatewayDocument[]> {
     const data = await this.callTool("search-docs", { query });
     const parsed =
       parseMcpPayload<{ docs?: Array<{ id?: string; title?: string; summary?: string; url?: string }> }>(
@@ -113,7 +114,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     }));
   }
 
-  async listDocuments(query?: string): Promise<GatewayDocument[]> {
+  async listDocuments(query?: string, _context?: GatewayRequestContext): Promise<GatewayDocument[]> {
     const data = await this.callTool("list-docs", { query: query ?? "" });
     const parsed =
       parseMcpPayload<{ docs?: Array<{ id?: string; title?: string; summary?: string; url?: string }> }>(
@@ -128,7 +129,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     }));
   }
 
-  async viewDocument(documentId: string): Promise<GatewayDocument | null> {
+  async viewDocument(documentId: string, _context?: GatewayRequestContext): Promise<GatewayDocument | null> {
     const data = await this.callTool("fetch-doc", { document_id: documentId });
     const parsed = parseMcpPayload<{ id?: string; title?: string; content?: string; url?: string }>(data);
     if (!parsed) return null;
@@ -142,13 +143,13 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     };
   }
 
-  async getFileContent(fileToken: string): Promise<string> {
+  async getFileContent(fileToken: string, _context?: GatewayRequestContext): Promise<string> {
     const data = await this.callTool("get-file-content", { file_token: fileToken });
     const parsed = parseMcpPayload<{ content?: string }>(data);
     return parsed?.content ?? (typeof data === "string" ? data : "");
   }
 
-  async createDocument(input: CreateDocumentInput): Promise<GatewayDocument> {
+  async createDocument(input: CreateDocumentInput, _context?: GatewayRequestContext): Promise<GatewayDocument> {
     const data = await this.callTool("create-doc", {
       title: input.title,
       content: input.content ?? "",
@@ -164,7 +165,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     };
   }
 
-  async updateDocument(input: UpdateDocumentInput): Promise<boolean> {
+  async updateDocument(input: UpdateDocumentInput, _context?: GatewayRequestContext): Promise<boolean> {
     await this.callTool("update-doc", {
       document_id: input.documentId,
       content: input.content,
@@ -172,7 +173,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     return true;
   }
 
-  async getComments(documentId: string): Promise<GatewayComment[]> {
+  async getComments(documentId: string, _context?: GatewayRequestContext): Promise<GatewayComment[]> {
     const data = await this.callTool("get-comments", { document_id: documentId });
     const parsed =
       parseMcpPayload<{ comments?: Array<{ id?: string; author?: string; content?: string; created_at?: string }> }>(
@@ -187,7 +188,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     }));
   }
 
-  async addComment(input: AddCommentInput): Promise<boolean> {
+  async addComment(input: AddCommentInput, _context?: GatewayRequestContext): Promise<boolean> {
     try {
       await this.callTool("add-comment", {
         document_id: input.documentId,
@@ -202,7 +203,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     }
   }
 
-  async searchUsers(query: string): Promise<GatewayUser[]> {
+  async searchUsers(query: string, _context?: GatewayRequestContext): Promise<GatewayUser[]> {
     const data = await this.callTool("search-users", { query });
     const parsed =
       parseMcpPayload<{ users?: Array<{ id?: string; name?: string; department?: string; role?: string }> }>(
@@ -217,7 +218,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     }));
   }
 
-  async getUserInfo(userId: string): Promise<GatewayUser | null> {
+  async getUserInfo(userId: string, _context?: GatewayRequestContext): Promise<GatewayUser | null> {
     const data = await this.callTool("get-user-info", { user_id: userId });
     const parsed = parseMcpPayload<{ id?: string; name?: string; department?: string; role?: string }>(data);
     if (!parsed) return null;

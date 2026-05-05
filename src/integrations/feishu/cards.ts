@@ -32,35 +32,7 @@ export function buildFallbackGeneratedDocCard(input: {
       elements: [
         {
           tag: "markdown",
-          content: `**${input.title}**\n\n文档已生成，可点击查看。`,
-        },
-        {
-          tag: "action",
-          actions: [
-            {
-              tag: "button",
-              text: {
-                tag: "plain_text",
-                content: "查看文档",
-              },
-              type: "primary",
-              multi_url: {
-                url: input.docUrl,
-              },
-            },
-            {
-              tag: "button",
-              text: {
-                tag: "plain_text",
-                content: "标记已处理",
-              },
-              type: "default",
-              value: {
-                action: "mark_done",
-                session_id: input.sessionId,
-              },
-            },
-          ],
+          content: `**${input.title}**\n\n文档已生成，可点击查看：\n[查看文档](${input.docUrl})\n\n会话：\`${input.sessionId}\``,
         },
       ],
     },
@@ -138,7 +110,7 @@ export function buildPipelineResultCard(input: {
       : "- 暂无可用成果链接";
   const summaryLines =
     input.summary.length > 0 ? input.summary.map((item) => `- ${item}`).join("\n") : "- 无";
-  const primaryUrl = input.links[0]?.url ?? "";
+  const primaryLine = input.links[0]?.url ? `主成果：${input.links[0].url}` : "主成果：暂无";
 
   return {
     schema: "2.0",
@@ -159,31 +131,8 @@ export function buildPipelineResultCard(input: {
           content: `### 结构化摘要\n${summaryLines}`,
         },
         {
-          tag: "action",
-          actions: [
-            ...(primaryUrl
-              ? [
-                  {
-                    tag: "button",
-                    text: { tag: "plain_text", content: "打开主成果" },
-                    type: "primary",
-                    multi_url: { url: primaryUrl },
-                  },
-                ]
-              : []),
-            {
-              tag: "button",
-              text: { tag: "plain_text", content: "继续生成" },
-              type: "default",
-              value: { action: "continue_generate", session_id: input.sessionId },
-            },
-            {
-              tag: "button",
-              text: { tag: "plain_text", content: "补充信息" },
-              type: "default",
-              value: { action: "need_more_info", session_id: input.sessionId },
-            },
-          ],
+          tag: "markdown",
+          content: `### 快速入口\n- ${primaryLine}\n- 会话ID：\`${input.sessionId}\``,
         },
       ],
     },

@@ -74,6 +74,8 @@ export const LarkCliGuidanceSchema = z.object({
   sourceRoot: z.string().default(""),
   supportedDocsCommands: z.array(z.string()).default([]),
   commandPatterns: z.array(z.string()).default([]),
+  hardRules: z.array(z.string()).default([]),
+  styleHints: z.array(z.string()).default([]),
   templateHints: z.array(z.string()).default([]),
   qualityChecks: z.array(z.string()).default([]),
 });
@@ -180,7 +182,7 @@ export const FinalDeliverableSchema = z.object({
         type: z.enum(["feishu_doc", "bitable", "slides"]),
         id: z.string().min(1),
         url: z.string().min(1),
-        status: z.enum(["mock_published"]),
+        status: z.enum(["published", "fallback", "mock_published"]),
       }),
     )
     .default([]),

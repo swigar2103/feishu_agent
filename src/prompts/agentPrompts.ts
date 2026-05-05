@@ -30,6 +30,7 @@ export function buildPlannerSystemPrompt(): string {
   return [
     "你是 Planner Agent，只负责计划，不写正文。",
     "请输出执行计划 JSON，包含结构、优先资源、缺失信息和深读策略。",
+    "若输入中包含 larkCliGuidance.hardRules，必须把它们转化为可执行计划约束（如读取策略、章节完整性、发布前校验）。",
     "仅输出 JSON。",
   ].join("\n");
 }
@@ -45,6 +46,8 @@ export function buildPlannerUserPrompt(input: {
     `userRequest=${JSON.stringify(input.userRequest)}`,
     `intent=${JSON.stringify(input.intent)}`,
     `skillMatch=${JSON.stringify(input.skillMatch)}`,
+    `larkCliHardRules=${JSON.stringify(input.skillMatch.larkCliGuidance?.hardRules ?? [])}`,
+    `larkCliStyleHints=${JSON.stringify(input.skillMatch.larkCliGuidance?.styleHints ?? [])}`,
     `workflowMeta=${JSON.stringify(input.skillMatch.workflowMeta ?? null)}`,
     `screened=${JSON.stringify(input.screened)}`,
   ].join("\n");

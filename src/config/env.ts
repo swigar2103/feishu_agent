@@ -48,6 +48,8 @@ const EnvSchema = z.object({
   ),
   /** Tool Gateway: 是否启用 lark-cli（auto 按能力与可用性探测） */
   LARK_CLI_ENABLED: z.enum(["auto", "true", "false"]).default("auto"),
+  /** 模板层是否强制要求 lark-cli guidance 注入（true 时缺失即失败） */
+  LARK_CLI_GUIDANCE_REQUIRED: z.coerce.boolean().default(true),
   /** lark-cli 可执行文件名或绝对路径 */
   LARK_CLI_BIN: z.string().default("lark-cli"),
   /** Tool Gateway: lark-cli profile（可选） */
@@ -72,6 +74,8 @@ const EnvSchema = z.object({
     .default("outline_only"),
   /** 文档发布策略：gateway_only 保持原路由；lark_cli_first 优先尝试 lark-cli */
   FEISHU_DOC_PUBLISH_STRATEGY: z.enum(["gateway_only", "lark_cli_first"]).default("gateway_only"),
+  /** 文档发布能力是否要求 lark-cli 优先参与（创建/更新） */
+  FEISHU_DOC_LARK_CLI_HARD_PREFER: z.coerce.boolean().default(true),
   /** Resource Screening: 本地候选低于该数量时触发外部补检索 */
   RESOURCE_SCREENING_MIN_CANDIDATE_COUNT: z.coerce.number().int().positive().default(3),
   /** Resource Screening: topN 候选平均分低于该阈值时触发外部补检索 */

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { env } from "../../config/env.js";
 import { SkillSchema, type Skill } from "../../schemas/index.js";
 import { SkillMatchSchema, type IntentResult, type SkillMatch } from "../../schemas/agentContracts.js";
 import { parseSkillDocFromMd, type SkillDoc } from "../retrieval/mdParser.js";
@@ -92,7 +93,14 @@ function enrichSkillWithGuidance(skill: Skill): Skill {
   if (!guidance.enabled) return skill;
   return SkillSchema.parse({
     ...skill,
-    styleRules: Array.from(new Set([...skill.styleRules, ...guidance.templateHints])),
+    styleRules: Array.from(
+      new Set([
+        ...skill.styleRules,
+        ...guidance.styleHints,
+        ...guidance.templateHints,
+        ...guidance.hardRules.map((rule) => `【硬约束】${rule}`),
+      ]),
+    ),
   });
 }
 
@@ -100,6 +108,11 @@ export function routeSkill(intent: IntentResult): SkillMatch {
   const referenceDocs = loadSkillDocs(path.resolve(process.cwd(), "src", "skills"));
   const anchorDocs = loadSkillDocs(path.resolve(process.cwd(), "SKILLS"));
   const larkCliGuidance = loadLarkCliGuidance();
+  if (env.LARK_CLI_GUIDANCE_REQUIRED && !larkCliGuidance.enabled) {
+    throw new Error(
+      "模板层要求 lark-cli guidance，但当前未加载到 cli-main/docs 规范，请检查 cli-main 测试样例与配置。",
+    );
+  }
   const workflowMatched = matchWorkflowSkill(intent);
   if (workflowMatched.entry) {
     const workflowSkill = enrichSkillWithGuidance(

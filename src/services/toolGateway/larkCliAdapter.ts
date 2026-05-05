@@ -11,6 +11,7 @@ import type {
   GatewaySlide,
   GatewayUser,
   GatewayWhiteboard,
+  GatewayRequestContext,
   ListMessagesInput,
   SendMessageInput,
   UpdateDocumentInput,
@@ -68,13 +69,14 @@ function classifyCliFailure(stderr: string, exitCode: number): ToolGatewayError 
 
 export class LarkCliAdapter implements FeishuToolGatewayApi {
   private capabilitiesPromise: Promise<LarkCliCapabilities> | null = null;
+  private runtimeReadyPromise: Promise<boolean> | null = null;
 
   isEnabled(): boolean {
     return env.LARK_CLI_ENABLED !== "false";
   }
 
-  private withDefaultAs(args: string[]): string[] {
-    return ["--as", env.LARK_CLI_DEFAULT_AS, ...args];
+  private withIdentity(args: string[], identityAs?: "bot" | "user"): string[] {
+    return ["--as", identityAs ?? env.LARK_CLI_DEFAULT_AS, ...args];
   }
 
   private splitCommand(command: string): string[] {
@@ -105,8 +107,8 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     return out;
   }
 
-  private async runCli(args: string[]): Promise<unknown> {
-    const result = await execLarkCli(this.withDefaultAs([...args, "--format", "json"]));
+  private async runCli(args: string[], identityAs?: "bot" | "user"): Promise<unknown> {
+    const result = await execLarkCli(this.withIdentity([...args, "--format", "json"], identityAs));
     if (result.exitCode !== 0) {
       throw classifyCliFailure(result.stderr, result.exitCode);
     }
@@ -123,10 +125,24 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     return parseCliJson(result.stdout);
   }
 
+  private async runtimeReady(): Promise<boolean> {
+    if (!this.runtimeReadyPromise) {
+      this.runtimeReadyPromise = execLarkCli(["--version"], 10_000)
+        .then((res) => res.exitCode === 0)
+        .catch(() => false);
+    }
+    return this.runtimeReadyPromise;
+  }
+
+  private inferIdentityFromContext(context?: GatewayRequestContext): "bot" | "user" | undefined {
+    if (context?.preferUserScope) return "user";
+    return undefined;
+  }
+
   private async probeCommand(commandTemplate: string): Promise<boolean> {
     if (!commandTemplate.trim()) return false;
     const helpArgs = this.splitCommand(commandTemplate);
-    const result = await execLarkCli(this.withDefaultAs([...helpArgs, "--help"]), 20_000).catch(
+    const result = await execLarkCli(this.withIdentity([...helpArgs, "--help"]), 20_000).catch(
       () => null,
     );
     return Boolean(result && result.exitCode === 0);
@@ -134,6 +150,9 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
 
   private async probeCapabilities(): Promise<LarkCliCapabilities> {
     if (!this.isEnabled()) {
+      return { docsSearch: false, contactSearch: false, slidesPublish: false };
+    }
+    if (!(await this.runtimeReady())) {
       return { docsSearch: false, contactSearch: false, slidesPublish: false };
     }
     return {
@@ -151,29 +170,38 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     return caps[name];
   }
 
-  async searchDocuments(query: string): Promise<GatewayDocument[]> {
+  async isRuntimeAvailable(): Promise<boolean> {
+    return this.runtimeReady();
+  }
+
+  async searchDocuments(query: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
     const payload = await this.runCli(
       this.buildArgs(env.LARK_CLI_CMD_DOCS_SEARCH, { query }, [["--query", query]]),
+      this.inferIdentityFromContext(context),
     );
     return parseDocuments(payload);
   }
 
-  async listDocuments(query?: string): Promise<GatewayDocument[]> {
-    return this.searchDocuments(query ?? "");
+  async listDocuments(query?: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
+    return this.searchDocuments(query ?? "", context);
   }
 
-  async viewDocument(documentId: string): Promise<GatewayDocument | null> {
-    const payload = await this.runCli(["docs", "+fetch", "--doc", documentId]);
+  async viewDocument(documentId: string, context?: GatewayRequestContext): Promise<GatewayDocument | null> {
+    const payload = await this.runCli(
+      ["docs", "+fetch", "--doc", documentId],
+      this.inferIdentityFromContext(context),
+    );
     return parseDocuments(payload)[0] ?? null;
   }
 
-  async getFileContent(fileToken: string): Promise<string> {
-    const doc = await this.viewDocument(fileToken);
+  async getFileContent(fileToken: string, context?: GatewayRequestContext): Promise<string> {
+    const doc = await this.viewDocument(fileToken, context);
     return doc?.content ?? "";
   }
 
-  async createDocument(input: CreateDocumentInput): Promise<GatewayDocument> {
+  async createDocument(input: CreateDocumentInput, context?: GatewayRequestContext): Promise<GatewayDocument> {
     const folderToken = env.LARK_CLI_FOLDER_TOKEN || env.FEISHU_TARGET_FOLDER_TOKEN;
+    const identityAs = this.inferIdentityFromContext(context) ?? (input.preferUserScope ? "user" : undefined);
     const args = [
       "docs",
       "+create",
@@ -186,7 +214,7 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     ];
     if (folderToken.trim()) {
       args.push("--parent-token", folderToken);
-    } else if (env.LARK_CLI_DEFAULT_AS === "user") {
+    } else if (identityAs === "user" || env.LARK_CLI_DEFAULT_AS === "user") {
       // user 身份下，允许直接落到个人知识库，避免强制要求手工配置 folder token。
       args.push("--parent-position", "my_library");
     } else {
@@ -195,7 +223,7 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
         "lark-cli(bot) 缺少目标目录：请配置 LARK_CLI_FOLDER_TOKEN/FEISHU_TARGET_FOLDER_TOKEN，或改用 --as user",
       );
     }
-    const payload = await this.runCli(args);
+    const payload = await this.runCli(args, identityAs);
     return (
       parseDocuments(payload)[0] ?? {
         id: `lark_cli_doc_${Date.now()}`,
@@ -207,7 +235,7 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     );
   }
 
-  async updateDocument(input: UpdateDocumentInput): Promise<boolean> {
+  async updateDocument(input: UpdateDocumentInput, context?: GatewayRequestContext): Promise<boolean> {
     await this.runCli([
       "docs",
       "+update",
@@ -217,15 +245,15 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
       "overwrite",
       "--markdown",
       input.content,
-    ]);
+    ], this.inferIdentityFromContext(context));
     return true;
   }
 
-  async getComments(_documentId: string): Promise<GatewayComment[]> {
+  async getComments(_documentId: string, _context?: GatewayRequestContext): Promise<GatewayComment[]> {
     throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装评论查询命令");
   }
 
-  async addComment(input: AddCommentInput): Promise<boolean> {
+  async addComment(input: AddCommentInput, context?: GatewayRequestContext): Promise<boolean> {
     await this.runCli([
       "drive",
       "+add-comment",
@@ -233,25 +261,27 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
       input.documentId,
       "--content",
       input.content,
-    ]);
+    ], this.inferIdentityFromContext(context));
     return true;
   }
 
-  async searchUsers(query: string): Promise<GatewayUser[]> {
+  async searchUsers(query: string, context?: GatewayRequestContext): Promise<GatewayUser[]> {
     const payload = await this.runCli(
       this.buildArgs(env.LARK_CLI_CMD_CONTACT_SEARCH, { query }, [["--query", query]]),
+      this.inferIdentityFromContext(context),
     );
     return parseUsers(payload);
   }
 
-  async getUserInfo(userId: string): Promise<GatewayUser | null> {
+  async getUserInfo(userId: string, context?: GatewayRequestContext): Promise<GatewayUser | null> {
     if (env.LARK_CLI_CMD_CONTACT_GET.trim()) {
       const payload = await this.runCli(
         this.buildArgs(env.LARK_CLI_CMD_CONTACT_GET, { userId }, [["--user-id", userId]]),
+        this.inferIdentityFromContext(context),
       );
       return parseSingleUser(payload);
     }
-    const users = await this.searchUsers(userId);
+    const users = await this.searchUsers(userId, context);
     return users.find((item) => item.id === userId || item.name === userId) ?? users[0] ?? null;
   }
 

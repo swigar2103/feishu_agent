@@ -9,6 +9,7 @@ import { invokeJsonModel } from "../../llm/jsonModel.js";
 import { env } from "../../config/env.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 import { expandMemPalaceTerms } from "./memPalace.js";
+import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
 
 function scoreByRules(prompt: string, resource: ResourceSummary): number {
   const lowerPrompt = prompt.toLowerCase();
@@ -90,10 +91,12 @@ function mapUserToResourceSummary(
   };
 }
 
-async function fetchExternalCandidates(query: string): Promise<ResourceSummary[]> {
+async function fetchExternalCandidates(query: string, userId?: string): Promise<ResourceSummary[]> {
+  const context =
+    userId && hasValidUserOAuth(userId) ? { userId, preferUserScope: true as const } : undefined;
   const [docs, users] = await Promise.all([
-    toolGateway.searchDocuments(query),
-    toolGateway.searchUsers(query),
+    toolGateway.searchDocuments(query, context),
+    toolGateway.searchUsers(query, context),
   ]);
 
   return [
@@ -169,7 +172,7 @@ export async function screenResources(input: {
   const screeningReason = [...reasons, ...llm.reason];
 
   if (needExternalSupplement) {
-    const external = await fetchExternalCandidates(input.request.prompt);
+    const external = await fetchExternalCandidates(input.request.prompt, input.request.userId);
     const existing = new Set(merged.map((item) => item.resourceId));
     const supplements = external.filter((item) => !existing.has(item.resourceId));
     merged = [...merged, ...supplements].slice(0, 8);

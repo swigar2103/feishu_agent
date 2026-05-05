@@ -34,6 +34,11 @@ type BatchUpdateResponse = {
   msg?: string;
 };
 
+type CreateChildrenResponse = {
+  code?: number;
+  msg?: string;
+};
+
 function extractTextFromElements(elements: unknown[] | undefined): string {
   if (!elements?.length) return "";
   const parts: string[] = [];
@@ -146,6 +151,54 @@ export async function replaceBlockWithPlainText(
     throw new Error(
       `飞书 batch_update: ${data.msg ?? res.status} (code=${data.code})`,
     );
+  }
+}
+
+/**
+ * 在指定父块下新增文本段落（用于新文档尚无可编辑正文块时的首写入）。
+ * @see https://open.feishu.cn/document/server-docs/docs/docs/docx-v1/document-block/create_children
+ */
+export async function createTextChildrenBlocks(
+  c: FeishuMvpConfig,
+  documentId: string,
+  parentBlockId: string,
+  lines: string[],
+): Promise<void> {
+  const cleanLines = lines
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (cleanLines.length === 0) return;
+
+  const access = await getTenantAccessToken(c);
+  const url = `${c.baseUrl}/open-apis/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(parentBlockId)}/children`;
+  const body = {
+    index: 0,
+    children: cleanLines.map((line) => ({
+      block_type: 2,
+      text: {
+        elements: [
+          {
+            text_run: {
+              content: line,
+            },
+          },
+        ],
+      },
+    })),
+  };
+
+  const res = await feishuHttpFetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${access}`,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json()) as CreateChildrenResponse;
+  if (!res.ok || data.code !== 0) {
+    logger.error("飞书 create_children 失败", { status: res.status, data, parentBlockId });
+    throw new Error(`飞书 create_children: ${data.msg ?? res.status} (code=${data.code})`);
   }
 }
 

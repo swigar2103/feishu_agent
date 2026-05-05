@@ -165,12 +165,14 @@
 ### 6.4 lark-cli（可选增强）
 
 - `LARK_CLI_ENABLED`：`auto`/`true`/`false`
+- `LARK_CLI_GUIDANCE_REQUIRED`：模板层是否强制注入 lark-cli guidance（`true` 时缺失即失败）
 - `LARK_CLI_BIN`：可执行文件名或绝对路径（默认 `lark-cli`）
 - `LARK_CLI_PROFILE`：可选 profile
 - `LARK_CLI_DEFAULT_AS`：默认身份（推荐 `bot`，作为服务端主流程）
 - `LARK_CLI_TIMEOUT_MS`：单次命令超时（毫秒）
 - `LARK_CLI_FOLDER_TOKEN`：`docs +create` 目标目录；为空时回退 `FEISHU_TARGET_FOLDER_TOKEN`
 - `FEISHU_DOC_PUBLISH_STRATEGY`：`gateway_only`（默认）或 `lark_cli_first`
+- `FEISHU_DOC_LARK_CLI_HARD_PREFER`：文档创建/更新是否要求 lark-cli 优先参与（推荐 `true`）
 - `LARK_CLI_CMD_DOCS_SEARCH`：文档搜索命令模板（支持 `{query}`）
 - `LARK_CLI_CMD_CONTACT_SEARCH`：用户搜索命令模板（支持 `{query}`）
 - `LARK_CLI_CMD_CONTACT_GET`：用户详情命令模板（支持 `{userId}`）
@@ -198,6 +200,16 @@ GET /api/feishu/auth/callback?code=...&state=...
 # 3) 查询授权状态
 GET /api/feishu/auth/status?userId=ou_xxx
 ```
+
+lark-cli 分层策略（当前实现）：
+
+- 模板层（Skill/Prompt guidance）强制使用 lark-cli guidance，不可静默回退。
+- 执行层按能力分流：
+  - 文档创建/更新/发布：lark-cli 优先（可配置 hard-prefer）
+  - 检索类能力（search/list/view）：允许回退 openapi/mcp，保证可用性。
+- user-aware：
+  - 已授权用户优先 user scope（发布可自动落 `my_library`，检索优先按用户上下文）
+  - 未授权用户自动回退 bot/openapi 路径，不阻断主流程。
 
 ### 6.5 Resource Screening 阈值
 
@@ -296,3 +308,101 @@ npm run check
 - 输出发布：`src/services/output/publisher.ts`
 - 飞书路由：`src/api/phase1.ts`
 - 飞书 adapter：`src/integrations/feishu/*`
+
+---
+
+## 12. MCP 服务端接入与完善指南（给后端同学）
+
+本节用于指导“负责 MCP 服务器端”的同学：服务端准备好后，客户端（本仓库）要做哪些配置与改造，才能真正实现“正式文档产物优先、质量可验收”。
+
+### 12.1 服务端最低能力（必须）
+
+请确保 MCP 侧可稳定提供以下工具（名称与 `FEISHU_MCP_ALLOWED_TOOLS` 对齐）：
+
+- `search-docs`
+- `list-docs`
+- `fetch-doc`
+- `get-file-content`
+- `create-doc`
+- `update-doc`
+- `get-comments`
+- `add-comment`
+- `search-users`
+- `get-user-info`
+
+参考官方能力列表：[远程 MCP 支持的工具列表](https://open.feishu.cn/document/mcp_open_tools/supported-tools)。
+
+### 12.2 服务端返回契约（强烈建议统一）
+
+为避免“调用成功但前端看不到内容”这类软失败，建议 MCP 统一返回：
+
+- `create-doc`：至少返回 `id`、`title`、`url`
+- `update-doc`：返回明确成功标记（如 `ok=true`）
+- `fetch-doc`：返回 `id`、`title`、`content`（用于发布后抽样验收）
+
+建议同时保证 `structuredContent` 与 `content.text(JSON)` 两种包装至少有一种可被稳定解析。
+
+### 12.3 本仓库接入配置（服务端就绪后立即做）
+
+在 `.env` 中配置：
+
+- `FEISHU_MCP_URL=<你的 MCP endpoint>`
+- `FEISHU_MCP_ALLOWED_TOOLS=search-docs,fetch-doc,list-docs,get-file-content,create-doc,update-doc,get-comments,add-comment,search-users,get-user-info`
+- `FEISHU_DOC_PUBLISH_STRATEGY=gateway_only`（推荐先稳定）
+- `FEISHU_DOC_LARK_CLI_HARD_PREFER=false`（MCP 主导阶段建议先关闭 CLI 强优先）
+
+说明：
+
+- 若 `FEISHU_MCP_URL` 留空，日志会出现 `skip mcp by config`，不会命中 MCP。
+- 文档发布是否走 MCP，以 `tool-gateway` 日志中的 `adapter` 字段为准。
+
+### 12.4 联调验收顺序（建议按此执行）
+
+1. 启动本项目：`npm run dev`
+2. 发送一次飞书 webhook（或群内 @机器人）
+3. 检查日志必须出现：
+   - `createDocument success ... adapter":"mcp"`
+   - `updateDocument success ... adapter":"mcp"`
+4. 打开产物链接，验证文档正文非空、结构完整（标题/摘要/分节）
+5. 检查 IM：
+   - 优先收到“链接+结构化摘要”卡片/文本
+   - 不应再出现整篇正文刷屏
+
+### 12.5 MCP 接好后，系统建议补完改造（优先级）
+
+P0（建议本周完成）：
+
+- 在 `src/services/output/publisher.ts` 增加“发布后抽样验收”：
+  - `create/update` 后执行一次 `viewDocument/fetch-doc`
+  - 校验正文长度阈值（如 > 50 字）与关键标题存在
+  - 验收失败直接标记 `fallback`，并输出明确告警
+- 在 `src/services/toolGateway/feishuMcpAdapter.ts` 增加更严格的返回校验与错误分类：
+  - 区分参数错误/权限错误/上游临时错误
+  - 对“缺少 id/url/title”直接抛错，禁止假成功
+
+P1（建议下个迭代）：
+
+- 新增 MCP 健康探针接口（例如 `GET /api/phase1/mcp-check`）：
+  - 检查 `FEISHU_MCP_URL` 是否配置
+  - 检查关键工具是否可调用（可做只读探测）
+  - 返回结构化状态，供运维与值班排障
+- 在 `reportImDelivery` 中增加 `artifact source` 展示（mcp/openapi/lark_cli），便于问题归因
+
+P2（质量增强）：
+
+- 给 `create-doc/update-doc/fetch-doc` 增加回归测试（mock MCP 响应）：
+  - 正常结构、字段缺失、错误码、空内容四类用例
+- 在发布链路加埋点：
+  - `adapter`
+  - `publish status`
+  - `empty_doc_detected`
+  - `card_fallback_triggered`
+
+### 12.6 常见故障快速判断
+
+- 日志出现 `skip mcp by config`：
+  - 一定是 `FEISHU_MCP_URL` 未生效（空值或未加载到进程）。
+- `adapter=openapi` 且文档有标题无正文：
+  - MCP 未命中，走了 OpenAPI 兜底；优先修复 MCP 可用性。
+- IM 出现文本降级：
+  - 先看卡片接口错误（schema/字段），不一定是文档发布失败。

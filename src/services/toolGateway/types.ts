@@ -47,9 +47,16 @@ export type GatewayWhiteboard = {
   source?: "mcp" | "lark_cli" | "openapi";
 };
 
+export type GatewayRequestContext = {
+  userId?: string;
+  preferUserScope?: boolean;
+};
+
 export type CreateDocumentInput = {
   title: string;
   content?: string;
+  userId?: string;
+  preferUserScope?: boolean;
 };
 
 export type UpdateDocumentInput = {
@@ -87,16 +94,16 @@ export type ListMessagesInput = {
 };
 
 export interface FeishuToolGatewayApi {
-  searchDocuments(query: string): Promise<GatewayDocument[]>;
-  listDocuments(query?: string): Promise<GatewayDocument[]>;
-  viewDocument(documentId: string): Promise<GatewayDocument | null>;
-  getFileContent(fileToken: string): Promise<string>;
-  createDocument(input: CreateDocumentInput): Promise<GatewayDocument>;
-  updateDocument(input: UpdateDocumentInput): Promise<boolean>;
-  getComments(documentId: string): Promise<GatewayComment[]>;
-  addComment(input: AddCommentInput): Promise<boolean>;
-  searchUsers(query: string): Promise<GatewayUser[]>;
-  getUserInfo(userId: string): Promise<GatewayUser | null>;
+  searchDocuments(query: string, context?: GatewayRequestContext): Promise<GatewayDocument[]>;
+  listDocuments(query?: string, context?: GatewayRequestContext): Promise<GatewayDocument[]>;
+  viewDocument(documentId: string, context?: GatewayRequestContext): Promise<GatewayDocument | null>;
+  getFileContent(fileToken: string, context?: GatewayRequestContext): Promise<string>;
+  createDocument(input: CreateDocumentInput, context?: GatewayRequestContext): Promise<GatewayDocument>;
+  updateDocument(input: UpdateDocumentInput, context?: GatewayRequestContext): Promise<boolean>;
+  getComments(documentId: string, context?: GatewayRequestContext): Promise<GatewayComment[]>;
+  addComment(input: AddCommentInput, context?: GatewayRequestContext): Promise<boolean>;
+  searchUsers(query: string, context?: GatewayRequestContext): Promise<GatewayUser[]>;
+  getUserInfo(userId: string, context?: GatewayRequestContext): Promise<GatewayUser | null>;
   createSlides(input: CreateSlidesInput): Promise<GatewaySlide>;
   queryWhiteboard(token: string): Promise<GatewayWhiteboard | null>;
   updateWhiteboard(input: UpdateWhiteboardInput): Promise<boolean>;

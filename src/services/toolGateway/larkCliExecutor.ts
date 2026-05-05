@@ -11,6 +11,8 @@ export type LarkCliExecResult = {
   args: string[];
 };
 
+let unavailableBin: { bin: string; reason: string } | null = null;
+
 function isCliEnabled(): boolean {
   if (env.LARK_CLI_ENABLED === "false") return false;
   return true;
@@ -22,6 +24,12 @@ export async function execLarkCli(args: string[], timeoutMs?: number): Promise<L
   }
 
   const cliBin = env.LARK_CLI_BIN.trim() || "lark-cli";
+  if (unavailableBin && unavailableBin.bin === cliBin) {
+    throw new ToolGatewayError(
+      "NOT_CONFIGURED",
+      `lark-cli 当前不可执行（已缓存）：${unavailableBin.reason}`,
+    );
+  }
   const normalizedArgs = [...args];
   if (env.LARK_CLI_PROFILE.trim()) {
     normalizedArgs.push("--profile", env.LARK_CLI_PROFILE.trim());
@@ -54,6 +62,7 @@ export async function execLarkCli(args: string[], timeoutMs?: number): Promise<L
 
     child.on("error", (error) => {
       clearTimeout(timer);
+      unavailableBin = { bin: cliBin, reason: error.message };
       reject(
         new ToolGatewayError("NOT_CONFIGURED", `lark-cli 执行失败，请确认已安装并可执行: ${cliBin}`, {
           causeText: error.message,
@@ -71,6 +80,7 @@ export async function execLarkCli(args: string[], timeoutMs?: number): Promise<L
       }
 
       const exitCode = code ?? 1;
+      unavailableBin = null;
       resolve({
         stdout,
         stderr,

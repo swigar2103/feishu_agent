@@ -57,6 +57,23 @@ function formatReportBody(input: Awaited<ReturnType<typeof runReportPipeline>>):
   return [header.join("\n"), main].filter(Boolean).join("\n\n");
 }
 
+function formatResultFallbackText(input: Awaited<ReturnType<typeof runReportPipeline>>): string {
+  const links = extractResultLinks(input.finalDeliverable);
+  const summary = buildStructuredSummary(input);
+  const linkLines =
+    links.length > 0
+      ? links.map((item) => `- ${item.label}: ${item.url}`).join("\n")
+      : "- 暂无可用成果链接";
+  const summaryLines = summary.length > 0 ? summary.map((item) => `- ${item}`).join("\n") : "- 无";
+  return [
+    `报告任务：${input.report.title}`,
+    "成果链接：",
+    linkLines,
+    "结构化摘要：",
+    summaryLines,
+  ].join("\n");
+}
+
 function mapArtifactLabel(type: "feishu_doc" | "bitable" | "slides"): string {
   if (type === "feishu_doc") return "报告文档";
   if (type === "slides") return "演示稿";
@@ -185,7 +202,7 @@ export async function runFullPipelineAndNotifyChat(
       sessionId: userRequest.sessionId,
       chatId: parsed.chatId,
     });
-    const body = formatReportBody(result);
+    const body = formatResultFallbackText(result);
     const chunks = chunkForFeishuIm(body);
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;

@@ -3,12 +3,13 @@ import { env } from "../../config/env.js";
 import { logger } from "../../shared/logger.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
+import type { GatewayDocument } from "../toolGateway/types.js";
 
 export type PublishedArtifact = {
   type: "feishu_doc" | "bitable" | "slides";
   id: string;
   url: string;
-  status: "mock_published";
+  status: "published" | "fallback" | "mock_published";
 };
 
 function normalizeMultilineToBullets(text: string): string {
@@ -24,29 +25,24 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
   const sections = draft.sections
     .map((section) => `## ${section.heading}\n${section.content}`)
     .join("\n\n");
-  const chartBlock =
-    draft.chartSuggestions.length > 0
-      ? [
-          "## 图表规划（模板区块）",
-          "| 图表 | 类型 | 目的 | 数据建议 |",
-          "|---|---|---|---|",
-          ...draft.chartSuggestions.map(
-            (item) => `| ${item.title} | ${item.type} | ${item.purpose} | ${item.dataHint} |`,
-          ),
-        ].join("\n")
-      : "## 图表规划（模板区块）\n- 当前未生成图表建议，可按业务重点追加";
-  const riskTodoBlock = [
-    "## 风险与待办（模板区块）",
-    "- 风险：补充关键数据来源与口径说明",
-    "- 待办：确认最终受众与汇报时间范围",
-  ].join("\n");
+  const chartBlock = draft.chartSuggestions.length > 0
+    ? [
+        "## 图表建议",
+        ...draft.chartSuggestions.map(
+          (item) => `- ${item.title}（${item.type}）：${item.purpose}；数据建议：${item.dataHint}`,
+        ),
+      ].join("\n")
+    : "";
+  const openQuestions = draft.openQuestions.length > 0
+    ? ["## 待确认事项", ...draft.openQuestions.map((item) => `- ${item}`)].join("\n")
+    : "";
   return [
     `# ${draft.title}`,
     "## 摘要",
     normalizeMultilineToBullets(draft.summary || "待补充摘要"),
     sections,
     chartBlock,
-    riskTodoBlock,
+    openQuestions,
   ]
     .filter(Boolean)
     .join("\n\n")
@@ -78,20 +74,52 @@ async function notifyChatIfNeeded(text: string): Promise<void> {
     .catch(() => false);
 }
 
+function summarizeDraftForNotify(draft: Draft): string {
+  const sectionBullets = draft.sections
+    .slice(0, 3)
+    .map((section) => `- ${section.heading}`)
+    .join("\n");
+  return [`摘要：${draft.summary}`, sectionBullets].filter(Boolean).join("\n");
+}
+
+function validatePublishedDoc(doc: GatewayDocument): void {
+  const missing: string[] = [];
+  if (!doc.id?.trim()) missing.push("id");
+  if (!doc.title?.trim()) missing.push("title");
+  if (!doc.url?.trim()) missing.push("url");
+  if (missing.length > 0) {
+    throw new Error(`文档发布验收失败，缺少字段: ${missing.join(",")}`);
+  }
+}
+
 async function publishFeishuDoc(input: {
   draft: Draft;
   sessionId: string;
   index: number;
+  userId?: string;
+  preferUserScope?: boolean;
 }): Promise<PublishedArtifact> {
   const content = renderDraftAsTemplateMarkdown(input.draft);
   const doc = await toolGateway.createDocument({
     title: input.draft.title,
     content,
+    userId: input.userId,
+    preferUserScope: input.preferUserScope,
+  }, {
+    userId: input.userId,
+    preferUserScope: input.preferUserScope,
   });
-  await toolGateway.updateDocument({
+  validatePublishedDoc(doc);
+  const updated = await toolGateway.updateDocument({
     documentId: doc.id,
     content,
+  }, {
+    userId: input.userId,
+    preferUserScope: input.preferUserScope,
   });
+  if (!updated) {
+    throw new Error(`文档内容更新失败: ${doc.id}`);
+  }
 
   if (env.FEISHU_DOC_PUBLISH_STRATEGY === "lark_cli_first") {
     try {
@@ -107,14 +135,19 @@ async function publishFeishuDoc(input: {
   await toolGateway.addComment({
     documentId: doc.id,
     content: "由 Agent 自动生成，可在此处继续批注修改。",
+  }, {
+    userId: input.userId,
+    preferUserScope: input.preferUserScope,
   });
   const url = doc.url ?? `https://mock.feishu.local/feishu_doc/${input.sessionId}/${input.index + 1}`;
-  await notifyChatIfNeeded(`报告文档已生成：${doc.title}\n${url}`);
+  await notifyChatIfNeeded(
+    [`报告文档已生成：${doc.title}`, url, summarizeDraftForNotify(input.draft)].join("\n"),
+  );
   return {
     type: "feishu_doc",
     id: doc.id,
     url,
-    status: "mock_published",
+    status: "published",
   };
 }
 
@@ -136,7 +169,7 @@ async function publishSlides(input: {
         type: "slides",
         id: slide.presentationId,
         url,
-        status: "mock_published",
+        status: "published",
       };
     } catch (error) {
       logger.warn("Slides 实体发布失败，回退为 outline 交付", {
@@ -148,7 +181,7 @@ async function publishSlides(input: {
     type: "slides",
     id: `slides_outline_${input.sessionId}_${input.index + 1}`,
     url: `https://mock.feishu.local/slides-outline/${input.sessionId}/${input.index + 1}`,
-    status: "mock_published",
+    status: "fallback",
   };
 }
 
@@ -156,18 +189,40 @@ export async function publishOutputs(input: {
   draft: Draft;
   outputTargets: Array<"feishu_doc" | "bitable" | "slides">;
   sessionId: string;
+  userId?: string;
+  preferUserScope?: boolean;
 }): Promise<PublishedArtifact[]> {
   const artifacts: PublishedArtifact[] = [];
 
   for (const [idx, target] of input.outputTargets.entries()) {
     if (target === "feishu_doc") {
-      artifacts.push(
-        await publishFeishuDoc({
-          draft: input.draft,
-          sessionId: input.sessionId,
-          index: idx,
-        }),
-      );
+      try {
+        artifacts.push(
+          await publishFeishuDoc({
+            draft: input.draft,
+            sessionId: input.sessionId,
+            index: idx,
+            userId: input.userId,
+            preferUserScope: input.preferUserScope,
+          }),
+        );
+      } catch (error) {
+        logger.warn("文档正式产物发布失败，回退为摘要链接占位", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        artifacts.push({
+          type: "feishu_doc",
+          id: `feishu_doc_fallback_${input.sessionId}_${idx + 1}`,
+          url: `https://mock.feishu.local/feishu_doc-fallback/${input.sessionId}/${idx + 1}`,
+          status: "fallback",
+        });
+        await notifyChatIfNeeded(
+          [
+            `文档发布失败，已回退摘要：${input.draft.title}`,
+            summarizeDraftForNotify(input.draft),
+          ].join("\n"),
+        );
+      }
       continue;
     }
 

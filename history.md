@@ -2,6 +2,103 @@
 
 ## 2026-05-05
 
+### MCP 服务端协作指南补充（README）
+
+- **目标**：
+  - 给负责 MCP 的同学提供一份可直接执行的接入与联调文档；
+  - 明确“服务端就绪后”本仓库需继续完成的系统完善项与验收标准。
+- **处理**：
+  - `README.md` 新增「12. MCP 服务端接入与完善指南（给后端同学）」章节，覆盖：
+    - MCP 必备工具清单；
+    - 返回契约建议（create/update/fetch）；
+    - `.env` 推荐配置；
+    - 联调验收步骤（日志应命中 `adapter=mcp`）；
+    - P0/P1/P2 完善改造清单与常见故障判断。
+- **当前项目结构（概要）**：
+  - 目录结构无新增；本次仅补充文档说明。
+
+### 文档正文空白修复（OpenAPI 首段落写入）
+
+- **原因**：
+  - 当前未启用 MCP 时走 OpenAPI；新建 Docx 可能只有 page 块而无 text/heading 块。
+  - `feishuOpenApiAdapter.updateDocument` 遇到该情况会返回 `false`，但发布层此前未校验返回值，导致“发布成功但正文为空白”。
+- **处理**：
+  - `src/integrations/feishu/docxBlocks.ts`：新增 `createTextChildrenBlocks`，在父块下创建文本子块。
+  - `src/services/toolGateway/feishuOpenApiAdapter.ts`：
+    - 优先替换已有 text/heading 块；
+    - 若不存在，自动在 page 块下创建段落并写入正文。
+  - `src/services/output/publisher.ts`：强校验 `updateDocument` 返回值，失败直接抛错走受控回退，不再误报成功。
+- **验证**：
+  - `npm run build` 通过；
+  - `ReadLints` 无新增问题。
+
+### IM 结果卡片兼容修复（避免回退整篇文本）
+
+- **原因**：
+  - 飞书返回 `code=230099`，提示 `schema V2` 不支持 `action` 标签，导致结果卡片更新失败并降级为文本。
+  - 同时日志显示文档已成功创建/更新，但卡片失败误导为“只输出文本”。
+- **处理**：
+  - `src/integrations/feishu/cards.ts`：移除 `schema 2.0` 卡片中的 `action` 区块，改为 markdown 链接入口（主成果 URL + 会话标识）。
+  - `src/integrations/feishu/reportImDelivery.ts`：卡片失败后的文本降级从“整篇正文”改为“成果链接 + 结构化摘要”，避免刷屏。
+- **验证**：
+  - `npm run build` 通过；
+  - `ReadLints` 无新增问题。
+
+### Doc 产物链路提质（MCP 正式发布优先 + Writer 修复链）
+
+- **目标**：
+  - `outputTarget=feishu_doc` 时优先返回正式飞书文档产物，而不是 IM 长文本；
+  - 提升 Writer 结构化稳定性，减少 `title/summary Required` 导致的低质量兜底；
+  - 让 `cli-main/skills/lark-doc` 的规范真正进入 Skill Router / Planner / Writer 约束链。
+- **处理**：
+  - 质量规则注入：
+    - `src/services/agent/larkCliGuidance.ts`：从 `cli-main/skills/lark-doc` 与 `references/lark-doc-fetch.md` 提取并新增 `hardRules/styleHints`；
+    - `src/services/agent/skillRouter.ts`：将 `hardRules/styleHints` 合并进 skill 规则，硬约束以显式前缀透传。
+  - Prompt 强化：
+    - `src/prompts/agentPrompts.ts`：Planner 增加 `larkCliHardRules/larkCliStyleHints` 输入；
+    - `src/prompts/reviewPrompts.ts`：Writer 增加非空字段与 section 对齐硬约束提示。
+  - Writer 稳态修复：
+    - `src/services/agent/writerAgent.ts`：改为 `raw -> safeParse -> repair/normalize -> retry -> fallback` 链路，修复阶段优先补齐 `title/summary/sections`。
+  - 发布层产物优先：
+    - `src/services/output/publisher.ts`：
+      - 去掉固定模板噪音区块，仅保留草稿真实内容；
+      - IM 通知改为“文档链接 + 简短摘要/要点”；
+      - 文档创建后增加 `id/title/url` 最小验收，不通过即受控回退；
+      - 产物状态支持 `published/fallback/mock_published`。
+  - 网关策略固化：
+    - `src/services/toolGateway/gateway.ts`：对 `document.create/update` 强制 MCP 优先，且回退适配器会显式日志标注。
+  - 契约更新：
+    - `src/schemas/agentContracts.ts`：补充 `LarkCliGuidance.hardRules/styleHints` 与 `publishedArtifacts.status` 新枚举。
+- **验证**：
+  - `npm run build` 通过；
+  - 针对本次变更文件执行 `ReadLints`，无新增 lint 错误。
+- **当前项目结构（概要）**：
+  - 目录结构未新增；核心改动集中在 `src/services/agent/`、`src/services/output/`、`src/services/toolGateway/`、`src/prompts/`、`src/schemas/`。
+
+### lark-cli 分层策略 + user-aware 发布/检索（模板层强制）
+
+- **目标**：
+  - 模板/结构化生成层强制使用 lark-cli guidance，确保质量提升来源不可被静默降级；
+  - 执行层按能力分流：发布类优先 lark-cli，检索类可回退；
+  - 用户授权后发布与检索优先走 user-aware 路径，降低 `FEISHU_TARGET_FOLDER_TOKEN` 强依赖。
+- **处理**：
+  - 模板层强制：
+    - `src/config/env.ts`：新增 `LARK_CLI_GUIDANCE_REQUIRED`；
+    - `src/services/agent/skillRouter.ts`：当 guidance 必需但未加载时直接报错；
+    - `src/graph/nodes/skillRouterNode.ts`：debugTrace 增加 guidance 开关状态。
+  - 执行层分流与降噪：
+    - `src/config/env.ts`：新增 `FEISHU_DOC_LARK_CLI_HARD_PREFER`；
+    - `src/services/toolGateway/larkCliExecutor.ts`：新增“不可执行缓存”，避免重复 spawn 告警刷屏；
+    - `src/services/toolGateway/gateway.ts`：文档发布类能力支持 hard-prefer 策略，检索类保留 fallback。
+  - user-aware 发布/检索：
+    - `src/services/toolGateway/types.ts`：新增 `GatewayRequestContext`，文档/用户能力透传 context；
+    - `src/services/toolGateway/larkCliAdapter.ts`：支持按 context 切换 user scope，发布可自动落 `my_library`；
+    - `src/services/resourcePool/screening.ts`、`src/services/retrieval/deepRetriever.ts`：按用户授权状态优先 user-aware 检索；
+    - `src/services/output/publisher.ts`、`src/services/agent/outputGenerator.ts`：发布透传 `userId/preferUserScope`。
+  - 文档与配置：
+    - `env.example`、`README.md` 同步分层策略、hard-prefer 与 user-aware 说明。
+- **验证**：`npm run check` 通过。
+
 ### 双层身份（bot 主导 + 用户授权增强）与 IM 成果化交付
 
 - **目标**：

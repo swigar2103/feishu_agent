@@ -12,7 +12,7 @@ export async function skillRouterNode(
   return {
     skillMatch,
     debugTrace: [
-      `[skill_router] skill=${skillMatch.selectedSkill.skillId} source=${skillMatch.source} workflow=${skillMatch.workflowMeta?.workflowSourceId ?? "-"}`,
+      `[skill_router] skill=${skillMatch.selectedSkill.skillId} source=${skillMatch.source} workflow=${skillMatch.workflowMeta?.workflowSourceId ?? "-"} guidance=${skillMatch.larkCliGuidance?.enabled ? "on" : "off"}`,
     ],
   };
 }
