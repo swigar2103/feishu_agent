@@ -1,4 +1,5 @@
 import { WriterInputSchema } from "../../schemas/index.js";
+import { slimRetrievalContextForWriter } from "../../services/writerContextSlim.js";
 import type { ReportGraphStateType } from "../state.js";
 
 export async function buildWriterInput(
@@ -8,10 +9,15 @@ export async function buildWriterInput(
     throw new Error("build_writer_input 缺少必要状态");
   }
 
+  const retrievalForWriter = slimRetrievalContextForWriter(
+    state.retrievalContext,
+    state.userRequest,
+  );
+
   const writerInput = WriterInputSchema.parse({
     userRequest: state.userRequest,
     taskPlan: state.taskPlan,
-    retrievalContext: state.retrievalContext,
+    retrievalContext: retrievalForWriter,
   });
 
   return {

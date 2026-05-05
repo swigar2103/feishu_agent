@@ -29,7 +29,9 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     try {
       const userRequest = UserRequestSchema.parse(request.body);
       const { runReportPipeline } = await import("../services/reportPipeline.js");
-      const { generateReportDocxBuffer } = await import("../services/wordExport.js");
+      const { generateReportDocxBuffer, pickPrimaryTemplateProfile } = await import(
+        "../services/wordExport.js"
+      );
       const result = await runReportPipeline({
         ...userRequest,
         outputFormat: "word",
@@ -38,6 +40,9 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
         report: result.report,
         taskPlan: result.taskPlan,
         debugTrace: result.debugTrace,
+        templateProfile: pickPrimaryTemplateProfile(
+          result.templateDistillation?.profilesByResourceId,
+        ),
       });
       const filename = `report-${userRequest.sessionId}.docx`;
       reply.header(
