@@ -2,6 +2,20 @@
 
 ## 2026-05-05
 
+### 合并冲突修复：docxBlocks 双能力并存
+
+- **原因**：
+  - 合并 resource pool 分支后，`src/integrations/feishu/docxBlocks.ts` 出现冲突：
+    - 一侧新增 `createTextChildrenBlocks`（文档发布空白修复）；
+    - 另一侧新增 `docxBlocksToOutlineAndMarkdown`（资源池文档结构抽取）。
+- **处理**：
+  - 冲突采用“保留两侧功能”的合并策略，删除冲突标记并确保同文件内两组能力共存。
+  - 相关链路保持：
+    - 文档发布链：`src/services/toolGateway/feishuOpenApiAdapter.ts` 使用 `createTextChildrenBlocks`；
+    - 资源池链：`src/resource_pool/feishu/feishuBackedAdapter.ts` 使用 `docxBlocksToOutlineAndMarkdown`。
+- **验证**：
+  - `npm run check` 通过。
+
 ### MCP 服务端协作指南补充（README）
 
 - **目标**：
