@@ -3,6 +3,7 @@ import type { ResourceDataAdapter } from "./feishu/adapterTypes.js";
 import type { ResourceScreeningResult } from "./candidate_types.js";
 import type { HydratedTaskContextPack } from "./context_pack.js";
 import { HydratedTaskContextPackSchema } from "./context_pack.js";
+import { excerptProseFromMarkdown } from "./templateStyleExcerpt.js";
 import { ResourcePoolManager } from "./manager.js";
 
 /** B3：候选 ref → 适配器拉取正文/详情，拼装可交给下游（C / A）消费的任务上下文包 */
@@ -32,10 +33,17 @@ export async function hydrateTaskContext(opts: {
         continue;
       }
       const detail = await opts.adapter.loadDocumentOutlineAndBody(summary);
+      const outlineLevels =
+        detail.directoryEntries.length > 0
+          ? detail.directoryEntries.map((d) => ({ level: d.level, title: d.title }))
+          : undefined;
+      const styleExcerpt = excerptProseFromMarkdown(detail.bodyMarkdown, 2000);
       docChunks.push({
         resourceId: ref.id,
         title: summary.title,
         outline: detail.outline,
+        outlineLevels,
+        styleExcerpt,
         body: detail.bodyMarkdown.slice(0, 24_000),
       });
       if (detail.directoryEntries.length) {

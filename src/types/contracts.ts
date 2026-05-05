@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TaskPlanSchema, WriterOutputSchema } from "../schemas/index.js";
+import { TemplateDistillationSchema } from "../schemas/templateProfile.js";
 
 export const GenerateReportResponseSchema = z.object({
   selectedSkillId: z.string().optional(),
@@ -10,6 +11,7 @@ export const GenerateReportResponseSchema = z.object({
   outputTargets: z.array(z.enum(["feishu_doc", "bitable", "slides"])).optional(),
   report: WriterOutputSchema,
   debugTrace: z.array(z.string()).optional(),
+  templateDistillation: TemplateDistillationSchema.optional(),
 });
 
 export type GenerateReportResponse = z.infer<typeof GenerateReportResponseSchema>;

@@ -1,13 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
-import type {
-  RetrievalContext,
-  Skill,
-  TaskPlan,
-  UserRequest,
+import {
+  SkillSchema,
+  RetrievalContextSchema,
+  type RetrievalContext,
+  type Skill,
+  type TaskPlan,
+  type UserRequest,
 } from "../../schemas/index.js";
-import { SkillSchema } from "../../schemas/index.js";
 import { env } from "../../config/env.js";
+import {
+  TemplateDistillationSchema,
+} from "../../schemas/templateProfile.js";
+import { distillTemplateProfilesFromPack } from "../../llm/templateDistiller.js";
 import { taskContextPackToProjectSlices } from "../../resource_pool/context_bridge.js";
 import type { ResourceDataAdapter } from "../../resource_pool/feishu/adapterTypes.js";
 import { FeishuBackedResourceDataAdapter } from "../../resource_pool/feishu/feishuBackedAdapter.js";
@@ -101,8 +106,19 @@ export class RetrievalEngine {
     };
   }
 
-  private pickBestSkillDoc(request: UserRequest): SkillDoc | null {
+  private pickBestSkillDoc(request: UserRequest, taskIntent?: string | null): SkillDoc | null {
     if (this.skillDocs.length === 0) return null;
+
+    const intent = (taskIntent ?? "").toLowerCase();
+    if (intent.includes("weekly")) {
+      const weekly = this.skillDocs.find(
+        (doc) =>
+          doc.skill.skillId.toLowerCase().includes("weekly") ||
+          doc.skill.reportType.includes("周报") ||
+          doc.skill.name.includes("周报"),
+      );
+      if (weekly) return weekly;
+    }
 
     const reportType = (request.reportType ?? "").toLowerCase().trim();
     const industry = (request.industry ?? "").toLowerCase().trim();
@@ -133,8 +149,12 @@ export class RetrievalEngine {
     this.resourcePool = nextPool;
   }
 
-  async getContextForReport(request: UserRequest, taskPlan?: TaskPlan | null): Promise<RetrievalContext> {
-    const matchedSkillDoc = this.pickBestSkillDoc(request);
+  async getContextForReport(
+    request: UserRequest,
+    taskPlan?: TaskPlan | null,
+    opts?: { taskIntent?: string | null },
+  ): Promise<RetrievalContext> {
+    const matchedSkillDoc = this.pickBestSkillDoc(request, opts?.taskIntent ?? null);
     const matchedSkill = matchedSkillDoc?.skill ?? this.buildFallbackSkill(request);
 
     const memoryData = this.memories[request.userId];
@@ -171,6 +191,20 @@ export class RetrievalEngine {
       taskPlan: taskPlan ?? null,
     });
 
+    const ts = screening.trace.threeStageDocs;
+    const threeStageStr = ts
+      ? `afterFolderPath=${ts.afterFolderPath};afterFileTitle=${ts.afterFileTitle};afterContentSummary=${ts.afterContentSummary}`
+      : "skipped(no_docs_or_trace)";
+    const docPickLines = screening.candidates
+      .filter((c) => c.kind === "document")
+      .map((c) => {
+        const d = poolMgr.documentById(c.id);
+        const pathSeg = d ? (d.folderPathSegments ?? []).join("/") : "";
+        const title = d?.title ?? c.id;
+        return `id=${c.id}|path=${pathSeg}|title=${title}|score=${c.coarseScore.toFixed(4)}`;
+      });
+    const kwPreview = screening.trace.keywordSignals.slice(0, 10).join("|");
+
     const pack = await hydrateTaskContext({
       manager: poolMgr,
       screening,
@@ -179,7 +213,16 @@ export class RetrievalEngine {
       attachSampleImThreadId: null,
     });
 
-    const poolSlices = taskContextPackToProjectSlices(pack);
+    const profilesByResourceId = await distillTemplateProfilesFromPack(pack.documents);
+    const templateDistillation =
+      Object.keys(profilesByResourceId).length > 0
+        ? TemplateDistillationSchema.parse({ profilesByResourceId })
+        : undefined;
+
+    const poolSlices = taskContextPackToProjectSlices(
+      pack,
+      templateDistillation ? profilesByResourceId : undefined,
+    );
     const personalKnowledgeContext = request.personalKnowledge.map((content, idx) => ({
       sourceId: `pk_${idx + 1}`,
       sourceType: "history" as const,
@@ -217,7 +260,7 @@ export class RetrievalEngine {
       (line) => `SKILL_GUIDE: ${line}`,
     );
 
-    return {
+    return RetrievalContextSchema.parse({
       matchedSkill,
       userMemory: {
         preferredTone: userMemory.preferredTone,
@@ -227,6 +270,7 @@ export class RetrievalEngine {
       },
       projectContext,
       glossary: matchedSkill.terminology,
+      templateDistillation,
       styleHints: [
         `SKILL_SOURCE: ${matchedSkillDoc?.sourcePath ?? "fallback"}`,
         ...(matchedSkillDoc?.meta.description
@@ -244,10 +288,14 @@ export class RetrievalEngine {
           : []),
         ...(matchedSkill.styleRules || []),
         ...(userMemory.styleNotes || []),
-        `B2_SCREENING(llm_fallback=${screening.llmFallbackUsed};kw=${screening.trace.keywordSignals.length})`,
+        `B2_THREE_STAGE(${threeStageStr})`,
+        docPickLines.length > 0
+          ? `B2_SELECTED_DOCS: ${docPickLines.join(" :: ")}`
+          : "B2_SELECTED_DOCS: (none)",
+        `B2_SCREENING(llm_fallback=${screening.llmFallbackUsed};signals_preview=${kwPreview || "(empty)"};signal_count=${screening.trace.keywordSignals.length})`,
         `B3_POOL(slices=${poolSlices.length};docs=${pack.documents.length};contacts=${pack.contacts.length};projects=${pack.projects.length};personas=${pack.personas.length})`,
         `RESOURCE_POOL(source=${env.FEISHU_RESOURCE_POOL_SOURCE};pool_docs=${poolMgr.getPool().documents.length})`,
       ],
-    };
+    });
   }
 }

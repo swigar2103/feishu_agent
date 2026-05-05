@@ -27,15 +27,16 @@ export class FeishuBackedResourceDataAdapter implements ResourceDataAdapter {
     try {
       const c = getFeishuMvpConfig();
       const blocks = await listAllDocumentBlocks(c, token);
-      const { outline, bodyMarkdown } = docxBlocksToOutlineAndMarkdown(blocks);
+      const { outline, outlineLevels, bodyMarkdown } = docxBlocksToOutlineAndMarkdown(blocks);
       const body =
         bodyMarkdown.trim().length > 0
           ? bodyMarkdown.slice(0, 48_000)
           : doc.summary ||
             "（blocks 解析为空，请确认文档可读或回退使用摘要）";
-      const directoryEntries: FeishuDirectoryEntry[] = outline
-        .slice(0, 48)
-        .map((title) => ({ level: 1 as const, title }));
+      const directoryEntries =
+        outlineLevels.length > 0
+          ? outlineLevels.map((o) => ({ level: o.level, title: o.title }))
+          : outline.map((title) => ({ level: 1 as const, title }));
       return { outline, bodyMarkdown: body, directoryEntries };
     } catch (e) {
       logger.warn("[FeishuBackedResourceDataAdapter] 文档拉取失败，回退 mock/details", {

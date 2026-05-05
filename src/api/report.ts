@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { UserRequestSchema } from "../schemas/index.js";
 import { runReportPipeline } from "../services/reportPipeline.js";
-import { generateReportDocxBuffer } from "../services/wordExport.js";
+import { generateReportDocxBuffer, pickPrimaryTemplateProfile } from "../services/wordExport.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
 
 export async function registerReportRoutes(app: FastifyInstance): Promise<void> {
@@ -37,6 +37,9 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
         report: result.report,
         taskPlan: result.taskPlan,
         debugTrace: result.debugTrace,
+        templateProfile: pickPrimaryTemplateProfile(
+          result.templateDistillation?.profilesByResourceId,
+        ),
       });
       const filename = `report-${userRequest.sessionId}.docx`;
       reply.header(

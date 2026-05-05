@@ -17,12 +17,12 @@ export function commitResourcePoolReplacement(nextPool: ResourcePoolManager): vo
 export async function getContextForReport(
   userRequest: UserRequest,
   taskPlan?: TaskPlan | null,
+  opts?: { taskIntent?: string | null },
 ): Promise<RetrievalContext> {
   console.log(`[Retrieval Module] 收到请求 -> User: ${userRequest.userId}, Type: ${userRequest.reportType}`);
 
   try {
-    // 调用核心引擎获取上下文
-    const context = await engine.getContextForReport(userRequest, taskPlan ?? null);
+    const context = await engine.getContextForReport(userRequest, taskPlan ?? null, opts);
 
     console.log(`[Retrieval Module] 组装完毕 -> 匹配 Skill: [${context.matchedSkill.name}], 召回素材数: ${context.projectContext.length}`);
 

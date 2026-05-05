@@ -70,3 +70,67 @@ export function pickDocxDocumentTokens(items: ListedDriveChild[], max: number): 
   }
   return tokens;
 }
+
+export type DocxFolderEntry = {
+  token: string;
+  name: string;
+  /** 自根资源池文件夹向下的子路径（不含文档名） */
+  folderPathSegments: string[];
+};
+
+/**
+ * DFS 枚举子文件夹下 docx（及指向 docx 的快捷方式），直到凑满 maxDocx 或超过 maxDepth。
+ * 用于三段式筛选第一段「文件夹路径」信号。
+ */
+export async function collectDocxEntriesUnderFolder(
+  c: FeishuMvpConfig,
+  rootFolderToken: string,
+  opts: { maxDocx: number; maxDepth: number },
+): Promise<DocxFolderEntry[]> {
+  const collected: DocxFolderEntry[] = [];
+  const visited = new Set<string>();
+  const seenDocTokens = new Set<string>();
+
+  async function visit(folderToken: string, pathSegments: string[], depth: number): Promise<void> {
+    if (collected.length >= opts.maxDocx || depth > opts.maxDepth) return;
+    if (visited.has(folderToken)) return;
+    visited.add(folderToken);
+
+    const children = await listFolderChildrenPaged(c, folderToken);
+    for (const f of children) {
+      if (collected.length >= opts.maxDocx) break;
+
+      if (f.type === "folder" && f.token) {
+        await visit(f.token, [...pathSegments, f.name], depth + 1);
+        continue;
+      }
+
+      if (f.type === "docx" && f.token) {
+        if (seenDocTokens.has(f.token)) continue;
+        seenDocTokens.add(f.token);
+        collected.push({
+          token: f.token,
+          name: f.name,
+          folderPathSegments: pathSegments,
+        });
+        continue;
+      }
+
+      if (f.type === "shortcut" && f.shortcut_info?.target_type === "docx") {
+        const t = f.shortcut_info.target_token;
+        if (t) {
+          if (seenDocTokens.has(t)) continue;
+          seenDocTokens.add(t);
+          collected.push({
+            token: t,
+            name: f.name,
+            folderPathSegments: pathSegments,
+          });
+        }
+      }
+    }
+  }
+
+  await visit(rootFolderToken.trim(), [], 0);
+  return collected;
+}

@@ -1,12 +1,10 @@
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { env } from "../config/env.js";
 import { getFeishuMvpConfig } from "../integrations/feishu/feishuConfig.js";
 import { fetchDocxRawText } from "../integrations/feishu/docxRawContent.js";
-import {
-  listFolderChildrenPaged,
-  pickDocxDocumentTokens,
-} from "../integrations/feishu/listFolder.js";
+import { collectDocxEntriesUnderFolder } from "../integrations/feishu/listFolder.js";
 import { ResourcePoolManager } from "./manager.js";
 import {
   ContactSummarySchema,
@@ -33,39 +31,31 @@ export async function buildHybridResourcePoolFromFeishuFolder(opts: {
     throw new Error("真飞书资源池需要配置 FEISHU_APP_ID 与 FEISHU_APP_SECRET");
   }
 
-  const children = await listFolderChildrenPaged(feishu, opts.folderToken.trim());
-  const tokens = pickDocxDocumentTokens(children, opts.maxDocx);
-
-  const titleByToken = new Map<string, string>();
-  for (const f of children) {
-    if (f.type === "docx" && f.token) {
-      titleByToken.set(f.token, f.name);
-    }
-    if (f.type === "shortcut" && f.shortcut_info?.target_type === "docx") {
-      const tgt = f.shortcut_info.target_token;
-      if (tgt) titleByToken.set(tgt, f.name);
-    }
-  }
+  const entries = await collectDocxEntriesUnderFolder(feishu, opts.folderToken.trim(), {
+    maxDocx: opts.maxDocx,
+    maxDepth: env.FEISHU_RESOURCE_MAX_FOLDER_DEPTH,
+  });
 
   const documents: DocumentSummary[] = [];
-  for (const tok of tokens) {
+  for (const entry of entries) {
     let raw = "";
     try {
-      raw = await fetchDocxRawText(feishu, tok);
+      raw = await fetchDocxRawText(feishu, entry.token);
     } catch {
       raw = "";
     }
-    const title = titleByToken.get(tok) ?? `飞书云文档 ${tok.slice(0, 8)}`;
+    const title = entry.name.trim().length > 0 ? entry.name : `飞书云文档 ${entry.token.slice(0, 8)}`;
     const summarySlice = raw.replace(/\s+/g, " ").trim().slice(0, 520);
     documents.push({
-      id: `feishu_doc_${tok}`,
+      id: `feishu_doc_${entry.token}`,
+      folderPathSegments: entry.folderPathSegments,
       title,
       summary:
         summarySlice.length > 0
           ? summarySlice
           : "（摘要暂空：请确认应用有云文档读取权限且为新版 docx）",
       tags: ["飞书同步"],
-      feishuDocToken: tok,
+      feishuDocToken: entry.token,
       weight: 1,
     });
   }

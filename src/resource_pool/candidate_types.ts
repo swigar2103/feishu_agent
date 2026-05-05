@@ -15,6 +15,14 @@ export type ResourceCandidateRef = z.infer<typeof ResourceCandidateRefSchema>;
 export const ResourceScreeningTraceSchema = z.object({
   /** 抽取/匹配到的信号（关键词片段、Planner 对齐字段），便于调试与 A/C 对齐展示 */
   keywordSignals: z.array(z.string()).default([]),
+  /** 文档三段式漏斗各阶段剩余条数（文件夹路径 → 标题 → 摘要/标签） */
+  threeStageDocs: z
+    .object({
+      afterFolderPath: z.number(),
+      afterFileTitle: z.number(),
+      afterContentSummary: z.number(),
+    })
+    .optional(),
   coarseCounts: z
     .object({
       documents: z.number(),

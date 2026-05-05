@@ -100,7 +100,8 @@ export class ResourcePoolManager {
     const tags = q.tags ?? [];
     const tagMode = q.tagMode ?? "any";
     const rows = this.snapshot.documents.filter((d) => {
-      const text = `${d.title} ${d.summary} ${d.tags.join(" ")}`;
+      const folder = (d.folderPathSegments ?? []).join(" ");
+      const text = `${folder} ${d.title} ${d.summary} ${d.tags.join(" ")}`;
       if (!matchesKeyword(text, kw)) return false;
       return matchesTags(d.tags, tags, tagMode);
     });

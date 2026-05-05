@@ -3,6 +3,8 @@ import { z } from "zod";
 /** 文档摘要（供 B2 粗筛；正文由 B3 / 适配层拉取） */
 export const DocumentSummarySchema = z.object({
   id: z.string().min(1),
+  /** 自根资源夹向下的文件夹名路径（不含文件名）；mock/老数据可缺省 */
+  folderPathSegments: z.array(z.string()).default([]),
   title: z.string().min(1),
   summary: z.string().min(1),
   tags: z.array(z.string()).default([]),

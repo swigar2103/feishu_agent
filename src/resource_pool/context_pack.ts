@@ -6,6 +6,12 @@ export const HydratedDocumentChunkSchema = z.object({
   resourceId: z.string(),
   title: z.string(),
   outline: z.array(z.string()).default([]),
+  /** 模板骨架：标题层级（优于扁平 outline） */
+  outlineLevels: z
+    .array(z.object({ level: z.number().int().positive(), title: z.string() }))
+    .optional(),
+  /** 从正文抽取的 prose 摘录，供模仿语气 / 句式 / 详略 */
+  styleExcerpt: z.string().optional(),
   /** 文档正文片段（可由飞书多块拼接；mock 为单一大段 Markdown） */
   body: z.string().min(1),
 });

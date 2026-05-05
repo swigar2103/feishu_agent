@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TemplateDistillationSchema } from "./templateProfile.js";
 
 export const UserRequestSchema = z.object({
   userId: z.string().min(1),
@@ -59,6 +60,8 @@ export const RetrievalContextSchema = z.object({
   ).default([]),
   glossary: z.array(z.string()).default([]),
   styleHints: z.array(z.string()).default([]),
+  /** A/B/C：模板蒸馏画像（按资源池文档 id） */
+  templateDistillation: TemplateDistillationSchema.optional(),
 });
 
 export type RetrievalContext = z.infer<typeof RetrievalContextSchema>;
@@ -103,3 +106,10 @@ export const WriterOutputSchema = z.object({
 });
 
 export type WriterOutput = z.infer<typeof WriterOutputSchema>;
+
+export type { TemplateProfile, TemplateDistillation } from "./templateProfile.js";
+export {
+  TemplateProfileSchema,
+  TemplateDistillationSchema,
+  TemplateWordExportHintsSchema,
+} from "./templateProfile.js";

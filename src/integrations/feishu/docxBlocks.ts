@@ -148,22 +148,44 @@ export async function replaceBlockWithPlainText(
   }
 }
 
+export type OutlineLevelEntry = { level: number; title: string };
+
+/**
+ * 将 docx 块转为：大纲标题列表、带层级 Markdown（# / ##…）、以及层级化的目录条目。
+ * 扁平拼接会丢失 Word/飞书中的标题层级，Planner/Writer 无法「学习结构」。
+ */
 export function docxBlocksToOutlineAndMarkdown(blocks: BlockItem[]): {
   outline: string[];
+  outlineLevels: OutlineLevelEntry[];
   bodyMarkdown: string;
 } {
   const outline: string[] = [];
-  const paragraphs: string[] = [];
+  const outlineLevels: OutlineLevelEntry[] = [];
+  const mdParts: string[] = [];
+
   for (const block of blocks) {
     const t = block.block_type;
     const line = blockPlainText(block).replace(/\s+/g, " ").trim();
     if (!line) continue;
-    if (t !== undefined && t >= 3 && t <= 11) outline.push(line);
-    paragraphs.push(line);
+
+    if (t !== undefined && t >= 3 && t <= 11) {
+      const level = t - 2;
+      outline.push(line);
+      outlineLevels.push({ level, title: line });
+      const mdHeadingLevel = Math.min(level, 6);
+      mdParts.push(`${"#".repeat(mdHeadingLevel)} ${line}`);
+      continue;
+    }
+
+    mdParts.push(line);
   }
+
+  const bodyMarkdown = mdParts.join("\n\n").trim();
+
   return {
     outline: outline.length > 0 ? outline : ["正文"],
-    bodyMarkdown: paragraphs.join("\n\n").trim(),
+    outlineLevels,
+    bodyMarkdown: bodyMarkdown.length > 0 ? bodyMarkdown : "（空白正文）",
   };
 }
 

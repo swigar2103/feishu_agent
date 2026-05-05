@@ -55,6 +55,79 @@ function scoreRow(textBlob: string, signals: string[]): number {
   return score;
 }
 
+/**
+ * 文件夹维：既要「路径包含某信号词」，也要「任一路径段被某信号词包含」。
+ * 否则路径只有「财务报告」四字，而信号多为整句 prompt 拆出的长串，单向 only 路径 includes(信号) 会永远得 0，漏斗无法收窄。
+ */
+function scoreFolderPathAgainstSignals(segments: string[], signals: string[]): number {
+  const folderBlob = segments.join("/");
+  let score = scoreRow(folderBlob, signals);
+  for (const seg of segments) {
+    const t = seg.trim().toLowerCase();
+    if (t.length < 2) continue;
+    for (const s of signals) {
+      if (!s) continue;
+      if (s.toLowerCase().includes(t)) {
+        score += 1;
+        break;
+      }
+    }
+  }
+  return score;
+}
+
+/** 文档三段式打分：文件夹路径 / 标题 / 摘要+标签 */
+type DocStageRow = {
+  doc: DocumentSummary;
+  folderScore: number;
+  titleScore: number;
+  contentScore: number;
+  combined: number;
+};
+
+function computeDocStageRows(docs: DocumentSummary[], signals: string[]): DocStageRow[] {
+  return docs.map((doc) => {
+    const segs = doc.folderPathSegments ?? [];
+    const folderScore = scoreFolderPathAgainstSignals(segs, signals);
+    const titleScore = scoreRow(doc.title, signals);
+    const contentScore = scoreRow(`${doc.summary} ${doc.tags.join(" ")}`, signals);
+    const combined = folderScore * 1 + titleScore * 1.2 + contentScore * 1.5;
+    return { doc, folderScore, titleScore, contentScore, combined };
+  });
+}
+
+/**
+ * 漏斗：任一阶段池中「存在命中」则按该维度收紧；全程无命中则保持上一级全集。
+ * 若配置了文件夹路径且任务信号与某路径匹配，则优先只在命中路径下的文档里继续做标题与正文摘要筛选。
+ */
+function applyThreeStageDocFunnel(rows: DocStageRow[]): {
+  surviving: DocStageRow[];
+  trace: {
+    afterFolderPath: number;
+    afterFileTitle: number;
+    afterContentSummary: number;
+  };
+} {
+  let pool = [...rows];
+  const maxF = Math.max(0, ...pool.map((r) => r.folderScore));
+  if (maxF > 0) pool = pool.filter((r) => r.folderScore > 0);
+  const afterFolderPath = pool.length;
+
+  const maxT = Math.max(0, ...pool.map((r) => r.titleScore));
+  if (maxT > 0) pool = pool.filter((r) => r.titleScore > 0);
+  const afterFileTitle = pool.length;
+
+  const maxC = Math.max(0, ...pool.map((r) => r.contentScore));
+  if (maxC > 0) pool = pool.filter((r) => r.contentScore > 0);
+  const afterContentSummary = pool.length;
+
+  pool.sort((a, b) => b.combined - a.combined);
+  return {
+    surviving: pool,
+    trace: { afterFolderPath, afterFileTitle, afterContentSummary },
+  };
+}
+
 export function dedupeRefs(entries: ResourceCandidateRef[]): ResourceCandidateRef[] {
   const map = new Map<string, ResourceCandidateRef>();
   for (const item of entries) {
@@ -111,6 +184,7 @@ async function llmSemanticPick(opts: {
     const payload = {
       documents: pool.documents.map((d) => ({
         id: d.id,
+        folderPath: (d.folderPathSegments ?? []).join("/"),
         title: d.title,
         summary: d.summary,
         tags: d.tags,
@@ -188,12 +262,12 @@ export async function runResourceScreening(opts: {
   const signals = buildSignals(opts.userRequest, opts.taskPlan ?? null);
   const snapshot = opts.manager.getPool();
 
-  const docScores = snapshot.documents.map((doc) => {
-    const blob = `${doc.title} ${doc.summary} ${doc.tags.join(" ")}`;
-    const base = scoreRow(blob, signals) * Math.max(doc.weight, 1);
-    return { doc, score: base };
-  });
-  docScores.sort((a, b) => b.score - a.score);
+  const docStageRows = computeDocStageRows(snapshot.documents, signals);
+  const { surviving: docSurvivors, trace: threeStageDocTrace } =
+    applyThreeStageDocFunnel(docStageRows);
+  const docScoresSorted = [...docStageRows]
+    .sort((a, b) => b.combined - a.combined)
+    .map((r) => ({ doc: r.doc, score: r.combined * Math.max(r.doc.weight, 1) }));
 
   const contactScores = snapshot.contacts.map((c) => ({
     entity: c,
@@ -221,9 +295,13 @@ export async function runResourceScreening(opts: {
 
   const coarseRefs: ResourceCandidateRef[] = [];
 
-  for (const item of docScores.slice(0, CAPACITY.documents)) {
-    if (item.score > 0) {
-      coarseRefs.push({ kind: "document", id: item.doc.id, coarseScore: item.score });
+  for (const row of docSurvivors.slice(0, CAPACITY.documents)) {
+    if (row.combined > 0) {
+      coarseRefs.push({
+        kind: "document",
+        id: row.doc.id,
+        coarseScore: row.combined * Math.max(row.doc.weight, 1),
+      });
     }
   }
   for (const item of contactScores.slice(0, CAPACITY.contacts)) {
@@ -267,7 +345,7 @@ export async function runResourceScreening(opts: {
   let merged = dedupeRefs(coarseRefs);
   merged = widenMandatoryCoverage({
     refs: merged,
-    docScoresSorted: docScores,
+    docScoresSorted: docScoresSorted,
     contactScoresSorted: contactScores,
     poolDocCount: snapshot.documents.length,
     poolContactCount: snapshot.contacts.length,
@@ -294,7 +372,7 @@ export async function runResourceScreening(opts: {
 
   merged = widenMandatoryCoverage({
     refs: merged,
-    docScoresSorted: docScores,
+    docScoresSorted: docScoresSorted,
     contactScoresSorted: contactScores,
     poolDocCount: snapshot.documents.length,
     poolContactCount: snapshot.contacts.length,
@@ -307,6 +385,7 @@ export async function runResourceScreening(opts: {
     llmFallbackUsed: llmUsed,
     trace: {
       keywordSignals: signals,
+      ...(snapshot.documents.length > 0 ? { threeStageDocs: threeStageDocTrace } : {}),
       coarseCounts: {
         documents: finalList.filter((c) => c.kind === "document").length,
         contacts: finalList.filter((c) => c.kind === "contact").length,

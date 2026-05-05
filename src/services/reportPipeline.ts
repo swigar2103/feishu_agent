@@ -2,6 +2,7 @@ import { reportGraph } from "../graph/reportGraph.js";
 import {
   UserRequestSchema,
   type TaskPlan,
+  type TemplateDistillation,
   type UserRequest,
   type WriterOutput,
 } from "../schemas/index.js";
@@ -15,6 +16,7 @@ type ReportPipelineResult = {
   outputTargets?: Array<"feishu_doc" | "bitable" | "slides">;
   report: WriterOutput;
   debugTrace?: string[];
+  templateDistillation?: TemplateDistillation;
 };
 
 export async function generateReport(
@@ -54,5 +56,6 @@ export async function runReportPipeline(
       request.outputTargets.length > 0 ? request.outputTargets : ["feishu_doc"],
     report: state.writerOutput,
     debugTrace: state.debugTrace.length > 0 ? state.debugTrace : undefined,
+    templateDistillation: state.retrievalContext?.templateDistillation ?? undefined,
   };
 }

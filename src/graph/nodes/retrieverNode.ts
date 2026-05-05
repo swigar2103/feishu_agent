@@ -10,7 +10,16 @@ export async function retrieverNode(
   }
 
   const retrievalContext = RetrievalContextSchema.parse(
-    await getContextForReport(state.userRequest, state.taskPlan ?? undefined),
+    await getContextForReport(state.userRequest, state.taskPlan ?? undefined, {
+      taskIntent: state.taskIntent ?? undefined,
+    }),
+  );
+
+  const poolDebugHints = retrievalContext.styleHints.filter(
+    (line) =>
+      line.startsWith("B2_") ||
+      line.startsWith("B3_POOL") ||
+      line.startsWith("RESOURCE_POOL"),
   );
 
   return {
@@ -18,6 +27,7 @@ export async function retrieverNode(
     debugTrace: [
       `[retriever_node] loaded contexts=${retrievalContext.projectContext.length}`,
       `[retriever_node] matched skill=${retrievalContext.matchedSkill.skillId}`,
+      ...poolDebugHints,
     ],
   };
 }
