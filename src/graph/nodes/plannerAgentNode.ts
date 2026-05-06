@@ -29,6 +29,7 @@ export async function plannerAgentNode(
     followUpQuestions: executionPlan.followUpQuestions,
     debugTrace: [
       `[planner_agent] plan ready sections=${executionPlan.targetSections.length} missing=${executionPlan.missingFields.length}`,
+      `[planner_agent] expansion=${executionPlan.expansionDecision?.finalResourceIds.length ?? 0} budget_items=${executionPlan.recallBudgetHint?.maxItems ?? 0}`,
     ],
   };
 }

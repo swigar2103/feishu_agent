@@ -1,11 +1,12 @@
 import { MemoryUpdateSchema, type Draft, type MemoryUpdate } from "../../schemas/agentContracts.js";
 import type { UserRequest } from "../../schemas/index.js";
 import { MemoryStore } from "../../storage/memoryStore.js";
+import { getMemoryFacade } from "../hmrs/facade/memoryFacade.js";
 
-export function updateMemoryFromRun(input: {
+export async function updateMemoryFromRun(input: {
   request: UserRequest;
   draft: Draft;
-}): MemoryUpdate {
+}): Promise<MemoryUpdate> {
   const learnedPreferences: string[] = [];
   const editSignals: MemoryUpdate["editSignals"] = [];
   if (input.draft.summary.length < 120) {
@@ -32,9 +33,16 @@ export function updateMemoryFromRun(input: {
       .slice(0, 8),
   });
 
-  return MemoryUpdateSchema.parse({
+  const parsed = MemoryUpdateSchema.parse({
     updated: learnedPreferences.length > 0,
     learnedPreferences,
     editSignals,
   });
+  const facade = getMemoryFacade();
+  await facade.writeback({
+    request: input.request,
+    draft: input.draft,
+    memoryUpdate: parsed,
+  });
+  return parsed;
 }

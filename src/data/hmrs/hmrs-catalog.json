@@ -1,0 +1,367 @@
+{
+  "updatedAt": "2026-05-06T17:41:47.973Z",
+  "items": [
+    {
+      "id": "l1_doc_feishu_001",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "user_demo_primary",
+      "projectTag": "通用项目",
+      "timeRange": {
+        "end": "2026-05-04T11:26:14.558Z"
+      },
+      "keywords": [
+        "2025年调研显示",
+        "竞品A在下沉市场的渗透率提升了12%",
+        "主要得益于其轻量版小程序的上线",
+        "doc",
+        "分析报告",
+        "通用"
+      ],
+      "qualityScore": 0.45,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "title": "doc_feishu_001",
+      "summary": "2025年调研显示，竞品A在下沉市场的渗透率提升了12%，主要得益于其轻量版小程序的上线。"
+    },
+    {
+      "id": "l1_msg_feishu_102",
+      "type": "message_thread_summary",
+      "layer": "L1",
+      "owner": "user_demo_primary",
+      "projectTag": "通用项目",
+      "timeRange": {
+        "end": "2026-05-04T11:26:14.558Z"
+      },
+      "keywords": [
+        "Alice在群里提到：我们的用户反馈支付流程太长",
+        "比竞品多出了2个跳转页面",
+        "message",
+        "分析报告",
+        "通用"
+      ],
+      "qualityScore": 0.45,
+      "sourceRef": {
+        "sourceType": "chat"
+      },
+      "title": "msg_feishu_102",
+      "summary": "Alice在群里提到：我们的用户反馈支付流程太长，比竞品多出了2个跳转页面。"
+    },
+    {
+      "id": "l1_table_feishu_201",
+      "type": "table_summary",
+      "layer": "L1",
+      "owner": "user_demo_primary",
+      "projectTag": "医疗运营",
+      "timeRange": {
+        "end": "2026-05-04T11:26:14.558Z"
+      },
+      "keywords": [
+        "医疗集采最新名录：器械类A项已纳入第二批清单",
+        "预计价格降幅30%",
+        "table",
+        "分析报告",
+        "通用"
+      ],
+      "qualityScore": 0.45,
+      "sourceRef": {
+        "sourceType": "table"
+      },
+      "title": "table_feishu_201",
+      "summary": "医疗集采最新名录：器械类A项已纳入第二批清单，预计价格降幅30%。"
+    },
+    {
+      "id": "l1_style_user_demo_primary",
+      "type": "StyleIdentitySummary",
+      "layer": "L1",
+      "owner": "user_demo_primary",
+      "projectTag": "通用",
+      "timeRange": {
+        "end": "2026-05-06T17:05:24.083Z"
+      },
+      "keywords": [
+        "今日完成",
+        "明日计划",
+        "阻塞项与协作",
+        "行动项"
+      ],
+      "qualityScore": 0.72,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "title": "风格身份摘要",
+      "summary": "本周院周会及医疗运营周报显示，滨江院区在运营方面取得了显著进展，但也存在一些需要关注的问题。"
+    },
+    {
+      "id": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
+      "type": "StyleIdentitySummary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-06T17:41:47.972Z"
+      },
+      "keywords": [
+        "今日完成",
+        "明日计划",
+        "阻塞项与协作",
+        "行动项"
+      ],
+      "qualityScore": 0.72,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "title": "风格身份摘要",
+      "summary": "本周的工作重点在于关注竞品A在下沉市场的表现、优化支付流程以及跟进医疗集采器械类A项的最新进展。"
+    },
+    {
+      "id": "l1_ext_doc_Z2QzdBeouobyelxTvQsc7dfBnBd",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "周报",
+        "<hb>周报</hb>",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Z2QzdBeouobyelxTvQsc7dfBnBd",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Z2QzdBeouobyelxTvQsc7dfBnBd"
+      },
+      "title": "周报",
+      "summary": "<hb>周报</hb>"
+    },
+    {
+      "id": "l1_ext_doc_Sr7NwSCc6ieXb0kWW1pcrjSYnEc",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "业务经营周报",
+        "文档候选：业务经营周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "unknown",
+        "url": "https://lcntby86s4d0.feishu.cn/wiki/Sr7NwSCc6ieXb0kWW1pcrjSYnEc"
+      },
+      "title": "业务经营周报",
+      "summary": "文档候选：业务经营周报"
+    },
+    {
+      "id": "l1_ext_doc_U20XdQENzoggJDxedflc5Mrpn0e",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "体育类新闻周报",
+        "#",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "U20XdQENzoggJDxedflc5Mrpn0e",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/U20XdQENzoggJDxedflc5Mrpn0e"
+      },
+      "title": "体育类新闻周报",
+      "summary": "# 体育类新闻周报"
+    },
+    {
+      "id": "l1_ext_doc_Of7YdTt2hoNJOKxtgnsci0LKnHb",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "体育类新闻周报",
+        "#",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Of7YdTt2hoNJOKxtgnsci0LKnHb",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Of7YdTt2hoNJOKxtgnsci0LKnHb"
+      },
+      "title": "体育类新闻周报",
+      "summary": "# 体育类新闻周报"
+    },
+    {
+      "id": "l1_ext_doc_Jkn1dsy1uoIfC2xT1vhcSIEpnKf",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "本周体育类新闻周报",
+        "文档候选：本周体育类新闻周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Jkn1dsy1uoIfC2xT1vhcSIEpnKf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Jkn1dsy1uoIfC2xT1vhcSIEpnKf"
+      },
+      "title": "本周体育类新闻周报",
+      "summary": "文档候选：本周体育类新闻周报"
+    },
+    {
+      "id": "l1_ext_doc_B8shdjmeBoZfGtxdjoEcJRgvnvf",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "本周体育类新闻周报",
+        "#",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "B8shdjmeBoZfGtxdjoEcJRgvnvf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/B8shdjmeBoZfGtxdjoEcJRgvnvf"
+      },
+      "title": "本周体育类新闻周报",
+      "summary": "# 本周体育类新闻周报"
+    },
+    {
+      "id": "l1_ext_doc_doxcnFhBUpAc4IBzL8WC7ci81Nf",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "项目周报",
+        "该文档使用了",
+        "团队工作周报",
+        "模板",
+        "点击立刻体验",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "doxcnFhBUpAc4IBzL8WC7ci81Nf",
+        "url": "https://www.feishu.cn/docx/doxcnFhBUpAc4IBzL8WC7ci81Nf"
+      },
+      "title": "项目周报",
+      "summary": "该文档使用了 团队工作周报 模板，点击立刻体验"
+    },
+    {
+      "id": "l1_ext_doc_doxcnYV6qAOp9qLGFHh4GBR9KSe",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "团队",
+        "OKR",
+        "周报",
+        "文档候选：团队",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "doxcnYV6qAOp9qLGFHh4GBR9KSe",
+        "url": "https://www.feishu.cn/docx/doxcnYV6qAOp9qLGFHh4GBR9KSe"
+      },
+      "title": "团队 OKR 周报",
+      "summary": "文档候选：团队 OKR 周报"
+    },
+    {
+      "id": "l1_ext_doc_UVW2dlK4Xo1ATsxETiYcPltWnAf",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "业务经营周报",
+        "文档候选：业务经营周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "UVW2dlK4Xo1ATsxETiYcPltWnAf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/UVW2dlK4Xo1ATsxETiYcPltWnAf"
+      },
+      "title": "业务经营周报",
+      "summary": "文档候选：业务经营周报"
+    },
+    {
+      "id": "l1_ext_doc_P7SqdML9xoo09kxJeplcWB5yngh",
+      "type": "doc_summary",
+      "layer": "L1",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-06T17:38:49.496Z"
+      },
+      "keywords": [
+        "第17周医疗运营周报（华章义远·滨江院区）",
+        "<b>华章义远医疗集团",
+        "·",
+        "滨江综合院区（三甲）医疗运营</b><hb>周报</hb><b>（第17周",
+        "/",
+        "2026-04-21～2026-04-27）</b>",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "P7SqdML9xoo09kxJeplcWB5yngh",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/P7SqdML9xoo09kxJeplcWB5yngh"
+      },
+      "title": "第17周医疗运营周报（华章义远·滨江院区）",
+      "summary": "<b>华章义远医疗集团 · 滨江综合院区（三甲）医疗运营</b><hb>周报</hb><b>（第17周 / 2026-04-21～2026-04-27）</b>"
+    }
+  ]
+}

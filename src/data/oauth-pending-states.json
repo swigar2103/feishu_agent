@@ -1,15 +1,3 @@
 {
-  "items": [
-    {
-      "state": "c0d345f4-6ddf-4d10-93e8-175f369538fd",
-      "userId": "ou_ec074de53e44c0829c0344144e472677",
-      "createdAtMs": 1778074493109,
-      "replay": {
-        "chatId": "oc_851cc2c7c028bb097d1e38942ce0632f",
-        "text": "写一份运营分析摘要。",
-        "messageId": "om_x100b50870c97c0a0c420c9249fbbd0e",
-        "pipeline": "full"
-      }
-    }
-  ]
+  "items": []
 }

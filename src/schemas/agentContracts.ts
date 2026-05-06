@@ -130,6 +130,21 @@ export const ExecutionPlanSchema = z.object({
   missingFields: z.array(z.string()).default([]),
   followUpQuestions: z.array(z.string()).default([]),
   retrievalStrategy: z.string().min(1),
+  expansionDecision: z
+    .object({
+      l1Ids: z.array(z.string()).default([]),
+      l2Ids: z.array(z.string()).default([]),
+      finalResourceIds: z.array(z.string()).default([]),
+      reason: z.array(z.string()).default([]),
+    })
+    .optional(),
+  recallBudgetHint: z
+    .object({
+      maxItems: z.number().int().positive().optional(),
+      maxChars: z.number().int().positive().optional(),
+      priority: z.enum(["balanced", "precision", "coverage"]).optional(),
+    })
+    .optional(),
 });
 
 export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;

@@ -1,6 +1,123 @@
 # 项目变更记录
 
+## 2026-05-07
+
+### OAuth callback 最小命中日志（排障用）
+
+- **原因**：
+  - 排查“授权后 Cloudflare 502”时，需要先确认请求是否命中本地 callback handler，而不是先改业务逻辑。
+- **处理**：
+  - `src/api/feishuAuth.ts` 的 `/api/feishu/auth/callback` 入口新增最小日志标记 `[FEISHU CALLBACK HIT]`。
+  - 日志字段包含：`url`、`host`、`origin`、`x-forwarded-host`、`hasCode`、`hasState`、`queryKeys`。
+- **验证**：
+  - `npm run check` 通过；
+  - 仅增加诊断日志，不改变 OAuth 分支行为。
+
+### OAuth 自动刷新（refresh_token）接入
+
+- **原因**：
+  - 用户已授权但 `user_access_token` 到期后，UAT 链路会直接判定“未授权”，反复发授权卡，体验上表现为“明明授权过又要重新授权”。
+- **处理**：
+  - 新增 `src/integrations/feishu/userOAuthRefresh.ts`：
+    - 统一封装 `ensureUserOAuthReady(userId)`：
+      - token 未过期直接复用；
+      - token 过期且存在 `refresh_token` 时，调用飞书 `authen/v2/oauth/token` 的 `grant_type=refresh_token` 自动换新；
+      - 刷新成功后回写 `user-oauth-tokens.json`；
+      - 刷新失败再回退到原“发授权卡”流程。
+  - `src/api/feishuWebhookDispatch.ts`：
+    - UAT 鉴权前先尝试自动刷新；
+    - 仅在刷新后仍无有效 token 或 scope 不覆盖时才发授权卡。
+  - `src/services/toolGateway/feishuMcpAdapter.ts`：
+    - MCP UAT 请求头构建时引入自动刷新，避免“调用前瞬时过期”导致的无效令牌错误。
+  - `src/api/feishuAuth.ts`：
+    - `/api/feishu/auth/status` 查询状态时也先尝试自动刷新，并返回 `refreshed` 标记便于排障。
+- **验证**：
+  - `npm run check` 通过。
+- **当前项目结构（本次变更范围）**：
+  - 新增：`src/integrations/feishu/userOAuthRefresh.ts`
+  - 修改：`src/api/feishuWebhookDispatch.ts`、`src/services/toolGateway/feishuMcpAdapter.ts`、`src/api/feishuAuth.ts`
+  - 文档：`history.md`（本文件追加记录）
+
 ## 2026-05-06
+
+### 纯 HMRS 硬切（移除旧 pool 依赖）
+
+- **背景**：
+  - 生成仍出现旧 `resource-pool` 拼接痕迹，说明主链仍走了兼容壳。
+- **处理**：
+  - `src/graph/nodes/hmrsSummaryNode.ts`：
+    - 去掉 `ResourcePoolManager + screenResources + memPalace` 旧筛选链；
+    - 改为直接从 `ToolGateway.searchDocuments`（按 `deriveMcpDocumentSearchQueries`）构建 HMRS seed；
+    - 合并 `historyDocs/personalKnowledge/imContacts` 作为内联资源并写入 HMRS；
+    - 直接由 HMRS L1 产出候选，彻底不依赖旧 pool 文件。
+  - `src/services/agent/plannerAgent.ts`：
+    - 移除 `shouldUseHmrs` 分支，Planner 始终读取 HMRS L1/L2 并产出 expansion/budget。
+  - `src/services/retrieval/deepRetriever.ts`：
+    - 删除 legacy 深读路径（`assets.md` + 旧 screening 候选）；
+    - Retriever 始终走 HMRS expansion -> detailRetrieval。
+  - `src/services/agent/memoryUpdater.ts`：
+    - 移除条件分支，始终执行 HMRS 分层 writeback。
+  - `src/services/resourcePool/enricher.ts`：
+    - 去除 `ResourcePoolStore` 写回副作用，不再回写 `resource-pool.json`。
+  - 物理清理旧数据文件：
+    - 删除 `src/data/memPalace.json`
+    - 删除 `src/data/resource-pool.json`
+- **验证**：
+  - `npm run check` 通过。
+
+### HMRS 分层重构迁移（Phase A-E 一次落地）
+
+- **目标**：
+  - 在不改 graph 节点顺序的前提下，将 flat resource/memory 主链替换为 HMRS（分层暴露、按需展开、预算控制）。
+- **新增 HMRS 模块**（`src/services/hmrs/`）：
+  - `model/`：新增 `layerSchemas.ts`、`memoryObjects.ts`，定义 L1/L2/L3 对象与 `sourceRef` 规范。
+  - `repo/interfaces.ts` + `repo/file/*`：落地 repo abstraction 与 file-based 存储（catalog/index/relation/writeback）。
+  - `query/summaryQueryService.ts`、`expand/expansionPlanner.ts`、`expand/detailRetrievalService.ts`、`budget/recallBudgetService.ts`、`writeback/memoryWritebackService.ts`。
+  - `facade/memoryFacade.ts`：统一提供 query / expand / retrieve / writeback 入口。
+  - `flags/hmrsFeatureFlags.ts`、`observe/hmrsDiffLogger.ts`：任务类型灰度切流与差异日志观测。
+- **图节点兼容替换**（顺序不变）：
+  - `resourceScreeningNode` -> 内部委托 `hmrsSummaryNode`；
+  - `retrieverAgentNode` -> 内部委托 `hmrsExpansionNode`；
+  - `memoryUpdateNode` -> 内部委托 `hmrsMemoryUpdateNode`。
+  - 新增薄节点：`src/graph/nodes/hmrsSummaryNode.ts`、`hmrsExpansionNode.ts`、`hmrsMemoryUpdateNode.ts`。
+- **Planner / Retriever / Memory Update 改造**：
+  - `ExecutionPlan` 扩展 `expansionDecision` 与 `recallBudgetHint`（保持向后兼容为 optional）。
+  - `plannerAgent.ts`：接入 HMRS L1/L2 查询并产出展开决策 + 预算 hint；写入 diff log。
+  - `deepRetriever.ts`：改为 HMRS 分层展开（L2 -> L3 按需拉取），保留 legacy fallback。
+  - `memoryUpdater.ts`：在 HMRS 灰度命中时走分层 writeback，同时保留旧 `MemoryStore` 写回。
+- **Feature Flag 与预算硬上限**：
+  - `env.ts` 新增：
+    - `HMRS_ENABLED`
+    - `HMRS_ROLLOUT_TASK_TYPES`
+    - `HMRS_DIFF_LOG_ENABLED`
+    - `HMRS_RECALL_MAX_ITEMS`
+    - `HMRS_RECALL_MAX_CHARS`
+  - 默认对 `weekly_report,meeting_summary,templated_doc` 灰度切流。
+- **兼容清理（legacy-compat）**：
+  - 老的 resource/memory 接口不直接删除，统一作为 HMRS disabled/fallback 路径保留，避免一次性回归。
+  - 通过 `hmrsDiffLogger` 记录旧候选与新分层选择差异，支持后续逐步收口。
+- **验证**：
+  - `npm run check` 通过。
+
+### 修复：IM 报告链路 `candidates[n].summary` 空串导致 Zod 失败
+
+- **问题现象**：
+  - webhook full 流程中出现：
+    - `String must contain at least 1 character(s)`
+    - `path: ["candidates", 4, "summary"]`
+  - 触发点在 Resource Screening 合并外部候选后做 `CandidateResourceListSchema.parse`。
+- **根因**：
+  - MCP `search-doc` 某些返回仅包含 `title/url`，`summary` 为空；
+  - 外部候选映射时未做摘要兜底，导致候选列表校验直接失败，整条报告管线提前中断。
+- **处理**：
+  - `src/services/resourcePool/screening.ts`：
+    - `mapDocToResourceSummary` 对 `summary` 增加保底：
+      - 优先 `doc.summary` / `doc.content`
+      - 否则回退 `文档候选：{title}`。
+  - `src/services/toolGateway/feishuMcpAdapter.ts`：
+    - `searchDocuments` 映射 `GatewayDocument.summary` 时同样增加保底文案，减少下游空摘要传播。
+- **验证**：
+  - `npm run check` 通过。
 
 ### IM 质量链路补强：编辑入口、会话落盘、结构占位保底
 

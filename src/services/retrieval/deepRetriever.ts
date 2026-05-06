@@ -1,14 +1,8 @@
 import { DetailedContextSchema, type CandidateResourceList, type DetailedContext, type ExecutionPlan } from "../../schemas/agentContracts.js";
 import type { UserRequest } from "../../schemas/index.js";
-import { parseJsonFromMd } from "./mdParser.js";
-import { toolGateway } from "../toolGateway/gateway.js";
-import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
-
-type RawAsset = {
-  sourceId: string;
-  sourceType: "message" | "doc" | "table";
-  content: string;
-};
+import { getMemoryFacade } from "../hmrs/facade/memoryFacade.js";
+import { readHmrsTaskType } from "../hmrs/flags/hmrsFeatureFlags.js";
+import { logHmrsDiff } from "../hmrs/observe/hmrsDiffLogger.js";
 
 function toFact(sourceId: string, content: string, evidence?: string) {
   return {
@@ -17,9 +11,6 @@ function toFact(sourceId: string, content: string, evidence?: string) {
     ...(evidence ? { evidence } : {}),
   };
 }
-
-/** 写入 facts 的摘录上限：原 500 过短，Writer 侧若只看 analysis 会几乎丢失云文档正文 */
-const EXTERNAL_DOC_FACT_CAP = 12_000;
 
 /** 会话内增量修订：把 latestReport 摘要与用户 extraContext 注入事实层，否则 Analyst/Writer 只看资产池，上一稿等于从未出现。 */
 function buildSessionAnchoredFacts(request: UserRequest): Array<{
@@ -57,107 +48,71 @@ function buildSessionAnchoredFacts(request: UserRequest): Array<{
   return out;
 }
 
-export async function deepRetrieveContext(input: {
-  request: UserRequest;
-  plan: ExecutionPlan;
-  screened: CandidateResourceList;
-}): Promise<DetailedContext> {
-  const context =
-    input.request.userId && hasValidUserOAuth(input.request.userId)
-      ? { userId: input.request.userId, preferUserScope: true as const }
-      : undefined;
-  const assets = parseJsonFromMd<RawAsset[]>("src/data/assets.md");
-  const screenedSet = new Set(input.screened.candidates.map((r) => r.resourceId));
-  // 深读边界：仅允许读取 screening 已入选资源，避免绕过分层无限扩搜
-  const selectedIds = screenedSet;
-
-  const matchedAssets = assets.filter((item) => selectedIds.has(item.sourceId));
-  const assetFacts = matchedAssets.map((item) => toFact(item.sourceId, item.content));
-
-  const candidateDocs = input.screened.candidates.filter(
-    (item) =>
-      item.resourceType === "doc_summary" ||
-      item.resourceType === "project_memory" ||
-      item.resourceType === "table_summary",
-  );
-
-  const externalFacts: Array<{ sourceId: string; fact: string; evidence?: string }> = [];
-  const externalDetails: Array<{ resourceId: string; detail: string }> = [];
-
-  for (const doc of candidateDocs.slice(0, 6)) {
-    const rawId = doc.resourceId.startsWith("ext_doc_")
-      ? doc.resourceId.replace("ext_doc_", "")
-      : doc.resourceId;
-    const viewed = await toolGateway.viewDocument(rawId, context);
-    if (viewed?.content) {
-      const cap = Math.min(EXTERNAL_DOC_FACT_CAP, viewed.content.length);
-      externalFacts.push(
-        toFact(
-          doc.resourceId,
-          viewed.content.slice(0, cap),
-          `云文档正文摘录（最多 ${EXTERNAL_DOC_FACT_CAP} 字符）；完整正文见 context.sourceDetails 同 resourceId`,
-        ),
-      );
-      externalDetails.push({
-        resourceId: doc.resourceId,
-        detail: viewed.content,
-      });
-    } else {
-      const content = await toolGateway.getFileContent(rawId, context);
-      if (content) {
-        const cap = Math.min(EXTERNAL_DOC_FACT_CAP, content.length);
-        externalFacts.push(
-          toFact(
-            doc.resourceId,
-            content.slice(0, cap),
-            `附件/文件内容摘录；完整正文见 context.sourceDetails 同 resourceId`,
-          ),
-        );
-        externalDetails.push({
-          resourceId: doc.resourceId,
-          detail: content,
-        });
-      }
-    }
-
-    const comments = await toolGateway.getComments(rawId, context);
-    for (const comment of comments.slice(0, 3)) {
-      externalFacts.push(
-        toFact(doc.resourceId, `评论(${comment.author ?? "匿名"}): ${comment.content}`),
-      );
-    }
-  }
-
-  const historyFacts = input.request.historyDocs.map((doc, idx) =>
+function mergeWithCommonFacts(base: DetailedContext, request: UserRequest): DetailedContext {
+  const historyFacts = request.historyDocs.map((doc, idx) =>
     toFact(`history_doc_${idx + 1}`, doc),
   );
-
-  const contactFacts = input.request.imContacts.map((contact, idx) =>
+  const contactFacts = request.imContacts.map((contact, idx) =>
     toFact(
       `im_contact_${idx + 1}`,
       `联系人 ${contact.name}(${contact.id}) 角色=${contact.role ?? "未知"} 可用于补充任务字段`,
     ),
   );
-
-  const anchored = buildSessionAnchoredFacts(input.request);
+  const anchored = buildSessionAnchoredFacts(request);
   const anchoredDetails = anchored.map((a) => ({
     resourceId: a.sourceId,
     detail: a.fact,
   }));
+  const personalKnowledgeDetails = request.personalKnowledge.map((item, idx) => ({
+    resourceId: `pk_${idx + 1}`,
+    detail: item,
+  }));
 
   return DetailedContextSchema.parse({
-    facts: [...anchored, ...assetFacts, ...externalFacts, ...historyFacts, ...contactFacts],
-    sourceDetails: [
-      ...anchoredDetails,
-      ...matchedAssets.map((asset) => ({
-        resourceId: asset.sourceId,
-        detail: asset.content,
-      })),
-      ...externalDetails,
-      ...input.request.personalKnowledge.map((item, idx) => ({
-        resourceId: `pk_${idx + 1}`,
-        detail: item,
-      })),
-    ],
+    facts: [...anchored, ...base.facts, ...historyFacts, ...contactFacts],
+    sourceDetails: [...anchoredDetails, ...base.sourceDetails, ...personalKnowledgeDetails],
   });
+}
+
+export async function deepRetrieveContext(input: {
+  request: UserRequest;
+  plan: ExecutionPlan;
+  screened: CandidateResourceList;
+}): Promise<DetailedContext> {
+  const facade = getMemoryFacade();
+  const expansion = input.plan.expansionDecision?.finalResourceIds?.length
+    ? input.plan.expansionDecision.finalResourceIds
+    : input.screened.candidates.slice(0, 6).map((item) => `l2_${item.resourceId}`);
+  const base = await facade.retrieveDetails({
+    request: input.request,
+    expansion: {
+      l1Ids: input.plan.expansionDecision?.l1Ids ?? [],
+      l2Ids: input.plan.expansionDecision?.l2Ids ?? [],
+      finalResourceIds: expansion,
+      reason: input.plan.expansionDecision?.reason ?? ["fallback_from_screening"],
+      budget: {
+        maxItems: input.plan.recallBudgetHint?.maxItems ?? 6,
+        maxChars: input.plan.recallBudgetHint?.maxChars ?? 30_000,
+        priority: input.plan.recallBudgetHint?.priority ?? "balanced",
+      },
+    },
+    screened: input.screened,
+  });
+  const merged = mergeWithCommonFacts(base, input.request);
+
+  logHmrsDiff({
+    sessionId: input.request.sessionId,
+    userId: input.request.userId,
+    taskType: readHmrsTaskType(input.request),
+    legacyTopIds: input.screened.candidates.slice(0, 5).map((item) => item.resourceId),
+    hmrsL1Ids: input.plan.expansionDecision?.l1Ids ?? [],
+    hmrsL2Ids: input.plan.expansionDecision?.l2Ids ?? [],
+    finalExpansionIds: expansion,
+    budget: {
+      maxItems: input.plan.recallBudgetHint?.maxItems ?? 6,
+      maxChars: input.plan.recallBudgetHint?.maxChars ?? 30_000,
+    },
+  });
+
+  return merged;
 }

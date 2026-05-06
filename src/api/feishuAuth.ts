@@ -9,6 +9,7 @@ import {
   createFeishuUserAuthorizeSession,
   splitOAuthScopes,
 } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
+import { ensureUserOAuthReady } from "../integrations/feishu/userOAuthRefresh.js";
 import { logger } from "../shared/logger.js";
 import { getUserOAuthRecord, upsertUserOAuthRecord } from "../storage/userOAuthStore.js";
 
@@ -56,6 +57,16 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
 
   app.get("/api/feishu/auth/callback", async (request, reply) => {
     const callbackStartedAt = Date.now();
+    const rawQuery = (request.query ?? {}) as Record<string, unknown>;
+    logger.info("[FEISHU CALLBACK HIT]", {
+      url: request.url,
+      host: request.headers.host ?? "",
+      origin: request.headers.origin ?? "",
+      forwardedHost: request.headers["x-forwarded-host"] ?? "",
+      hasCode: typeof rawQuery.code === "string" && rawQuery.code.length > 0,
+      hasState: typeof rawQuery.state === "string" && rawQuery.state.length > 0,
+      queryKeys: Object.keys(rawQuery),
+    });
     const parsed = CallbackQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       logger.warn("feishu oauth callback invalid query", {
@@ -194,7 +205,8 @@ ${followUp}
     if (!parsed.success) {
       return reply.status(400).send({ message: "invalid query", issues: parsed.error.issues });
     }
-    const record = getUserOAuthRecord(parsed.data.userId);
+    const ensured = await ensureUserOAuthReady(parsed.data.userId);
+    const record = ensured.record ?? getUserOAuthRecord(parsed.data.userId);
     if (!record) {
       return reply.send({
         ok: true,
@@ -214,6 +226,7 @@ ${followUp}
       scopes: record.scopes,
       missingScopes,
       expiresAtMs: record.expiresAtMs,
+      refreshed: ensured.refreshed,
     });
   });
 }

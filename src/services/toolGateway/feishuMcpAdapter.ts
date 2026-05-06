@@ -1,8 +1,8 @@
 import { env } from "../../config/env.js";
 import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
+import { ensureUserOAuthReady } from "../../integrations/feishu/userOAuthRefresh.js";
 import { getTenantAccessToken } from "../../integrations/feishu/token.js";
-import { getUserOAuthRecord } from "../../storage/userOAuthStore.js";
 import { logger } from "../../shared/logger.js";
 import type {
   AddCommentInput,
@@ -191,12 +191,16 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
           "FEISHU_MCP_IDENTITY=uat 时需要 GatewayRequestContext.userId，且该用户须完成飞书 OAuth（写入 user-oauth-tokens.json）",
         );
       }
-      const rec = getUserOAuthRecord(userId);
+      const ensured = await ensureUserOAuthReady(userId);
+      const rec = ensured.record;
       if (!rec || rec.expiresAtMs <= Date.now() + 60_000) {
         throw new ToolGatewayError(
           "NOT_CONFIGURED",
           `用户 ${userId} 无有效飞书用户访问令牌（UAT），请重新完成 OAuth`,
         );
+      }
+      if (ensured.refreshed) {
+        logger.info("[mcp] UAT token 自动刷新成功", { userId });
       }
       return { "X-Lark-MCP-UAT": rec.accessToken };
     }
@@ -318,7 +322,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     return rows.map((doc, idx) => ({
       id: doc.id || `mcp_doc_${idx + 1}`,
       title: doc.title || `MCP文档${idx + 1}`,
-      summary: doc.summary ?? "",
+      summary: (doc.summary ?? "").trim() || `文档候选：${doc.title || doc.id || `MCP文档${idx + 1}`}`,
       url: doc.url,
       source: "mcp",
     }));

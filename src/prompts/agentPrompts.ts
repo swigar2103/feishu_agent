@@ -6,6 +6,7 @@ import type {
   SkillMatch,
 } from "../schemas/agentContracts.js";
 import type { UserRequest } from "../schemas/index.js";
+import type { L1CatalogObject, L2IndexObject } from "../services/hmrs/model/layerSchemas.js";
 
 export function buildIntentSystemPrompt(): string {
   return [
@@ -40,6 +41,8 @@ export function buildPlannerUserPrompt(input: {
   intent: IntentResult;
   skillMatch: SkillMatch;
   screened: CandidateResourceList;
+  hmrsL1?: L1CatalogObject[];
+  hmrsL2?: L2IndexObject[];
 }): string {
   return [
     "请生成可执行计划。",
@@ -53,6 +56,8 @@ export function buildPlannerUserPrompt(input: {
     `larkCliStyleHints=${JSON.stringify(input.skillMatch.larkCliGuidance?.styleHints ?? [])}`,
     `workflowMeta=${JSON.stringify(input.skillMatch.workflowMeta ?? null)}`,
     `screened=${JSON.stringify(input.screened)}`,
+    `hmrsL1=${JSON.stringify(input.hmrsL1 ?? [])}`,
+    `hmrsL2=${JSON.stringify(input.hmrsL2 ?? [])}`,
   ].join("\n");
 }
 

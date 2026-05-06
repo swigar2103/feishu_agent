@@ -8,6 +8,10 @@ import {
 import type { UserRequest } from "../../schemas/index.js";
 import { invokeJsonModel } from "../../llm/jsonModel.js";
 import { buildPlannerSystemPrompt, buildPlannerUserPrompt } from "../../prompts/agentPrompts.js";
+import { getMemoryFacade } from "../hmrs/facade/memoryFacade.js";
+import { readHmrsTaskType } from "../hmrs/flags/hmrsFeatureFlags.js";
+import { logHmrsDiff } from "../hmrs/observe/hmrsDiffLogger.js";
+import type { L1CatalogObject, L2IndexObject } from "../hmrs/model/layerSchemas.js";
 
 /** 已入选云文档摘要时，放宽 workflow 英文占位缺项（agenda/todo/summary），避免 IM 卡片误导 */
 const DOC_BACKFILLED_RELIEVE = new Set(["agenda", "todo", "summary"]);
@@ -53,7 +57,70 @@ function fallbackPlan(input: {
     missingFields,
     followUpQuestions: missingFields.map((field) => `请补充：${field}`),
     retrievalStrategy: "优先读取高分资源，再补读相关联系人与历史项目资料",
+    recallBudgetHint: {
+      maxItems: 6,
+      maxChars: 30000,
+      priority: "balanced",
+    },
   });
+}
+
+async function attachHmrsExpansion(
+  plan: ExecutionPlan,
+  input: {
+    userRequest: UserRequest;
+    screened: CandidateResourceList;
+    hmrsL1?: L1CatalogObject[];
+    hmrsL2?: L2IndexObject[];
+  },
+): Promise<ExecutionPlan> {
+  const facade = getMemoryFacade();
+  const l1 =
+    input.hmrsL1 ??
+    (await facade.queryL1({
+      owner: input.userRequest.userId,
+      keyword: input.userRequest.prompt,
+      projectTag: input.userRequest.industry,
+      limit: 8,
+    }));
+  const l2 =
+    input.hmrsL2 ??
+    (await facade.queryL2({
+      owner: input.userRequest.userId,
+      keyword: input.userRequest.prompt,
+      projectTag: input.userRequest.industry,
+      limit: 12,
+    }));
+  const expansion = await facade.planExpansion({ plan, l1, l2 });
+
+  logHmrsDiff({
+    sessionId: input.userRequest.sessionId,
+    userId: input.userRequest.userId,
+    taskType: readHmrsTaskType(input.userRequest),
+    legacyTopIds: input.screened.candidates.slice(0, 5).map((item) => item.resourceId),
+    hmrsL1Ids: expansion.l1Ids,
+    hmrsL2Ids: expansion.l2Ids,
+    finalExpansionIds: expansion.finalResourceIds,
+    budget: {
+      maxItems: expansion.budget.maxItems,
+      maxChars: expansion.budget.maxChars,
+    },
+  });
+
+  return {
+    ...plan,
+    expansionDecision: {
+      l1Ids: expansion.l1Ids,
+      l2Ids: expansion.l2Ids,
+      finalResourceIds: expansion.finalResourceIds,
+      reason: expansion.reason,
+    },
+    recallBudgetHint: {
+      maxItems: expansion.budget.maxItems,
+      maxChars: expansion.budget.maxChars,
+      priority: expansion.budget.priority,
+    },
+  };
 }
 
 export async function generateExecutionPlan(input: {
@@ -62,18 +129,49 @@ export async function generateExecutionPlan(input: {
   skillMatch: SkillMatch;
   screened: CandidateResourceList;
 }): Promise<ExecutionPlan> {
+  let hmrsL1: L1CatalogObject[] | undefined;
+  let hmrsL2: L2IndexObject[] | undefined;
+  const facade = getMemoryFacade();
+  hmrsL1 = await facade.queryL1({
+    owner: input.userRequest.userId,
+    keyword: input.userRequest.prompt,
+    projectTag: input.userRequest.industry,
+    limit: 8,
+  });
+  hmrsL2 = await facade.queryL2({
+    owner: input.userRequest.userId,
+    keyword: input.userRequest.prompt,
+    projectTag: input.userRequest.industry,
+    limit: 12,
+  });
   try {
     const result = await invokeJsonModel(ExecutionPlanSchema, {
       systemPrompt: buildPlannerSystemPrompt(),
-      userPrompt: buildPlannerUserPrompt(input),
+      userPrompt: buildPlannerUserPrompt({
+        ...input,
+        hmrsL1,
+        hmrsL2,
+      }),
     });
     const parsed = ExecutionPlanSchema.parse(result);
     const relieved = relieveMissingForDocBacked(parsed.missingFields, input.screened);
-    if (relieved.length === parsed.missingFields.length) {
-      return parsed;
-    }
-    return syncFollowUps({ ...parsed, missingFields: relieved });
+    const normalized =
+      relieved.length === parsed.missingFields.length
+        ? parsed
+        : syncFollowUps({ ...parsed, missingFields: relieved });
+    return attachHmrsExpansion(normalized, {
+      userRequest: input.userRequest,
+      screened: input.screened,
+      hmrsL1,
+      hmrsL2,
+    });
   } catch {
-    return fallbackPlan(input);
+    const fallback = fallbackPlan(input);
+    return attachHmrsExpansion(fallback, {
+      userRequest: input.userRequest,
+      screened: input.screened,
+      hmrsL1,
+      hmrsL2,
+    });
   }
 }

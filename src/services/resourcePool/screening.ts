@@ -23,6 +23,16 @@ function scoreByRules(prompt: string, resource: ResourceSummary): number {
   return normalized;
 }
 
+function normalizeResourceSummary(resource: ResourceSummary): ResourceSummary {
+  const title = resource.title?.trim() || resource.resourceId;
+  const summary = resource.summary?.trim() || `资源候选：${title}`;
+  return {
+    ...resource,
+    title,
+    summary,
+  };
+}
+
 const LlmScreeningSchema = z.object({
   selectedResourceIds: z.array(z.string()).default([]),
   reason: z.array(z.string()).default([]),
@@ -58,11 +68,13 @@ function mapDocToResourceSummary(
   doc: Awaited<ReturnType<typeof toolGateway.searchDocuments>>[number],
 ): ResourceSummary {
   const sourceTag = doc.source ?? "unknown";
+  const fallbackTitle = (doc.title || doc.id || "未命名文档").trim();
+  const summary = (doc.summary ?? doc.content ?? "").trim() || `文档候选：${fallbackTitle}`;
   return {
     resourceId: `ext_doc_${doc.id}`,
     resourceType: "doc_summary",
-    title: doc.title || doc.id,
-    summary: doc.summary ?? doc.content ?? "",
+    title: fallbackTitle,
+    summary,
     project: "外部文档",
     tags: ["external", sourceTag],
     keywords: `${doc.title} ${doc.summary ?? ""}`
@@ -129,6 +141,7 @@ export async function screenResources(input: {
   request: UserRequest;
   resourcePool: ResourceSummary[];
 }): Promise<CandidateResourceList> {
+  const normalizedPool = input.resourcePool.map(normalizeResourceSummary);
   const { extraTerms } = expandMemPalaceTerms(input.request.prompt);
   const extraForScreening = (input.request.extraContext ?? []).join("\n").slice(0, 8_000);
   const palaceAugmentedPrompt = [
@@ -140,7 +153,7 @@ export async function screenResources(input: {
 
   const mentioned = input.request.mentionedResourceIds ?? [];
 
-  const scored = input.resourcePool
+  const scored = normalizedPool
     .map((resource) => {
       const base = scoreByRules(palaceAugmentedPrompt, resource);
       const soft = mentionSoftBoost(resource, mentioned);
@@ -169,7 +182,7 @@ export async function screenResources(input: {
 
   if (!needExternalSupplement) {
     return CandidateResourceListSchema.parse({
-      candidates: ruleCandidates,
+      candidates: ruleCandidates.map(normalizeResourceSummary),
       usedLlmFallback: false,
       screeningReason: reasons,
     });
@@ -192,7 +205,7 @@ export async function screenResources(input: {
   }
 
   return CandidateResourceListSchema.parse({
-    candidates: merged,
+    candidates: merged.map(normalizeResourceSummary),
     usedLlmFallback: true,
     screeningReason,
   });

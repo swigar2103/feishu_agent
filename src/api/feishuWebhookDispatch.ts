@@ -4,6 +4,7 @@ import { getFeishuMvpConfig } from "../integrations/feishu/feishuConfig.js";
 import { buildUserOAuthRequiredCard } from "../integrations/feishu/cards.js";
 import { runImTextPipelineFireAndForget } from "../integrations/feishu/imTextPipelineDispatch.js";
 import { sendCardMessage, sendTextMessage } from "../integrations/feishu/imMessage.js";
+import { ensureUserOAuthReady } from "../integrations/feishu/userOAuthRefresh.js";
 import { parseFeishuImTextEvent } from "../integrations/feishu/webhookMessageParse.js";
 import {
   createFeishuUserAuthorizeSession,
@@ -12,7 +13,6 @@ import {
 import type { FeishuWebhookBody } from "../schemas/feishuWebhookBody.js";
 import { logger } from "../shared/logger.js";
 import {
-  hasValidUserOAuth,
   userOAuthGrantedScopesCoverRequired,
 } from "../storage/userOAuthStore.js";
 
@@ -53,10 +53,15 @@ export async function continueFeishuWebhookAfterChallenge(
   }
 
   const uatRequiredScopes = splitOAuthScopes(env.FEISHU_USER_OAUTH_SCOPES);
-  const uatOAuthIncomplete =
-    env.FEISHU_MCP_IDENTITY === "uat" &&
-    (!hasValidUserOAuth(imEvent.userId) ||
-      !userOAuthGrantedScopesCoverRequired(imEvent.userId, uatRequiredScopes));
+  let uatOAuthIncomplete = false;
+  if (env.FEISHU_MCP_IDENTITY === "uat") {
+    const ensured = await ensureUserOAuthReady(imEvent.userId);
+    uatOAuthIncomplete =
+      !ensured.record || !userOAuthGrantedScopesCoverRequired(imEvent.userId, uatRequiredScopes);
+    if (ensured.refreshed) {
+      logger.info("webhook: UAT 用户 token 自动刷新成功", { userId: imEvent.userId });
+    }
+  }
 
   if (uatOAuthIncomplete) {
     logger.info("webhook: UAT 用户 OAuth 未就绪（无 token、已过期或 scope 未覆盖 .env 要求），发授权卡", {

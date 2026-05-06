@@ -157,6 +157,16 @@ const EnvSchema = z.object({
   FEISHU_RESOURCE_MAX_DOCX: z.coerce.number().int().positive().max(100).default(20),
   /** 真飞书资源池：自根文件夹向下最多遍历几层子文件夹（防过深目录） */
   FEISHU_RESOURCE_MAX_FOLDER_DEPTH: z.coerce.number().int().positive().max(64).default(16),
+  /** HMRS：总开关（开启后按任务类型灰度切流） */
+  HMRS_ENABLED: z.coerce.boolean().default(true),
+  /** HMRS：灰度任务类型，逗号分隔（weekly_report,meeting_summary,templated_doc） */
+  HMRS_ROLLOUT_TASK_TYPES: z.string().default("weekly_report,meeting_summary,templated_doc"),
+  /** HMRS：是否记录旧/新检索差异日志 */
+  HMRS_DIFF_LOG_ENABLED: z.coerce.boolean().default(true),
+  /** HMRS：召回预算硬上限（最多展开条目数） */
+  HMRS_RECALL_MAX_ITEMS: z.coerce.number().int().positive().default(6),
+  /** HMRS：召回预算硬上限（最多展开字符预算） */
+  HMRS_RECALL_MAX_CHARS: z.coerce.number().int().positive().default(30_000),
 });
 
 export const env = EnvSchema.parse(process.env);
