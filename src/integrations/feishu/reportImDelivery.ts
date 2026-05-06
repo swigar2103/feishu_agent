@@ -62,7 +62,15 @@ function formatResultFallbackText(input: Awaited<ReturnType<typeof runReportPipe
   const summary = buildStructuredSummary(input);
   const linkLines =
     links.length > 0
-      ? links.map((item) => `- ${item.label}: ${item.url}`).join("\n")
+      ? links
+          .map((item) => {
+            const src = item.artifactSource ? ` (${item.artifactSource})` : "";
+            if (item.unavailable || !item.url?.trim()) {
+              return `- ${item.label}：（无有效链接 · 发布失败或仅为大纲占位）${src}`;
+            }
+            return `- ${item.label}: ${item.url}${src}`;
+          })
+          .join("\n")
       : "- 暂无可用成果链接";
   const summaryLines = summary.length > 0 ? summary.map((item) => `- ${item}`).join("\n") : "- 无";
   return [
@@ -102,14 +110,25 @@ function buildStructuredSummary(input: Awaited<ReturnType<typeof runReportPipeli
   return items.slice(0, 5);
 }
 
-function extractResultLinks(deliverable?: FinalDeliverable): Array<{ label: string; url: string }> {
+function extractResultLinks(deliverable?: FinalDeliverable): Array<{
+  label: string;
+  url: string;
+  artifactSource?: string;
+  unavailable?: boolean;
+}> {
   if (!deliverable?.publishedArtifacts?.length) return [];
-  return deliverable.publishedArtifacts
-    .filter((item) => Boolean(item.url))
-    .map((item) => ({
+  return deliverable.publishedArtifacts.map((item) => {
+    const placeholder =
+      item.status === "fallback" ||
+      item.status === "mock_published" ||
+      item.url.includes("mock.feishu.local");
+    return {
       label: mapArtifactLabel(item.type),
-      url: item.url,
-    }));
+      url: placeholder ? "" : item.url,
+      artifactSource: item.artifactSource,
+      unavailable: placeholder,
+    };
+  });
 }
 
 export function chunkForFeishuIm(text: string, maxLen = FEISHU_TEXT_CHUNK_SIZE): string[] {
@@ -187,6 +206,7 @@ export async function runFullPipelineAndNotifyChat(
     identityMode: env.FEISHU_IDENTITY_MODE,
     userOAuthReady,
     artifactCount: links.length,
+    artifactSources: result.finalDeliverable?.publishedArtifacts?.map((a) => a.artifactSource),
     progressMessageId: progressMessageId ?? "",
   });
 
@@ -197,6 +217,12 @@ export async function runFullPipelineAndNotifyChat(
     }
     await sendCardMessage(c, { receiveId: parsed.chatId, card: resultCard });
   } catch (error) {
+    logger.info("[im-telemetry]", {
+      card_fallback_triggered: true,
+      sessionId: userRequest.sessionId,
+      chatId: parsed.chatId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     logger.warn("飞书 结果卡片发送失败，降级为文本摘要", {
       error: error instanceof Error ? error.message : String(error),
       sessionId: userRequest.sessionId,

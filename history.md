@@ -1,6 +1,63 @@
 # 项目变更记录
 
+## 2026-05-06
+
+### 文档搜索：拆词 + 兼容返回结构
+
+- **原因**：整句任务描述直接 `search-doc` 易 **0 条**（飞书侧更像关键词检索）；MCP 若返回 `documents` / `data.files` 等而非 `docs`，原解析会得到空数组。
+- **实现**：`deriveMcpDocumentSearchQueries`（`services/resourcePool/mcpSearchQueries.ts`）从提示词生成最多 **6** 条短查询；`screening.fetchExternalCandidates` 与 `retrieval.engine.fetchGatewayContext` **逐条搜索、按文档 id 去重合并**；`extractSearchDocListFromUnknown`（`mcpResponseParse.ts`）统一解析列表字段；解析仍 0 条时 **warn + sample** 便于核对 JSON。
+- **search-doc Unauthorized**：见上；`env` 默认 scope 已含 **`search:docs:read`**；可选 **`FEISHU_USER_OAUTH_PROMPT=consent`** 强制重授权（见 README §12.3）。
+
+### 文档搜索调试日志
+
+- **`[document-search-debug] searchDocuments`**（`toolGateway.gateway.ts`）：每次 `searchDocuments` 成功后输出 `query` / `queryLength` / `resultCount` / `userId` / `preferUserScope`，以及最多 **16** 条结果的 `id`、`title`、`url`、`source`（与飞书 MCP 返回一致，便于对照用户云文档）；条数多于 16 时 `truncated: true`。
+
 ## 2026-05-05
+
+### IM + UAT：未授权时发卡拦截 + OAuth 后自动续跑
+
+- **行为**：`FEISHU_MCP_IDENTITY=uat` 且 **`hasValidUserOAuth` 为假或已存 token 的 `scopes` 未覆盖 `FEISHU_USER_OAUTH_SCOPES` 全部项**时，webhook **不发** phase1/full 流水线；改为发送互动卡片（`open_url` 打开飞书授权页）。用户同意后，回调落盘 UAT 并 **异步续跑** 同一条 IM（`chatId` / `text` / `messageId` / 当前 `FEISHU_BOT_PIPELINE` 写入 OAuth `state`）。
+- **实现**：新增 `userOAuthAuthorizeFlow.ts`（state 与授权 URL）、`imTextPipelineDispatch.ts`（与 webhook 一致的 fire-and-forget 流水线）、`cards.buildUserOAuthRequiredCard`；`feishuAuth.ts` 复用上述 flow；`feishuWebhookDispatch.ts` 合并原 phase1/full 分支为统一调度。
+- **仍支持**：`GET /api/feishu/auth/start`（无 IM 续跑上下文时 `replay` 为空，回调仅结束授权页提示）。
+- **修复（OAuth 回调 502）**：飞书 `authen/v2/oauth/token` 部分环境下返回根级 `access_token`（非 `data.access_token`），回调已同时兼容两种 JSON 结构，避免误报「换取 token 失败」并返回 502。
+- **修复（UAT 发布后 mock.feishu.local）**：MCP `create-doc` 成功但 `update-doc` 返回体未判成功 → 回退 OpenAPI 用 TAT 写正文 → 对用户刚创建的文档报 `1770032 forBidden`。已增强 `interpretMcpUpdateDocResult`（识别 `code:0` / 嵌套 data 等），且在 `FEISHU_MCP_IDENTITY=uat` 且请求带 `userId` 时，`document.create` / `document.update` / `document.comment.add` 不再回退 OpenAPI。**补充**：`update-doc` 仍非标准时增加 `revision_id` / `error_code` 等判定，并以 **fetch-doc 写后读**（短延迟 + `##` / 前缀匹配）判定成功，避免落 `feishu_doc-fallback`。**根因补充**：远程 `update-doc` 要求参数 `docID`（camelCase）与 **`mode`**（如 `overwrite`）；已传 `docID` + `document_id` + `mode` + `markdown`/`content`，并为 JSON 字符串错误体增加 `toolResultAsRecord` 解析。IM 结果卡对 `mock.feishu.local` / fallback 不再渲染可点链接，改为说明文案。
+
+### `env.ts`：固定从包根目录加载 `.env`
+
+- **原因**：`dotenv.config()` 默认读 `process.cwd()` 下的 `.env`；从仓库上级目录或其它路径启动 `npm run dev` 时读不到 `feishu_agent/.env`，导致 `FEISHU_USER_OAUTH_REDIRECT_URI` 等为空，`/api/feishu/auth/start` 报「缺少 FEISHU_USER_OAUTH_REDIRECT_URI」。
+- **实现**：`src/config/env.ts` 使用 `import.meta.url` 解析 `feishu_agent/.env` 绝对路径后再 `dotenv.config({ path })`。
+- **当前项目结构**：仅改 `src/config/env.ts`；本记录追加至 `history.md`。
+
+### README §12 收尾（P2 + 文档）
+
+- **P2**：新增 `mcpResponseParse.ts` 与 `mcpResponseParse.test.ts`（`npm test`）；发布链路 `publisher.ts` 增加 `[publish-telemetry]`，`reportImDelivery.ts` 增加 `[im-telemetry].card_fallback_triggered`。
+- **文档**：README §12.4 步骤编号修正；§12.5 P2 标为已完成。
+- **验证**：`npm run check`、`npm test` 通过。
+
+### MCP 客户端接入完善（对齐 README §12）
+
+- **背景**：飞书远程 MCP 工具名以[官方工具列表](https://open.feishu.cn/document/mcp_open_tools/supported-tools)为准；原适配器混用旧版 plural 名称且对 create/update 软成功容忍度过高。
+- **实现**：
+  - `feishuMcpAdapter.ts`：`tools/call` 统一错误分类（`PERMISSION_DENIED` / `VALIDATION` / `INVALID_RESPONSE`）、`create-doc` 强校验 `id`+`title`+`url`、`update-doc` 解析布尔或 `ok`/`success`、工具名与官方一致（`search-doc`、`fetch-file`、`add-comments`、`search-user`、`get-user`）；支持 `tools/list` 供探针使用。
+  - `errors.ts`：新增错误码；`INVALID_RESPONSE` 可回退到其他 adapter。
+  - `publisher.ts`：发布后强制 `viewDocument` + 正文长度与标题关键字验收；产物附带 `artifactSource`。
+  - `phase1.ts`：新增 `GET /api/phase1/mcp-check`。
+  - `reportImDelivery.ts` / `cards.ts`：IM 卡片与文本降级中展示产物来源；日志增加 `artifactSources`。
+  - `env.ts` / `env.example` / `README.md`：默认 `FEISHU_MCP_ALLOWED_TOOLS` 与官方一致，`FEISHU_DOC_LARK_CLI_HARD_PREFER` 默认 `false`，新增 `FEISHU_DOC_PUBLISH_VERIFY_MIN_CHARS`。
+- **验证**：`npm run check` 通过。
+- **当前项目结构**：未改目录层级；变更集中于 `src/services/toolGateway/`、`src/services/output/`、`src/api/phase1.ts`、`src/integrations/feishu/`、`src/config/env.ts`、`src/schemas/agentContracts.ts`、`README.md`、`env.example`。
+- **补充（同日）**：本地 `feishu_agent/.env` 中 `FEISHU_MCP_ALLOWED_TOOLS` 已与官方工具名、`env.example` 对齐。
+- **补充（IM 回退排查）**：MCP `create-doc` 返回结构多样、`fetch-doc` 用 `document_id` 时正文可能为空；已增强 `feishuMcpAdapter` 字段解析与 URL 二次拉取，并在 `publisher` 验收中对「fetch 空正文」用待发 markdown 兜底，避免误落 `mock.feishu.local` fallback。
+- **补充（标题验收）**：`fetch-doc` 正文可能不含报告标题（块结构/片段），验收改为「fetch 与待发 markdown 任一含标题关键字」即通过；`create-doc` 解析失败时打 `sample` 日志便于对齐 MCP 字段。
+- **补充（章节 ## 误判）**：终端曾出现 `verify_failed`：待发含 `##` 但 fetch 无字面量 `##`（云文档常见）。`verifyPublishedDocBody` 改为：无 `##` 时若章节标题（去 Markdown 噪声后）出现在 fetch，或 fetch 纯文本长度 ≥ `max(FEISHU_DOC_PUBLISH_VERIFY_MIN_CHARS, 80)`，则 warn + `publish-telemetry` 放行，不再触发 fallback。
+
+### 本地 `.env` 由 `env.example` 与用户配置生成
+
+- **处理**：
+  - 依据 `env.example` 全量键位，将用户提供的百炼、飞书、MCP、lark-cli、超时与资源筛选等变量写入 `feishu_agent/.env`（含 `FEISHU_MCP_FETCH_DOC_ID` 联调项）。
+  - 未在用户配置中出现的 `env.example` 键保留模板默认值（如 `LARK_CLI_GUIDANCE_REQUIRED`、`FEISHU_RESOURCE_POOL_SOURCE=mock` 等）。
+- **说明**：`.env` 已 gitignore，勿将密钥提交到版本库。
+- **当前项目结构**：与变更前一致；仅新增本地 `feishu_agent/.env`（不计入 git）。
 
 ### 合并冲突修复：docxBlocks 双能力并存
 

@@ -21,6 +21,8 @@ import { buildHybridResourcePoolFromFeishuFolder } from "../../resource_pool/fei
 import { hydrateTaskContext } from "../../resource_pool/hydrator.js";
 import { ResourcePoolManager } from "../../resource_pool/manager.js";
 import { runResourceScreening } from "../../resource_pool/screening.js";
+import { deriveMcpDocumentSearchQueries } from "../resourcePool/mcpSearchQueries.js";
+import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
 import { parseJsonFromMd, parseSkillDocFromMd, type SkillDoc } from "./mdParser.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 
@@ -174,11 +176,22 @@ export class RetrievalEngine {
     return { doc: null, source: "none" };
   }
 
-  private async fetchGatewayContext(query: string): Promise<RetrievalContext["projectContext"]> {
-    const [docs, users] = await Promise.all([
-      toolGateway.searchDocuments(query).catch(() => []),
-      toolGateway.searchUsers(query).catch(() => []),
-    ]);
+  private async fetchGatewayContext(query: string, userId: string): Promise<RetrievalContext["projectContext"]> {
+    const ctx = { userId, preferUserScope: hasValidUserOAuth(userId) };
+    const queries = deriveMcpDocumentSearchQueries(query);
+    const seen = new Set<string>();
+    const docs: Awaited<ReturnType<typeof toolGateway.searchDocuments>> = [];
+    for (const q of queries) {
+      const batch = await toolGateway.searchDocuments(q, ctx).catch(() => []);
+      for (const d of batch) {
+        if (d.id && !seen.has(d.id)) {
+          seen.add(d.id);
+          docs.push(d);
+        }
+      }
+    }
+    const userQuery = queries[0] ?? query;
+    const users = await toolGateway.searchUsers(userQuery, ctx).catch(() => []);
     const docContexts = docs.slice(0, 5).map((doc) => ({
       sourceId: `gateway_doc_${doc.id}`,
       sourceType: "doc" as const,
@@ -282,7 +295,7 @@ export class RetrievalEngine {
       pack,
       templateDistillation ? profilesByResourceId : undefined,
     );
-    const retrievedContext = await this.fetchGatewayContext(request.prompt);
+    const retrievedContext = await this.fetchGatewayContext(request.prompt, request.userId);
     const personalKnowledgeContext = request.personalKnowledge.map((content, idx) => ({
       sourceId: `pk_${idx + 1}`,
       sourceType: "history" as const,

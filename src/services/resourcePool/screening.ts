@@ -9,6 +9,7 @@ import { invokeJsonModel } from "../../llm/jsonModel.js";
 import { env } from "../../config/env.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 import { expandMemPalaceTerms } from "./memPalace.js";
+import { deriveMcpDocumentSearchQueries } from "./mcpSearchQueries.js";
 import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
 
 function scoreByRules(prompt: string, resource: ResourceSummary): number {
@@ -92,12 +93,23 @@ function mapUserToResourceSummary(
 }
 
 async function fetchExternalCandidates(query: string, userId?: string): Promise<ResourceSummary[]> {
-  const context =
-    userId && hasValidUserOAuth(userId) ? { userId, preferUserScope: true as const } : undefined;
-  const [docs, users] = await Promise.all([
-    toolGateway.searchDocuments(query, context),
-    toolGateway.searchUsers(query, context),
-  ]);
+  const context = userId?.trim()
+    ? { userId: userId.trim(), preferUserScope: hasValidUserOAuth(userId) }
+    : undefined;
+  const queries = deriveMcpDocumentSearchQueries(query);
+  const seenDoc = new Set<string>();
+  const docs: Awaited<ReturnType<typeof toolGateway.searchDocuments>> = [];
+  for (const q of queries) {
+    const batch = await toolGateway.searchDocuments(q, context);
+    for (const d of batch) {
+      if (d.id && !seenDoc.has(d.id)) {
+        seenDoc.add(d.id);
+        docs.push(d);
+      }
+    }
+  }
+  const userQuery = queries[0] ?? query;
+  const users = await toolGateway.searchUsers(userQuery, context);
 
   return [
     ...docs.slice(0, 4).map(mapDocToResourceSummary),

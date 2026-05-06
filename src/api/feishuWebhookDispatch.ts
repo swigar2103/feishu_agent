@@ -1,13 +1,20 @@
 import type { FastifyReply } from "fastify";
 import { env } from "../config/env.js";
-import { assertFeishuMvpConfig, getFeishuMvpConfig } from "../integrations/feishu/feishuConfig.js";
-import {
-  buildFallbackGeneratedDocCard,
-} from "../integrations/feishu/cards.js";
+import { getFeishuMvpConfig } from "../integrations/feishu/feishuConfig.js";
+import { buildUserOAuthRequiredCard } from "../integrations/feishu/cards.js";
+import { runImTextPipelineFireAndForget } from "../integrations/feishu/imTextPipelineDispatch.js";
 import { sendCardMessage, sendTextMessage } from "../integrations/feishu/imMessage.js";
 import { parseFeishuImTextEvent } from "../integrations/feishu/webhookMessageParse.js";
-import { logger } from "../shared/logger.js";
+import {
+  createFeishuUserAuthorizeSession,
+  splitOAuthScopes,
+} from "../integrations/feishu/userOAuthAuthorizeFlow.js";
 import type { FeishuWebhookBody } from "../schemas/feishuWebhookBody.js";
+import { logger } from "../shared/logger.js";
+import {
+  hasValidUserOAuth,
+  userOAuthGrantedScopesCoverRequired,
+} from "../storage/userOAuthStore.js";
 
 /**
  * IM 等非 url_verification 事件；仅在被 webhook 命中时动态加载，避免拖慢冷启动。
@@ -45,61 +52,50 @@ export async function continueFeishuWebhookAfterChallenge(
     return;
   }
 
-  if (env.FEISHU_BOT_PIPELINE === "phase1") {
-    void (async () => {
-      try {
-        assertFeishuMvpConfig();
-        const { handleBotMessageText } = await import("../phase1/botHandler.js");
-        const result = await handleBotMessageText({
-          userText: imEvent.text,
-          chatId: imEvent.chatId,
-        });
-        await sendCardMessage(c, {
-          receiveId: imEvent.chatId,
-          card: buildFallbackGeneratedDocCard({
-            title: result.copyName,
-            docUrl: result.docUrl,
-            sessionId: result.documentId,
-          }),
-        });
-      } catch (error) {
-        logger.error("webhook phase1 async failed", { error });
-        try {
-          await sendTextMessage(c, {
-            receiveId: imEvent.chatId,
-            text: `Phase1 生成失败：${error instanceof Error ? error.message : String(error)}`,
-          });
-        } catch (notifyErr) {
-          logger.error("webhook phase1 error notify failed", { error: notifyErr });
-        }
-      }
-    })();
-  } else {
-    logger.info("webhook full pipeline accepted", {
-      chatId: imEvent.chatId,
+  const uatRequiredScopes = splitOAuthScopes(env.FEISHU_USER_OAUTH_SCOPES);
+  const uatOAuthIncomplete =
+    env.FEISHU_MCP_IDENTITY === "uat" &&
+    (!hasValidUserOAuth(imEvent.userId) ||
+      !userOAuthGrantedScopesCoverRequired(imEvent.userId, uatRequiredScopes));
+
+  if (uatOAuthIncomplete) {
+    logger.info("webhook: UAT 用户 OAuth 未就绪（无 token、已过期或 scope 未覆盖 .env 要求），发授权卡", {
       userId: imEvent.userId,
-      messageId: imEvent.messageId,
-      identityMode: env.FEISHU_IDENTITY_MODE,
+      requiredScopeCount: uatRequiredScopes.length,
     });
-    void (async () => {
+    try {
+      const { authUrl } = createFeishuUserAuthorizeSession({
+        userId: imEvent.userId,
+        replay: {
+          chatId: imEvent.chatId,
+          text: imEvent.text,
+          messageId: imEvent.messageId,
+          pipeline: env.FEISHU_BOT_PIPELINE === "phase1" ? "phase1" : "full",
+        },
+      });
+      await sendCardMessage(c, {
+        receiveId: imEvent.chatId,
+        card: buildUserOAuthRequiredCard({ authUrl, userIdHint: imEvent.userId }),
+      });
+    } catch (error) {
+      logger.error("webhook: UAT 授权卡片发送失败", { error });
       try {
-        const { runFullPipelineAndNotifyChat } = await import(
-          "../integrations/feishu/reportImDelivery.js"
-        );
-        await runFullPipelineAndNotifyChat(c, imEvent);
-      } catch (error) {
-        logger.error("webhook full pipeline async failed", { error });
-        try {
-          await sendTextMessage(c, {
-            receiveId: imEvent.chatId,
-            text: `报告生成失败：${error instanceof Error ? error.message : String(error)}`,
-          });
-        } catch (notifyErr) {
-          logger.error("webhook full pipeline error notify failed", { error: notifyErr });
-        }
+        await sendTextMessage(c, {
+          receiveId: imEvent.chatId,
+          text: `需要绑定文档搜索授权后才能继续。服务端配置异常：${
+            error instanceof Error ? error.message : String(error)
+          }。请联系管理员检查 FEISHU_USER_OAUTH_REDIRECT_URI 等环境变量。`,
+        });
+      } catch (notifyErr) {
+        logger.error("webhook: UAT 授权失败通知发送失败", { error: notifyErr });
       }
-    })();
+    }
+    await reply.status(200).send({ message: "ok", hint: "oauth_required" });
+    return;
   }
+
+  const pipeline = env.FEISHU_BOT_PIPELINE === "phase1" ? "phase1" : "full";
+  runImTextPipelineFireAndForget(c, imEvent, pipeline);
 
   await reply.status(200).send({ message: "ok" });
 }

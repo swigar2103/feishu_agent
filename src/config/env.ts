@@ -1,7 +1,10 @@
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-dotenv.config();
+const envFile = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", ".env");
+dotenv.config({ path: envFile });
 
 const EnvSchema = z.object({
   /** 未配置时进程可启动；实际调用 LLM 时在 client 层报错 */
@@ -42,10 +45,24 @@ const EnvSchema = z.object({
   FEISHU_IM_NOTIFY_CHAT_ID: z.string().default(""),
   /** Tool Gateway: 飞书官方 MCP endpoint（留空则自动走 fallback adapter） */
   FEISHU_MCP_URL: z.string().default(""),
-  /** Tool Gateway: MCP 工具白名单，逗号分隔 */
+  /** Tool Gateway: MCP 工具白名单，逗号分隔（须与飞书远程 MCP 工具名一致） */
   FEISHU_MCP_ALLOWED_TOOLS: z.string().default(
-    "search-docs,fetch-doc,list-docs,get-file-content,create-doc,update-doc,get-comments,add-comment,search-users,get-user-info",
+    "search-doc,fetch-doc,list-docs,fetch-file,create-doc,update-doc,get-comments,add-comments,search-user,get-user",
   ),
+  /**
+   * MCP 接入身份：tat=租户访问令牌 X-Lark-MCP-TAT；uat=用户访问令牌 X-Lark-MCP-UAT（须完成用户 OAuth 且请求上下文中带 userId）。
+   * tools/list 探测无 userId 时自动用 TAT 回退（需配置 FEISHU_APP_ID/SECRET）。
+   */
+  FEISHU_MCP_IDENTITY: z.enum(["tat", "uat"]).default("tat"),
+  /**
+   * 发布后 fetch 验收：正文有效字符数低于该阈值视为空文档（0 表示不做长度阈值，仍校验标题）
+   */
+  FEISHU_DOC_PUBLISH_VERIFY_MIN_CHARS: z.coerce.number().int().nonnegative().default(50),
+  /**
+   * 深读/检索 viewDocument：正文短于该值时继续尝试下一个 Gateway adapter（lark-cli / OpenAPI raw_content），
+   * 避免 MCP fetch-doc 只解析到摘要片段就提前返回。
+   */
+  FEISHU_VIEW_DOCUMENT_MIN_CHARS: z.coerce.number().int().nonnegative().default(600),
   /** Tool Gateway: 是否启用 lark-cli（auto 按能力与可用性探测） */
   LARK_CLI_ENABLED: z.enum(["auto", "true", "false"]).default("auto"),
   /** 模板层是否强制要求 lark-cli guidance 注入（true 时缺失即失败） */
@@ -74,8 +91,8 @@ const EnvSchema = z.object({
     .default("outline_only"),
   /** 文档发布策略：gateway_only 保持原路由；lark_cli_first 优先尝试 lark-cli */
   FEISHU_DOC_PUBLISH_STRATEGY: z.enum(["gateway_only", "lark_cli_first"]).default("gateway_only"),
-  /** 文档发布能力是否要求 lark-cli 优先参与（创建/更新） */
-  FEISHU_DOC_LARK_CLI_HARD_PREFER: z.coerce.boolean().default(true),
+  /** 文档发布能力是否禁止 lark-cli 失败后回退（创建/更新）；MCP 联调阶段建议 false */
+  FEISHU_DOC_LARK_CLI_HARD_PREFER: z.coerce.boolean().default(false),
   /** Resource Screening: 本地候选低于该数量时触发外部补检索 */
   RESOURCE_SCREENING_MIN_CANDIDATE_COUNT: z.coerce.number().int().positive().default(3),
   /** Resource Screening: topN 候选平均分低于该阈值时触发外部补检索 */
@@ -97,7 +114,19 @@ const EnvSchema = z.object({
   /** 用户授权增强：回调地址（需与开放平台一致） */
   FEISHU_USER_OAUTH_REDIRECT_URI: z.string().default(""),
   /** 用户授权增强：scope 列表（空格分隔） */
-  FEISHU_USER_OAUTH_SCOPES: z.string().default("drive:drive docx:document"),
+  FEISHU_USER_OAUTH_SCOPES: z
+    .string()
+    .default(
+      "drive:drive drive:drive.search:readonly search:docs:read docx:document",
+    ),
+  /**
+   * 授权页 `prompt`：留空默认；`consent` 时强制展示同意页（新增 scope 或遇 99991679 后建议开一次，再改回空）。
+   * @see https://open.feishu.cn/document/common-capabilities/sso/api/obtain-oauth-code
+   */
+  FEISHU_USER_OAUTH_PROMPT: z
+    .string()
+    .default("")
+    .transform((s) => (s.trim() === "consent" ? "consent" : "")),
   /** 用户授权增强：授权页地址 */
   FEISHU_USER_OAUTH_AUTHORIZE_URL: z
     .string()

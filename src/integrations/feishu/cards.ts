@@ -57,6 +57,50 @@ export function buildResolvedCard(): Record<string, unknown> {
   };
 }
 
+/**
+ * UAT 未就绪时引导用户在飞书内点击按钮跳转 OAuth（open_url → 飞书授权页）。
+ * @see https://open.feishu.cn/document/feishu-cards/card-json-v2-components/interactive-components/button
+ */
+export function buildUserOAuthRequiredCard(input: {
+  authUrl: string;
+  /** 展示在说明里，便于运营对照日志（非敏感） */
+  userIdHint?: string;
+}): Record<string, unknown> {
+  const who = input.userIdHint?.trim()
+    ? `\n\n绑定账号：\`${input.userIdHint.trim()}\``
+    : "";
+  return {
+    schema: "2.0",
+    config: { update_multi: true },
+    body: {
+      direction: "vertical",
+      elements: [
+        {
+          tag: "markdown",
+          content: `## 需要授权后才能搜索您的云文档${who}\n\n当前以 **用户令牌（UAT）** 访问文档搜索。请点击下方按钮，在飞书授权页中同意授权；完成后将**自动继续处理您刚才发送的需求**，无需再次输入。`,
+        },
+        {
+          tag: "button",
+          text: { tag: "plain_text", content: "去授权（打开飞书登录页）" },
+          type: "primary",
+          width: "default",
+          behaviors: [
+            {
+              type: "open_url",
+              default_url: input.authUrl,
+              pc_url: input.authUrl,
+            },
+          ],
+        },
+        {
+          tag: "markdown",
+          content: "若按钮无响应，可将本卡片截图给管理员，或检查飞书客户端是否为最新版本。",
+        },
+      ],
+    },
+  };
+}
+
 export function buildPipelineProgressCard(input: {
   title: string;
   sessionId: string;
@@ -89,6 +133,9 @@ export function buildPipelineProgressCard(input: {
 export type PipelineResultLink = {
   label: string;
   url: string;
+  artifactSource?: string;
+  /** true：仅占位/发布失败，勿当成可点击的云文档链接 */
+  unavailable?: boolean;
 };
 
 export function buildPipelineResultCard(input: {
@@ -106,11 +153,22 @@ export function buildPipelineResultCard(input: {
         : "待补信息";
   const linkLines =
     input.links.length > 0
-      ? input.links.map((item) => `- [${item.label}](${item.url})`).join("\n")
+      ? input.links
+          .map((item) => {
+            const src = item.artifactSource ? ` _${item.artifactSource}_` : "";
+            if (item.unavailable || !item.url?.trim()) {
+              return `- **${item.label}**（本次未生成可访问的云文档链接，请以摘要为准或联系管理员查看服务端 MCP 日志）${src}`;
+            }
+            return `- [${item.label}](${item.url})${src}`;
+          })
+          .join("\n")
       : "- 暂无可用成果链接";
   const summaryLines =
     input.summary.length > 0 ? input.summary.map((item) => `- ${item}`).join("\n") : "- 无";
-  const primaryLine = input.links[0]?.url ? `主成果：${input.links[0].url}` : "主成果：暂无";
+  const primary = input.links.find((l) => l.url?.trim() && !l.unavailable);
+  const primaryLine = primary?.url
+    ? `主成果：${primary.url}`
+    : "主成果：暂无（见上「未生成可访问链接」说明）";
 
   return {
     schema: "2.0",

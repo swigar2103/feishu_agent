@@ -160,7 +160,9 @@
   - 示例：`https://mcp.feishu.cn/mcp`
   - 留空则直接走 fallback adapter
 - `FEISHU_MCP_ALLOWED_TOOLS`
-  - 逗号分隔工具白名单
+  - 逗号分隔工具白名单，须与[官方远程 MCP 工具名](https://open.feishu.cn/document/mcp_open_tools/supported-tools)一致（如 `search-doc`、`add-comments`、`fetch-file`）
+- `FEISHU_DOC_PUBLISH_VERIFY_MIN_CHARS`（默认 `50`）
+  - 发布后 `fetch-doc` 验收：正文最短字符数；`0` 表示跳过长度阈值（仍会校检标题关键字）
 
 ### 6.4 lark-cli（可选增强）
 
@@ -172,7 +174,7 @@
 - `LARK_CLI_TIMEOUT_MS`：单次命令超时（毫秒）
 - `LARK_CLI_FOLDER_TOKEN`：`docs +create` 目标目录；为空时回退 `FEISHU_TARGET_FOLDER_TOKEN`
 - `FEISHU_DOC_PUBLISH_STRATEGY`：`gateway_only`（默认）或 `lark_cli_first`
-- `FEISHU_DOC_LARK_CLI_HARD_PREFER`：文档创建/更新是否要求 lark-cli 优先参与（推荐 `true`）
+- `FEISHU_DOC_LARK_CLI_HARD_PREFER`：禁止「仅 lark-cli」在失败后回退 OpenAPI（`true` 仅当你强制 CLI）；**MCP 联调阶段建议 `false`**
 - `LARK_CLI_CMD_DOCS_SEARCH`：文档搜索命令模板（支持 `{query}`）
 - `LARK_CLI_CMD_CONTACT_SEARCH`：用户搜索命令模板（支持 `{query}`）
 - `LARK_CLI_CMD_CONTACT_GET`：用户详情命令模板（支持 `{userId}`）
@@ -249,6 +251,8 @@ lark-cli 分层策略（当前实现）：
 - `GET /api/feishu/auth/callback`：用户授权增强回调
 - `GET /api/feishu/auth/status`：查询用户授权状态
 - `GET /api/phase1/config-check`：飞书配置自检
+- `GET /api/phase1/setup-check`：环境、OAuth 落盘、MCP 身份、资源池等自检（**不返回 token**；`nextSteps` 为待办说明）
+- `GET /api/phase1/mcp-check`：MCP URL 与 `tools/list` 白名单覆盖探测
 - `GET /api/phase1/debug-resource-check`：模板/目标目录可读写探针
 - `GET /healthz`：健康检查
 
@@ -265,6 +269,12 @@ npm run dev
 
 ```bash
 npm run check
+```
+
+MCP 解析回归（README §12.5 P2）：
+
+```bash
+npm test
 ```
 
 ---
@@ -317,18 +327,18 @@ npm run check
 
 ### 12.1 服务端最低能力（必须）
 
-请确保 MCP 侧可稳定提供以下工具（名称与 `FEISHU_MCP_ALLOWED_TOOLS` 对齐）：
+请确保 MCP 侧可稳定提供以下工具（名称须与飞书[远程 MCP 支持的工具列表](https://open.feishu.cn/document/mcp_open_tools/supported-tools)及 `FEISHU_MCP_ALLOWED_TOOLS` 一致）：
 
-- `search-docs`
+- `search-doc`
 - `list-docs`
 - `fetch-doc`
-- `get-file-content`
+- `fetch-file`
 - `create-doc`
 - `update-doc`
 - `get-comments`
-- `add-comment`
-- `search-users`
-- `get-user-info`
+- `add-comments`
+- `search-user`
+- `get-user`
 
 参考官方能力列表：[远程 MCP 支持的工具列表](https://open.feishu.cn/document/mcp_open_tools/supported-tools)。
 
@@ -347,7 +357,10 @@ npm run check
 在 `.env` 中配置：
 
 - `FEISHU_MCP_URL=<你的 MCP endpoint>`
-- `FEISHU_MCP_ALLOWED_TOOLS=search-docs,fetch-doc,list-docs,get-file-content,create-doc,update-doc,get-comments,add-comment,search-users,get-user-info`
+- `FEISHU_MCP_ALLOWED_TOOLS=search-doc,fetch-doc,list-docs,fetch-file,create-doc,update-doc,get-comments,add-comments,search-user,get-user`
+- `FEISHU_MCP_IDENTITY=uat`（用户令牌 `X-Lark-MCP-UAT`：须在可写目录写入用户 OAuth，且业务请求带 `userId`；`tools/list` 无 `userId` 时 TAT 回退）或 `tat`（租户令牌）
+- `FEISHU_USER_OAUTH_REDIRECT_URI`：须与开放平台「重定向 URL」**完全一致**（例：`https://www.feishu.space/api/feishu/auth/callback`）
+- `FEISHU_USER_OAUTH_SCOPES`：须与后台勾选的用户权限一致，见下表「用户 OAuth Scope」
 - `FEISHU_DOC_PUBLISH_STRATEGY=gateway_only`（推荐先稳定）
 - `FEISHU_DOC_LARK_CLI_HARD_PREFER=false`（MCP 主导阶段建议先关闭 CLI 强优先）
 
@@ -356,15 +369,34 @@ npm run check
 - 若 `FEISHU_MCP_URL` 留空，日志会出现 `skip mcp by config`，不会命中 MCP。
 - 文档发布是否走 MCP，以 `tool-gateway` 日志中的 `adapter` 字段为准。
 
+#### 用户 OAuth Scope（写入 `FEISHU_USER_OAUTH_SCOPES`，与开发者后台「权限管理」勾选项一致）
+
+以本仓库默认组合为例（空格分隔）：
+
+| scope 键（须逐字一致） | 用途（对应本项目的 MCP / 链路） |
+|------------------------|----------------------------------|
+| `docx:document` | 新版云文档创建、编辑、读正文（`create-doc` / `update-doc` / `fetch-doc`） |
+| `drive:drive` | 云空间文件管理（含读写类能力；Agent 发布到云盘时常需） |
+| `drive:drive.search:readonly` | 云文档关键词搜索（文档搜索类 OpenAPI） |
+| `search:docs:read` | 用户身份文档搜索能力；**MCP `search-doc` 报 [search:docs:read] / 99991679 时需列入本处并重新授权**（与上一项在权限列表中可能并存，缺一仍可能报错） |
+| `contact:user:search` | `search-user` |
+| `contact:user.base:readonly` | `get-user`（用户基本信息） |
+| `wiki:wiki:readonly` | 知识库只读（文档在知识库里时建议保留） |
+
+权威枚举与后台中文名以飞书 [权限列表](https://open.feishu.cn/document/ukTMukTMukTM/uYTM5UjL2ETO14iNxkTN/scope-list) 为准。  
+**「应用身份已开通」≠「用户身份已开通」**：`FEISHU_MCP_IDENTITY=uat` 走 **user_access_token** 时，须在你截图的权限表里把 **权限类型 = 用户身份** 的对应项也开通（可按「身份类型」筛选核对）。仅应用身份开通时，MCP 仍可能报 `search:docs:read` / [99991679](https://open.feishu.cn/document/faq/trouble-shooting/how-to-resolve-error-99991679)。  
+**改权限或 scope 后**：把 `FEISHU_USER_OAUTH_SCOPES` 补全（含报错中的 scope 键）→ 开放平台 **创建版本并发布** → 将 `FEISHU_USER_OAUTH_PROMPT=consent` 可[强制展示授权页](https://open.feishu.cn/document/common-capabilities/sso/api/obtain-oauth-code) → 用户重新授权（IM 卡或 `GET /api/feishu/auth/start?userId=…`）→ 换到新 token 后可将 `FEISHU_USER_OAUTH_PROMPT` 置空；重定向 URL 变更时也须同样重新授权。
+
 ### 12.4 联调验收顺序（建议按此执行）
 
 1. 启动本项目：`npm run dev`
-2. 发送一次飞书 webhook（或群内 @机器人）
-3. 检查日志必须出现：
+2. `GET /api/phase1/setup-check`（推荐）与 `GET /api/phase1/mcp-check` 确认 MCP 与 OAuth 通道
+3. 发送一次飞书 webhook（或群内 @机器人）
+4. 检查日志必须出现：
    - `createDocument success ... adapter":"mcp"`
    - `updateDocument success ... adapter":"mcp"`
-4. 打开产物链接，验证文档正文非空、结构完整（标题/摘要/分节）
-5. 检查 IM：
+5. 打开产物链接，验证文档正文非空、结构完整（标题/摘要/分节）
+6. 检查 IM：
    - 优先收到“链接+结构化摘要”卡片/文本
    - 不应再出现整篇正文刷屏
 
@@ -372,31 +404,21 @@ npm run check
 
 P0（建议本周完成）：
 
-- 在 `src/services/output/publisher.ts` 增加“发布后抽样验收”：
-  - `create/update` 后执行一次 `viewDocument/fetch-doc`
-  - 校验正文长度阈值（如 > 50 字）与关键标题存在
-  - 验收失败直接标记 `fallback`，并输出明确告警
-- 在 `src/services/toolGateway/feishuMcpAdapter.ts` 增加更严格的返回校验与错误分类：
-  - 区分参数错误/权限错误/上游临时错误
-  - 对“缺少 id/url/title”直接抛错，禁止假成功
+- ✅ 在 `src/services/output/publisher.ts` 增加「发布后抽样验收」：`create/update` 后统一 `viewDocument`（fetch-doc），校验正文长度（`FEISHU_DOC_PUBLISH_VERIFY_MIN_CHARS`）与标题关键字；失败抛错触发既有 `fallback` 链路。
+- ✅ 在 `src/services/toolGateway/feishuMcpAdapter.ts` 增加更严格的返回校验与错误分类：`PERMISSION_DENIED` / `VALIDATION` / `INVALID_RESPONSE`；`create-doc` 缺少 `id`/`title`/`url` 直接抛错；`update-doc` 解析 `ok`/`success`/`boolean`。
+- ✅ 工具名与飞书远程 MCP 文档对齐（`search-doc`、`fetch-file`、`add-comments`、`search-user`、`get-user` 等）。
 
 P1（建议下个迭代）：
 
-- 新增 MCP 健康探针接口（例如 `GET /api/phase1/mcp-check`）：
-  - 检查 `FEISHU_MCP_URL` 是否配置
-  - 检查关键工具是否可调用（可做只读探测）
-  - 返回结构化状态，供运维与值班排障
-- 在 `reportImDelivery` 中增加 `artifact source` 展示（mcp/openapi/lark_cli），便于问题归因
+- ✅ 新增 MCP 健康探针接口 `GET /api/phase1/mcp-check`：`tools/list` 与白名单覆盖（`list` 失败时 `ok=false` 并返回错误信息）。
+- ✅ 在 `reportImDelivery` / 结果卡片中增加产物来源（`artifactSource`：`mcp`/`openapi`/`lark_cli`）。
 
 P2（质量增强）：
 
-- 给 `create-doc/update-doc/fetch-doc` 增加回归测试（mock MCP 响应）：
-  - 正常结构、字段缺失、错误码、空内容四类用例
-- 在发布链路加埋点：
-  - `adapter`
-  - `publish status`
-  - `empty_doc_detected`
-  - `card_fallback_triggered`
+- ✅ 给 `create-doc/update-doc/fetch-doc` 增加回归测试（mock MCP 响应）：见 `src/services/toolGateway/mcpResponseParse.test.ts`，运行 `npm test`
+- ✅ 在发布链路加埋点（结构化日志，便于 grep / 对接观测）：
+  - `[publish-telemetry]`：`adapter`、`publish_status`（`published` / `fallback` / `verify_failed`）、`empty_doc_detected`（及 `mitigated_by`）、`output_type`、`sessionId` 等
+  - `[im-telemetry]`：`card_fallback_triggered`（结果卡片失败改发文本时）
 
 ### 12.6 常见故障快速判断
 

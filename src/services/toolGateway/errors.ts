@@ -4,8 +4,10 @@ export type GatewayErrorCode =
   | "TIMEOUT"
   | "UPSTREAM_TEMPORARY"
   | "VALIDATION"
+  | "PERMISSION_DENIED"
+  | "SCOPE_INSUFFICIENT"
+  | "INVALID_RESPONSE"
   | "UNKNOWN";
-
 export class ToolGatewayError extends Error {
   readonly code: GatewayErrorCode;
   readonly causeText?: string;
@@ -25,6 +27,8 @@ export function isFallbackableGatewayError(error: unknown): boolean {
     error.code === "NOT_SUPPORTED" ||
     error.code === "TIMEOUT" ||
     error.code === "UPSTREAM_TEMPORARY" ||
+    error.code === "SCOPE_INSUFFICIENT" ||
+    error.code === "INVALID_RESPONSE" ||
     error.code === "UNKNOWN"
   );
 }

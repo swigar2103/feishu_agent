@@ -21,7 +21,8 @@ export const WORKFLOW_SKILL_REGISTRY: WorkflowSkillEntry[] = [
     name: "standup-report",
     intentTags: ["daily_report", "weekly_report", "general_task"],
     reportTypeKeywords: ["standup", "站会", "日报", "daily"],
-    requiredInputs: ["agenda", "todo", "summary"],
+    // 不依赖 user prompt 英文词匹配（易误判「请补充：agenda」）；素材由检索 doc_summary + 深读补足
+    requiredInputs: [],
     sections: ["今日完成", "明日计划", "阻塞项与协作", "行动项"],
     styleRules: ["结论先行", "每节最多3-5个要点", "行动项需明确 owner 与时间"],
     toolHints: ["docs +create", "docs +update", "docs +fetch"],

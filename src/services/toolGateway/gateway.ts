@@ -86,12 +86,34 @@ export class ToolGateway implements FeishuToolGatewayApi {
     return baseOrder;
   }
 
+  /**
+   * UAT 创建的云文档只能由同一用户身份更新；OpenAPI 走 TAT 时对用户文档常见 1770032 forBidden。
+   */
+  private shouldSkipOpenApiForUserScopedMutation(
+    capability: GatewayCapability,
+    context?: GatewayRequestContext,
+  ): boolean {
+    if (env.FEISHU_MCP_IDENTITY !== "uat") return false;
+    if (!context?.userId?.trim()) return false;
+    return this.isDocPublishCapability(capability);
+  }
+
+  private filterOrderForContext(
+    order: GatewayAdapterName[],
+    capability: GatewayCapability,
+    context?: GatewayRequestContext,
+  ): GatewayAdapterName[] {
+    if (!this.shouldSkipOpenApiForUserScopedMutation(capability, context)) return order;
+    return order.filter((n) => n !== "openapi");
+  }
+
   private async executeWithPolicy<T>(
     capability: GatewayCapability,
     operationName: string,
     run: (adapter: FeishuToolGatewayApi) => Promise<T>,
+    context?: GatewayRequestContext,
   ): Promise<T> {
-    const order = this.getExecutionOrder(capability);
+    const order = this.filterOrderForContext(this.getExecutionOrder(capability), capability, context);
     const startedAt = Date.now();
     let latestError: unknown;
 
@@ -144,63 +166,168 @@ export class ToolGateway implements FeishuToolGatewayApi {
       : new Error(`[tool-gateway] ${operationName} all adapters failed`);
   }
 
-  searchDocuments(query: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
-    return this.executeWithPolicy("document.search", "searchDocuments", (adapter) =>
-      adapter.searchDocuments(query, context),
+  async searchDocuments(query: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
+    const docs = await this.executeWithPolicy(
+      "document.search",
+      "searchDocuments",
+      (adapter) => adapter.searchDocuments(query, context),
+      context,
     );
+    const previewLimit = 16;
+    logger.info("[document-search-debug] searchDocuments", {
+      query: query.length > 800 ? `${query.slice(0, 800)}…` : query,
+      queryLength: query.length,
+      resultCount: docs.length,
+      userId: context?.userId,
+      preferUserScope: context?.preferUserScope,
+      documents: docs.slice(0, previewLimit).map((d) => ({
+        id: d.id,
+        title: d.title,
+        url: d.url,
+        source: d.source,
+      })),
+      truncated: docs.length > previewLimit,
+    });
+    return docs;
   }
 
   listDocuments(query?: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
-    return this.executeWithPolicy("document.list", "listDocuments", (adapter) =>
-      adapter.listDocuments(query, context),
+    return this.executeWithPolicy(
+      "document.list",
+      "listDocuments",
+      (adapter) => adapter.listDocuments(query, context),
+      context,
     );
   }
 
-  viewDocument(documentId: string, context?: GatewayRequestContext): Promise<GatewayDocument | null> {
-    return this.executeWithPolicy("document.view", "viewDocument", (adapter) =>
-      adapter.viewDocument(documentId, context),
-    );
+  async viewDocument(documentId: string, context?: GatewayRequestContext): Promise<GatewayDocument | null> {
+    const capability = "document.view";
+    const order = this.filterOrderForContext(this.getExecutionOrder(capability), capability, context);
+    const startedAt = Date.now();
+    const minChars = env.FEISHU_VIEW_DOCUMENT_MIN_CHARS;
+    let best: GatewayDocument | null = null;
+    let bestLen = 0;
+
+    for (const adapterName of order) {
+      if (adapterName === "mcp" && !env.FEISHU_MCP_URL.trim()) {
+        logger.info("[tool-gateway] viewDocument skip mcp by config");
+        continue;
+      }
+      if (adapterName === "lark_cli" && !(await this.canUseLarkCli(capability))) {
+        logger.info("[tool-gateway] viewDocument skip lark-cli by capability", { capability });
+        continue;
+      }
+      const adapter = this.pickAdapter(adapterName);
+      try {
+        const doc = await adapter.viewDocument(documentId, context);
+        const len = (doc?.content ?? "").trim().length;
+        if (doc && len > bestLen) {
+          best = doc;
+          bestLen = len;
+        }
+        if (doc && len >= minChars) {
+          logger.info("[tool-gateway] viewDocument success", {
+            capability,
+            adapter: adapterName,
+            elapsedMs: Date.now() - startedAt,
+            contentChars: len,
+            minChars,
+          });
+          return doc;
+        }
+        if (doc && len > 0) {
+          logger.warn("[tool-gateway] viewDocument short body, try next adapter", {
+            capability,
+            adapter: adapterName,
+            contentChars: len,
+            minChars,
+          });
+        }
+      } catch (error) {
+        const fallbackable = isFallbackableGatewayError(error);
+        logger.warn("[tool-gateway] viewDocument failed", {
+          capability,
+          adapter: adapterName,
+          fallbackable,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        if (!fallbackable) {
+          throw error;
+        }
+      }
+    }
+
+    if (best) {
+      logger.info("[tool-gateway] viewDocument success (best effort below minChars)", {
+        capability,
+        elapsedMs: Date.now() - startedAt,
+        contentChars: bestLen,
+        minChars,
+      });
+    }
+    return best;
   }
 
   getFileContent(fileToken: string, context?: GatewayRequestContext): Promise<string> {
-    return this.executeWithPolicy("document.fileContent", "getFileContent", (adapter) =>
-      adapter.getFileContent(fileToken, context),
+    return this.executeWithPolicy(
+      "document.fileContent",
+      "getFileContent",
+      (adapter) => adapter.getFileContent(fileToken, context),
+      context,
     );
   }
 
   createDocument(input: CreateDocumentInput, context?: GatewayRequestContext): Promise<GatewayDocument> {
-    return this.executeWithPolicy("document.create", "createDocument", (adapter) =>
-      adapter.createDocument(input, context),
+    return this.executeWithPolicy(
+      "document.create",
+      "createDocument",
+      (adapter) => adapter.createDocument(input, context),
+      context,
     );
   }
 
   updateDocument(input: UpdateDocumentInput, context?: GatewayRequestContext): Promise<boolean> {
-    return this.executeWithPolicy("document.update", "updateDocument", (adapter) =>
-      adapter.updateDocument(input, context),
+    return this.executeWithPolicy(
+      "document.update",
+      "updateDocument",
+      (adapter) => adapter.updateDocument(input, context),
+      context,
     );
   }
 
   getComments(documentId: string, context?: GatewayRequestContext): Promise<GatewayComment[]> {
-    return this.executeWithPolicy("document.comment.list", "getComments", (adapter) =>
-      adapter.getComments(documentId, context),
+    return this.executeWithPolicy(
+      "document.comment.list",
+      "getComments",
+      (adapter) => adapter.getComments(documentId, context),
+      context,
     );
   }
 
   addComment(input: AddCommentInput, context?: GatewayRequestContext): Promise<boolean> {
-    return this.executeWithPolicy("document.comment.add", "addComment", (adapter) =>
-      adapter.addComment(input, context),
+    return this.executeWithPolicy(
+      "document.comment.add",
+      "addComment",
+      (adapter) => adapter.addComment(input, context),
+      context,
     );
   }
 
   searchUsers(query: string, context?: GatewayRequestContext): Promise<GatewayUser[]> {
-    return this.executeWithPolicy("user.search", "searchUsers", (adapter) =>
-      adapter.searchUsers(query, context),
+    return this.executeWithPolicy(
+      "user.search",
+      "searchUsers",
+      (adapter) => adapter.searchUsers(query, context),
+      context,
     );
   }
 
   getUserInfo(userId: string, context?: GatewayRequestContext): Promise<GatewayUser | null> {
-    return this.executeWithPolicy("user.get", "getUserInfo", (adapter) =>
-      adapter.getUserInfo(userId, context),
+    return this.executeWithPolicy(
+      "user.get",
+      "getUserInfo",
+      (adapter) => adapter.getUserInfo(userId, context),
+      context,
     );
   }
 

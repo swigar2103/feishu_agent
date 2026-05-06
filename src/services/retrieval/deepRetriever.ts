@@ -18,6 +18,9 @@ function toFact(sourceId: string, content: string, evidence?: string) {
   };
 }
 
+/** 写入 facts 的摘录上限：原 500 过短，Writer 侧若只看 analysis 会几乎丢失云文档正文 */
+const EXTERNAL_DOC_FACT_CAP = 12_000;
+
 /** 会话内增量修订：把 latestReport 摘要与用户 extraContext 注入事实层，否则 Analyst/Writer 只看资产池，上一稿等于从未出现。 */
 function buildSessionAnchoredFacts(request: UserRequest): Array<{
   sourceId: string;
@@ -87,7 +90,14 @@ export async function deepRetrieveContext(input: {
       : doc.resourceId;
     const viewed = await toolGateway.viewDocument(rawId, context);
     if (viewed?.content) {
-      externalFacts.push(toFact(doc.resourceId, viewed.content.slice(0, 500)));
+      const cap = Math.min(EXTERNAL_DOC_FACT_CAP, viewed.content.length);
+      externalFacts.push(
+        toFact(
+          doc.resourceId,
+          viewed.content.slice(0, cap),
+          `云文档正文摘录（最多 ${EXTERNAL_DOC_FACT_CAP} 字符）；完整正文见 context.sourceDetails 同 resourceId`,
+        ),
+      );
       externalDetails.push({
         resourceId: doc.resourceId,
         detail: viewed.content,
@@ -95,7 +105,14 @@ export async function deepRetrieveContext(input: {
     } else {
       const content = await toolGateway.getFileContent(rawId, context);
       if (content) {
-        externalFacts.push(toFact(doc.resourceId, content.slice(0, 500)));
+        const cap = Math.min(EXTERNAL_DOC_FACT_CAP, content.length);
+        externalFacts.push(
+          toFact(
+            doc.resourceId,
+            content.slice(0, cap),
+            `附件/文件内容摘录；完整正文见 context.sourceDetails 同 resourceId`,
+          ),
+        );
         externalDetails.push({
           resourceId: doc.resourceId,
           detail: content,

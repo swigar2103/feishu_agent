@@ -7,7 +7,8 @@
     "dev": "tsx watch src/app.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/app.js",
-    "check": "tsc --noEmit -p tsconfig.json"
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "node --import tsx/esm --test src/services/toolGateway/mcpResponseParse.test.ts"
   },
   "dependencies": {
     "@langchain/langgraph": "^0.2.74",

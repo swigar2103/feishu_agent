@@ -10,7 +10,13 @@ export type PublishedArtifact = {
   id: string;
   url: string;
   status: "published" | "fallback" | "mock_published";
+  artifactSource?: "mcp" | "lark_cli" | "openapi";
 };
+
+/** README §12.5 P2：发布链路结构化埋点（便于日志检索/对接观测） */
+function logPublishTelemetry(payload: Record<string, unknown>): void {
+  logger.info("[publish-telemetry]", payload);
+}
 
 function normalizeMultilineToBullets(text: string): string {
   return text
@@ -92,6 +98,116 @@ function validatePublishedDoc(doc: GatewayDocument): void {
   }
 }
 
+function stripMarkdownNoise(s: string): string {
+  return s.replace(/[#>*_\-\s]/g, "").trim();
+}
+
+/**
+ * create/update 后 fetch-doc 抽样验收：长度 + 标题/摘要章节锚点（§12.5 P0）
+ * 若 fetch 无 Markdown 字面量「##」但正文够长或章节标题文本已出现，视为写入成功；正文偏短时允许用待发 markdown 补足锚点校验。
+ */
+function verifyPublishedDocBody(
+  fetched: GatewayDocument | null,
+  draft: Draft,
+  writtenMarkdown?: string,
+): void {
+  if (!fetched) {
+    throw new Error("发布后 fetch-doc 返回空，疑似未完成写入");
+  }
+  const rawFetch = (fetched.content ?? "").trim();
+  const written = writtenMarkdown?.trim() ?? "";
+  const min = env.FEISHU_DOC_PUBLISH_VERIFY_MIN_CHARS;
+
+  /**
+   * 飞书 docx 经 MCP fetch 常为纯文本或块拼接，**不一定包含 Markdown 字面量「##」**；
+   * 原逻辑误判为「未写入」。改为：无 ## 时，用章节标题文本是否出现在 fetch 正文、或纯文本长度是否足够来判定。
+   */
+  if (written.includes("##") && !rawFetch.includes("##")) {
+    const headingFromMd = [...written.matchAll(/^##\s+(.+)$/gm)]
+      .map((m) => (m[1] ?? "").trim())
+      .filter(Boolean);
+    const headingTexts = [
+      ...headingFromMd.map((t) => stripMarkdownNoise(t)),
+      ...draft.sections.map((s) => stripMarkdownNoise(s.heading)),
+    ].filter((t) => t.length >= 2);
+    const uniqueHints = [...new Set(headingTexts)].slice(0, 8);
+    const anyHeadingInFetch = uniqueHints.some((h) => rawFetch.includes(h));
+    const floorLen = Math.max(min, 80);
+    const longEnoughPlain = rawFetch.length >= floorLen;
+    if (anyHeadingInFetch || longEnoughPlain) {
+      logPublishTelemetry({
+        fetch_missing_markdown_hashes: true,
+        mitigated_by: anyHeadingInFetch ? "heading_text_in_fetch" : "plain_body_length",
+        documentId: fetched.id,
+        fetchBodyLength: rawFetch.length,
+      });
+      logger.warn("fetch-doc 未含 ## 字面量（云文档常见），已由章节标题/正文长度推断写入成功", {
+        documentId: fetched.id,
+        fetchLength: rawFetch.length,
+        anyHeadingInFetch,
+      });
+    } else {
+      throw new Error(
+        "发布后 fetch-doc 未检出章节（##），且正文过短或未匹配章节标题，疑似 update-doc 未写入正文",
+      );
+    }
+  }
+  let body = rawFetch;
+  if (min > 0 && rawFetch.length < min) {
+    if (written.length >= min && rawFetch.length > 0) {
+      logPublishTelemetry({
+        empty_doc_detected: true,
+        mitigated_by: "written_markdown_length",
+        documentId: fetched.id,
+        fetchBodyLength: rawFetch.length,
+      });
+      logger.warn("MCP fetch-doc 正文偏短，使用待发 markdown 做后续锚点校验", {
+        documentId: fetched.id,
+        fetchLength: rawFetch.length,
+      });
+      body = written;
+    } else {
+      throw new Error(
+        `发布后 fetch-doc 过短（${rawFetch.length} < ${min}），疑似空文档或尚未同步，可调大重试间隔或检查 update-doc`,
+      );
+    }
+  }
+  if (min > 0 && body.length < min) {
+    throw new Error(`发布后用于验收的正文过短（${body.length} < ${min}）`);
+  }
+  const normalizedFetch = stripMarkdownNoise(body);
+  const normalizedWritten = written ? stripMarkdownNoise(written) : "";
+  const titleStripped = stripMarkdownNoise(draft.title);
+  const titleHint = titleStripped.slice(0, Math.min(24, titleStripped.length));
+  if (titleHint.length >= 4) {
+    const inFetch = normalizedFetch.includes(titleHint);
+    const inWritten = normalizedWritten.includes(titleHint);
+    if (!inFetch && !inWritten) {
+      throw new Error(`发布后正文中未检出报告标题关键字，验收失败`);
+    }
+    if (!inFetch && inWritten) {
+      logPublishTelemetry({
+        empty_doc_detected: true,
+        mitigated_by: "title_in_written_markdown_only",
+        documentId: fetched.id,
+        titleHint,
+      });
+      logger.warn("fetch-doc 正文中未检出标题，但待发 markdown 已包含标题，验收放行（云上正文可能为块结构或未拉全）", {
+        documentId: fetched.id,
+        titleHint,
+      });
+    }
+  }
+  const normalizedForSummary = normalizedFetch.length >= min ? normalizedFetch : normalizedWritten;
+  if (
+    !body.includes("摘要") &&
+    !normalizedForSummary.includes("摘要") &&
+    !normalizedForSummary.includes(stripMarkdownNoise(draft.summary).slice(0, 16))
+  ) {
+    logger.warn("发布后抽样：未检出「摘要」或摘要正文片段，仍放行", { documentId: fetched.id });
+  }
+}
+
 async function publishFeishuDoc(input: {
   draft: Draft;
   sessionId: string;
@@ -121,15 +237,27 @@ async function publishFeishuDoc(input: {
     throw new Error(`文档内容更新失败: ${doc.id}`);
   }
 
-  if (env.FEISHU_DOC_PUBLISH_STRATEGY === "lark_cli_first") {
-    try {
-      await toolGateway.viewDocument(doc.id);
-    } catch (error) {
-      logger.warn("文档发布后 fetch 校验失败，已忽略并继续返回文档链接", {
-        documentId: doc.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+  let viewed: GatewayDocument | null = null;
+  try {
+    viewed = await toolGateway.viewDocument(doc.id, {
+      userId: input.userId,
+      preferUserScope: input.preferUserScope,
+    });
+    verifyPublishedDocBody(viewed, input.draft, content);
+  } catch (error) {
+    logPublishTelemetry({
+      publish_status: "verify_failed",
+      output_type: "feishu_doc",
+      adapter: doc.source,
+      documentId: doc.id,
+      sessionId: input.sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    logger.error("文档发布后抽样验收失败，将标记回退", {
+      documentId: doc.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   }
 
   await toolGateway.addComment({
@@ -143,11 +271,19 @@ async function publishFeishuDoc(input: {
   await notifyChatIfNeeded(
     [`报告文档已生成：${doc.title}`, url, summarizeDraftForNotify(input.draft)].join("\n"),
   );
+  logPublishTelemetry({
+    publish_status: "published",
+    output_type: "feishu_doc",
+    adapter: doc.source ?? viewed?.source,
+    documentId: doc.id,
+    sessionId: input.sessionId,
+  });
   return {
     type: "feishu_doc",
     id: doc.id,
     url,
     status: "published",
+    artifactSource: doc.source ?? viewed?.source,
   };
 }
 
@@ -157,7 +293,10 @@ async function publishSlides(input: {
   index: number;
 }): Promise<PublishedArtifact> {
   const outline = renderSlidesOutline(input.draft);
+  let slidesFallbackReason: "outline_only" | "slides_best_effort_failed" = "outline_only";
+
   if (env.FEISHU_SLIDES_DELIVERY_LEVEL === "artifact_best_effort") {
+    slidesFallbackReason = "slides_best_effort_failed";
     try {
       const slide = await toolGateway.createSlides({
         title: input.draft.title,
@@ -165,11 +304,19 @@ async function publishSlides(input: {
       });
       const url = slide.url ?? `https://mock.feishu.local/slides/${input.sessionId}/${input.index + 1}`;
       await notifyChatIfNeeded(`演示稿已生成：${slide.title ?? input.draft.title}\n${url}`);
+      logPublishTelemetry({
+        publish_status: "published",
+        output_type: "slides",
+        adapter: slide.source,
+        sessionId: input.sessionId,
+        target_index: input.index,
+      });
       return {
         type: "slides",
         id: slide.presentationId,
         url,
         status: "published",
+        artifactSource: slide.source,
       };
     } catch (error) {
       logger.warn("Slides 实体发布失败，回退为 outline 交付", {
@@ -177,6 +324,14 @@ async function publishSlides(input: {
       });
     }
   }
+
+  logPublishTelemetry({
+    publish_status: "fallback",
+    output_type: "slides",
+    reason: slidesFallbackReason,
+    sessionId: input.sessionId,
+    target_index: input.index,
+  });
   return {
     type: "slides",
     id: `slides_outline_${input.sessionId}_${input.index + 1}`,
@@ -207,6 +362,13 @@ export async function publishOutputs(input: {
           }),
         );
       } catch (error) {
+        logPublishTelemetry({
+          publish_status: "fallback",
+          output_type: "feishu_doc",
+          sessionId: input.sessionId,
+          target_index: idx,
+          error: error instanceof Error ? error.message : String(error),
+        });
         logger.warn("文档正式产物发布失败，回退为摘要链接占位", {
           error: error instanceof Error ? error.message : String(error),
         });

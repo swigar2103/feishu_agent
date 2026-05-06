@@ -3,14 +3,45 @@ import { logger } from "../../shared/logger.js";
 import { extractJsonObject } from "../../shared/utils.js";
 import {
   DraftSchema,
-  type Draft,
   type AnalysisResult,
+  type DetailedContext,
+  type Draft,
   type ExecutionPlan,
   type SkillMatch,
 } from "../../schemas/agentContracts.js";
 import type { UserRequest } from "../../schemas/index.js";
 import { invokeBailianModel } from "../../llm/client.js";
 import { buildWriterSystemPrompt, buildWriterUserPrompt } from "../../prompts/reviewPrompts.js";
+
+const WRITER_EVIDENCE_PER_SOURCE = 12_000;
+const WRITER_EVIDENCE_TOTAL = 28_000;
+
+/** 将深读 sourceDetails 压成 Writer 可消费的原文摘录（避免只依赖 Analyst 摘要丢失细节） */
+export function buildWriterSourceEvidence(ctx: DetailedContext | null | undefined): string {
+  if (!ctx?.sourceDetails?.length) return "";
+  const blocks: string[] = [];
+  let used = 0;
+  for (const s of ctx.sourceDetails) {
+    const id = s.resourceId;
+    if (id.startsWith("im_contact_")) continue;
+    const detail = (s.detail ?? "").trim();
+    if (!detail) continue;
+    const cap = Math.min(WRITER_EVIDENCE_PER_SOURCE, detail.length);
+    const chunk =
+      detail.length <= cap
+        ? detail
+        : `${detail.slice(0, cap)}\n…（摘录已截断；更长内容在同 resourceId 的 Analyst context.sourceDetails）`;
+    const block = `### ${id}\n${chunk}`;
+    if (used + block.length + 2 > WRITER_EVIDENCE_TOTAL) break;
+    blocks.push(block);
+    used += block.length + 2;
+  }
+  if (!blocks.length) return "";
+  return [
+    "以下片段来自检索与深读；写作须引用其中事实与数据（可与 analysis.normalizedFacts 交叉核对）：",
+    ...blocks,
+  ].join("\n\n");
+}
 
 function collectAnalysisLines(analysis: AnalysisResult): string[] {
   return [...analysis.keyInsights, ...analysis.normalizedFacts].filter(
@@ -134,18 +165,31 @@ function repairDraftPayload(payload: unknown, input: {
   };
 }
 
-async function invokeWriterRaw(input: {
-  userRequest: UserRequest;
-  plan: ExecutionPlan;
-  analysis: AnalysisResult;
-  skillMatch: SkillMatch;
-  rewriteHints?: string[];
-}, extraInstruction?: string): Promise<unknown> {
+async function invokeWriterRaw(
+  input: {
+    userRequest: UserRequest;
+    plan: ExecutionPlan;
+    analysis: AnalysisResult;
+    skillMatch: SkillMatch;
+    rewriteHints?: string[];
+    sourceEvidence?: string;
+  },
+  extraInstruction?: string,
+): Promise<unknown> {
   const raw = await invokeBailianModel({
     model: env.BAILIAN_MODEL_WRITER,
     systemPrompt: buildWriterSystemPrompt(),
     userPrompt: [
-      buildWriterUserPrompt(input),
+      buildWriterUserPrompt(
+        {
+          userRequest: input.userRequest,
+          plan: input.plan,
+          analysis: input.analysis,
+          skillMatch: input.skillMatch,
+          rewriteHints: input.rewriteHints,
+        },
+        input.sourceEvidence,
+      ),
       extraInstruction ? `\n【修复约束】${extraInstruction}` : "",
     ].join("\n"),
     jsonMode: true,
@@ -159,6 +203,8 @@ export async function writeDraft(input: {
   analysis: AnalysisResult;
   skillMatch: SkillMatch;
   rewriteHints?: string[];
+  /** 云文档/附件深读摘录；与 analysis 一并供模型落笔 */
+  sourceEvidence?: string;
 }): Promise<Draft> {
   try {
     const firstPayload = await invokeWriterRaw(input);
@@ -181,7 +227,14 @@ export async function writeDraft(input: {
     }
 
     const retryPayload = await invokeWriterRaw(
-      input,
+      {
+        userRequest: input.userRequest,
+        plan: input.plan,
+        analysis: input.analysis,
+        skillMatch: input.skillMatch,
+        rewriteHints: input.rewriteHints,
+        sourceEvidence: input.sourceEvidence,
+      },
       `上一轮输出未通过校验：${firstTry.error.issues
         .map((issue) => `${issue.path.join(".")}:${issue.message}`)
         .slice(0, 8)

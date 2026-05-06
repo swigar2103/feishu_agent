@@ -1,19 +1,16 @@
-import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { getFeishuMvpConfig } from "../integrations/feishu/feishuConfig.js";
 import { feishuHttpFetch } from "../integrations/feishu/httpFetch.js";
+import { runImTextPipelineFireAndForget } from "../integrations/feishu/imTextPipelineDispatch.js";
+import {
+  consumePendingOAuthState,
+  createFeishuUserAuthorizeSession,
+  splitOAuthScopes,
+} from "../integrations/feishu/userOAuthAuthorizeFlow.js";
 import { logger } from "../shared/logger.js";
 import { getUserOAuthRecord, upsertUserOAuthRecord } from "../storage/userOAuthStore.js";
-
-type PendingState = {
-  userId: string;
-  createdAtMs: number;
-};
-
-const STATE_TTL_MS = 10 * 60 * 1000;
-const pendingStates = new Map<string, PendingState>();
 
 const StartQuerySchema = z.object({
   userId: z.string().min(1),
@@ -29,54 +26,32 @@ const StatusQuerySchema = z.object({
   userId: z.string().min(1),
 });
 
-function cleanupPendingStates(nowMs = Date.now()): void {
-  for (const [state, item] of pendingStates.entries()) {
-    if (item.createdAtMs + STATE_TTL_MS < nowMs) {
-      pendingStates.delete(state);
-    }
-  }
-}
-
-function splitScopes(raw: string): string[] {
-  return raw
-    .split(/[,\s]+/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/feishu/auth/start", async (request, reply) => {
     const parsed = StartQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({ message: "invalid query", issues: parsed.error.issues });
     }
-    if (!env.FEISHU_USER_OAUTH_REDIRECT_URI.trim()) {
-      return reply.status(400).send({
-        message: "缺少 FEISHU_USER_OAUTH_REDIRECT_URI，无法启用用户授权通道",
+    try {
+      const { userId, returnTo } = parsed.data;
+      const { authUrl, state, expiresInMs } = createFeishuUserAuthorizeSession({
+        userId,
+        returnTo,
       });
+      const scopes = splitOAuthScopes(env.FEISHU_USER_OAUTH_SCOPES);
+      return reply.send({
+        ok: true,
+        identityMode: env.FEISHU_IDENTITY_MODE,
+        userId,
+        authUrl,
+        state,
+        expiresInMs,
+        scopes,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法创建授权会话";
+      return reply.status(400).send({ message });
     }
-    cleanupPendingStates();
-    const { userId, returnTo } = parsed.data;
-    const state = crypto.randomUUID();
-    pendingStates.set(state, { userId, createdAtMs: Date.now() });
-    const scopes = splitScopes(env.FEISHU_USER_OAUTH_SCOPES);
-    const authUrl = new URL(env.FEISHU_USER_OAUTH_AUTHORIZE_URL);
-    authUrl.searchParams.set("app_id", env.FEISHU_APP_ID);
-    authUrl.searchParams.set("redirect_uri", env.FEISHU_USER_OAUTH_REDIRECT_URI);
-    authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("scope", scopes.join(" "));
-    if (returnTo?.trim()) {
-      authUrl.searchParams.set("redirect", returnTo.trim());
-    }
-    return reply.send({
-      ok: true,
-      identityMode: env.FEISHU_IDENTITY_MODE,
-      userId,
-      authUrl: authUrl.toString(),
-      state,
-      expiresInMs: STATE_TTL_MS,
-      scopes,
-    });
   });
 
   app.get("/api/feishu/auth/callback", async (request, reply) => {
@@ -84,12 +59,10 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
     if (!parsed.success) {
       return reply.status(400).send({ message: "invalid callback query", issues: parsed.error.issues });
     }
-    cleanupPendingStates();
-    const pending = pendingStates.get(parsed.data.state);
+    const pending = consumePendingOAuthState(parsed.data.state);
     if (!pending) {
       return reply.status(400).send({ message: "state 无效或已过期，请重新发起授权" });
     }
-    pendingStates.delete(parsed.data.state);
 
     try {
       const c = getFeishuMvpConfig();
@@ -104,9 +77,14 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
           redirect_uri: env.FEISHU_USER_OAUTH_REDIRECT_URI,
         }),
       });
+      /** 飞书 v2 token 接口常见两种包装：{ code, data: { access_token } } 或根级 { code, access_token } */
       const tokenBody = (await tokenResp.json()) as {
         code?: number;
         msg?: string;
+        access_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        scope?: string;
         data?: {
           access_token?: string;
           refresh_token?: string;
@@ -114,7 +92,8 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
           scope?: string;
         };
       };
-      const accessToken = tokenBody.data?.access_token ?? "";
+      const data = tokenBody.data;
+      const accessToken = data?.access_token ?? tokenBody.access_token ?? "";
       if (!tokenResp.ok || tokenBody.code !== 0 || !accessToken) {
         logger.error("feishu oauth token exchange failed", {
           status: tokenResp.status,
@@ -126,21 +105,56 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
           detail: tokenBody.msg ?? tokenResp.status,
         });
       }
-      const expiresInSec = tokenBody.data?.expires_in ?? 7200;
-      const scopeText = tokenBody.data?.scope ?? env.FEISHU_USER_OAUTH_SCOPES;
+      const expiresInSec = data?.expires_in ?? tokenBody.expires_in ?? 7200;
+      const rawScope =
+        (typeof data?.scope === "string" && data.scope.trim()) ||
+        (typeof tokenBody.scope === "string" && tokenBody.scope.trim()) ||
+        "";
+      const scopes = rawScope ? splitOAuthScopes(rawScope) : [];
+      if (!rawScope) {
+        logger.warn("feishu oauth token 响应未含 scope，已写入空列表；UAT 可能反复发授权卡直至飞书返回 scope", {
+          userId: pending.userId,
+        });
+      }
       upsertUserOAuthRecord({
         userId: pending.userId,
         accessToken,
-        refreshToken: tokenBody.data?.refresh_token,
+        refreshToken: data?.refresh_token ?? tokenBody.refresh_token,
         expiresAtMs: Date.now() + expiresInSec * 1000,
-        scopes: splitScopes(scopeText),
+        scopes,
         grantedAtMs: Date.now(),
       });
-      return reply.type("text/html; charset=utf-8").send(`
-<!doctype html>
+      logger.info("feishu user oauth token stored", {
+        userId: pending.userId,
+        scopes,
+        expiresInSec,
+      });
+
+      const replay = pending.replay;
+      if (replay && c.appId && c.appSecret) {
+        runImTextPipelineFireAndForget(
+          c,
+          {
+            chatId: replay.chatId,
+            messageId: replay.messageId,
+            text: replay.text,
+            userId: pending.userId,
+          },
+          replay.pipeline,
+        );
+      } else if (replay && (!c.appId || !c.appSecret)) {
+        logger.warn("oauth IM replay skipped: missing FEISHU_APP_ID / FEISHU_APP_SECRET");
+      }
+
+      const followUp = replay
+        ? "<p>授权已保存。正在后台继续处理您刚才在飞书中发送的需求，请稍候在同一会话查看结果卡片。</p>"
+        : "<p>可关闭此页并返回飞书继续使用。</p>";
+
+      return reply.type("text/html; charset=utf-8").send(`<!doctype html>
 <html><body style="font-family:Arial,sans-serif;padding:24px;">
 <h3>授权成功</h3>
-<p>用户 <code>${pending.userId}</code> 已完成增强能力授权，可返回飞书继续使用。</p>
+<p>用户 <code>${pending.userId}</code> 已完成文档相关能力授权。</p>
+${followUp}
 </body></html>`);
     } catch (error) {
       logger.error("feishu oauth callback failed", { error });
@@ -164,14 +178,17 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
         userId: parsed.data.userId,
       });
     }
+    const required = splitOAuthScopes(env.FEISHU_USER_OAUTH_SCOPES);
+    const granted = new Set(record.scopes);
+    const missingScopes = required.filter((s) => !granted.has(s));
     return reply.send({
       ok: true,
       authorized: record.expiresAtMs > Date.now(),
       identityMode: env.FEISHU_IDENTITY_MODE,
       userId: parsed.data.userId,
       scopes: record.scopes,
+      missingScopes,
       expiresAtMs: record.expiresAtMs,
     });
   });
 }
-

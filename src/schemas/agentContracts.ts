@@ -183,6 +183,8 @@ export const FinalDeliverableSchema = z.object({
         id: z.string().min(1),
         url: z.string().min(1),
         status: z.enum(["published", "fallback", "mock_published"]),
+        /** Tool Gateway 实际命中：`mcp` | `lark_cli` | `openapi` */
+        artifactSource: z.enum(["mcp", "lark_cli", "openapi"]).optional(),
       }),
     )
     .default([]),

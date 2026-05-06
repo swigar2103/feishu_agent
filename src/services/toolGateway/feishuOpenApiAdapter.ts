@@ -4,6 +4,7 @@ import {
   listAllDocumentBlocks,
   replaceBlockWithPlainText,
 } from "../../integrations/feishu/docxBlocks.js";
+import { fetchDocxRawText } from "../../integrations/feishu/docxRawContent.js";
 import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { getTenantAccessToken } from "../../integrations/feishu/token.js";
 import { parseJsonFromMd } from "../retrieval/mdParser.js";
@@ -31,6 +32,28 @@ type AssetRecord = {
   sourceType: "message" | "doc" | "table";
   content: string;
 };
+
+function normalizeDocxTokenForOpenApi(raw: string): string {
+  const s = raw.trim().split("#")[0] ?? "";
+  if (!s) return "";
+  if (s.startsWith("http://") || s.startsWith("https://")) {
+    try {
+      const u = new URL(s);
+      const segs = u.pathname.split("/").filter(Boolean);
+      const idx = segs.indexOf("docx");
+      if (idx >= 0 && segs[idx + 1]) return segs[idx + 1]!;
+    } catch {
+      return s;
+    }
+  }
+  if (s.includes("/")) {
+    const parts = s.split("/").filter(Boolean);
+    const idx = parts.indexOf("docx");
+    if (idx >= 0 && parts[idx + 1]) return parts[idx + 1]!;
+    return parts[parts.length - 1] ?? s;
+  }
+  return s;
+}
 
 type UserRecord = {
   id: string;
@@ -128,14 +151,38 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     }
 
     const asset = this.getAssets().find((item) => item.sourceId === documentId);
-    if (!asset) return null;
-    return {
-      id: asset.sourceId,
-      title: asset.sourceId,
-      summary: asset.content.slice(0, 200),
-      content: asset.content,
-      source: "openapi",
-    };
+    if (asset) {
+      return {
+        id: asset.sourceId,
+        title: asset.sourceId,
+        summary: asset.content.slice(0, 200),
+        content: asset.content,
+        source: "openapi",
+      };
+    }
+
+    const c = getFeishuMvpConfig();
+    if (c.appId?.trim() && c.appSecret?.trim()) {
+      const token = normalizeDocxTokenForOpenApi(documentId);
+      if (token && !/^https?:\/\//i.test(token)) {
+        try {
+          const rawText = await fetchDocxRawText(c, token);
+          if (rawText.trim().length > 0) {
+            return {
+              id: token,
+              title: token,
+              content: rawText,
+              summary: rawText.slice(0, 200),
+              source: "openapi",
+            };
+          }
+        } catch {
+          /* 权限/租户与用户文档不一致时回退为 null */
+        }
+      }
+    }
+
+    return null;
   }
 
   async getFileContent(fileToken: string, context?: GatewayRequestContext): Promise<string> {
