@@ -32,13 +32,22 @@ export function buildExpansionDecision(input: {
   budgetHint?: RecallBudgetHint;
 }): ExpansionDecision {
   const budget = buildRecallBudget(input.budgetHint);
-  const expanded: ExpansionCandidate[] = input.l2.map((item) => ({
+  const roomSeen = new Set<string>();
+  const expanded: ExpansionCandidate[] = input.l2.map((item) => {
+    const room = item.roomId ?? "unknown_room";
+    const roomBoost = roomSeen.has(room) ? 0 : 0.05;
+    roomSeen.add(room);
+    return {
     id: item.id,
     title: item.title,
-    score: scoreL2(item, input.plan),
+    score: Math.min(1, scoreL2(item, input.plan) + roomBoost),
     expectedChars: Math.max(800, Math.min(5_000, item.structureSummary.length * 2)),
-  }));
+    };
+  });
   const selected = trimByBudget(expanded, budget);
+  const selectedRoomCount = new Set(
+    input.l2.filter((item) => selected.some((x) => x.id === item.id)).map((item) => item.roomId ?? "unknown_room"),
+  ).size;
   return {
     l1Ids: input.l1.map((item) => item.id),
     l2Ids: input.l2.map((item) => item.id),
@@ -46,6 +55,7 @@ export function buildExpansionDecision(input: {
     reason: [
       `l1=${input.l1.length}`,
       `l2=${input.l2.length}`,
+      `rooms_selected=${selectedRoomCount}`,
       `budget_max_items=${budget.maxItems}`,
       `budget_max_chars=${budget.maxChars}`,
     ],

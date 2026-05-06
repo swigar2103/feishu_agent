@@ -4,6 +4,7 @@ import {
   type DetailedContext,
   type ExecutionPlan,
 } from "../../schemas/agentContracts.js";
+import { env } from "../../config/env.js";
 import { invokeJsonModel } from "../../llm/jsonModel.js";
 import { buildAnalystSystemPrompt, buildAnalystUserPrompt } from "../../prompts/agentPrompts.js";
 
@@ -32,6 +33,9 @@ export async function analyzeContext(input: {
   plan: ExecutionPlan;
   context: DetailedContext;
 }): Promise<AnalysisResult> {
+  if (env.AGENT_STRICT_FACT_MODE && input.context.facts.length === 0) {
+    throw new Error("严格真实模式：检索阶段未获得任何事实证据，已中止分析与生成。");
+  }
   try {
     const result = await invokeJsonModel(AnalysisResultSchema, {
       systemPrompt: buildAnalystSystemPrompt(),
@@ -39,6 +43,9 @@ export async function analyzeContext(input: {
     });
     return AnalysisResultSchema.parse(result);
   } catch {
+    if (env.AGENT_STRICT_FACT_MODE) {
+      throw new Error("严格真实模式：Analyst 解析失败，拒绝回退到规则化分析。");
+    }
     return fallbackAnalysis(input);
   }
 }

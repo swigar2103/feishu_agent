@@ -5,6 +5,7 @@ import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
 import { readHmrsTaskType } from "../../services/hmrs/flags/hmrsFeatureFlags.js";
 import { getMemoryFacade } from "../../services/hmrs/facade/memoryFacade.js";
 import { logHmrsDiff } from "../../services/hmrs/observe/hmrsDiffLogger.js";
+import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
 import type { ReportGraphStateType } from "../state.js";
 
 function toResourceSummary(
@@ -111,16 +112,16 @@ export async function hmrsSummaryNode(
     throw new Error("hmrs_summary 缺少 taskRequest");
   }
   const request = state.taskRequest.userRequest;
+  const facade = getMemoryFacade();
+  const refreshResult = await facade.refreshManagedFolders({ userId: request.userId }).catch(() => null);
   const cloudResources = await fetchCloudDocResources(state);
   const inlineResources = buildInlineResources(state);
   const resourcePool = [...cloudResources, ...inlineResources].map(ensureNonEmptySummary);
-
-  const facade = getMemoryFacade();
   await facade.ingestResourcePool(request, resourcePool);
-  const l1 = await facade.queryL1({
+  const l1 = await facade.queryWingSummaries({
     owner: request.userId,
     keyword: request.prompt,
-    projectTag: request.industry,
+    wings: ["projects_wing", "resources_wing", "people_wing", "templates_wing"],
     limit: 10,
   });
   const l1ResourceIds = new Set(l1.slice(0, 8).map((item) => item.id.replace(/^l1_/, "")));
@@ -137,6 +138,8 @@ export async function hmrsSummaryNode(
       `hmrs_cloud_docs=${cloudResources.length}`,
       `hmrs_inline=${inlineResources.length}`,
       `hmrs_l1=${l1.length}`,
+      `hmrs_managed_folders=${refreshResult?.managedFolderCount ?? 0}`,
+      `hmrs_ingested_docs=${refreshResult?.ingestedDocCount ?? 0}`,
     ],
   });
 
@@ -149,6 +152,16 @@ export async function hmrsSummaryNode(
     hmrsL2Ids: [],
     finalExpansionIds: [],
     budget: { maxItems: 0, maxChars: 0 },
+  });
+  publishPipelineProgress({
+    sessionId: request.sessionId,
+    stage: "hmrs_summary",
+    message: "资源筛选完成",
+    meta: {
+      l1Count: l1.length,
+      candidateCount: candidateResources.candidates.length,
+      cloudDocCount: cloudResources.length,
+    },
   });
 
   return {

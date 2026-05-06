@@ -37,8 +37,183 @@
   - 新增：`src/integrations/feishu/userOAuthRefresh.ts`
   - 修改：`src/api/feishuWebhookDispatch.ts`、`src/services/toolGateway/feishuMcpAdapter.ts`、`src/api/feishuAuth.ts`
   - 文档：`history.md`（本文件追加记录）
+  - 补充：OAuth callback 成功后新增 `HmrsRefreshService.refreshForUser` 异步触发，授权完成即自动执行首轮纳管 refresh（无需手工先调 refresh API）
+
+### HMRS 重构续推进：Wing/Room/Drawer 查询语义 + Refresh 服务接入
+
+- **原因**：
+  - 已完成 HMRS bootstrap/ingest 基础设施后，主链仍需补齐“分层暴露 + 按需刷新”能力，保证 Planner/Retriever 按 Wing/Room/Drawer 语义工作，并把纳管目录刷新纳入稳定入口。
+  - 用户侧提出“folder token 不应手工前置配置”，需改为 Agent 自动管理，避免未运行前要求填 token。
+- **处理**：
+  - 新增 `src/services/hmrs/hmrsRefreshService.ts`：
+    - 串联 `UserDatabaseBootstrapService` 与 `HmrsIngestService`；
+    - 支持按 `HMRS_MANAGED_FOLDER_TOKENS` 逐个目录执行 refresh ingest；
+    - 返回 `managedFolderCount/ingestedDocCount` 供上层观测。
+  - `src/config/env.ts`、`env.example`：
+    - 新增 `HMRS_MANAGED_FOLDER_TOKENS` 配置项（逗号分隔）作为**可选覆盖**；
+    - 留空时由 refresh 自动发现可纳管目录。
+  - `src/services/hmrs/hmrsRepository.ts`：
+    - 新增 `listChildFolders`，用于自动发现候选纳管目录。
+  - `src/services/hmrs/hmrsRefreshService.ts`：
+    - 新增自动发现逻辑：当未配置 token 时，从用户网盘根目录枚举一级文件夹，排除 HMRS 根目录，选择含文档的文件夹作为纳管目标（上限 6 个）。
+    - 增加 refresh 最小间隔节流（默认 15 分钟），避免每次请求重复扫描。
+    - 将自动发现结果与刷新结果持久化写回 `_system/refresh_status.json`（`managedFolderTokens/lastRefreshAt/lastIngestAt/lastError`）。
+    - 节流命中时返回最近一次有效 refresh 结果（无缓存时返回 bootstrap root token + 0 统计），避免空 token 返回。
+    - `getRefreshStatus` 支持跨进程回读 `_system/refresh_status.json`（内存缓存 miss 时回源 Feishu），避免服务重启后状态丢失。
+    - 增量 refresh：基于 managed folder 文档集合与 `modifiedTime` 生成 `folderSignature`，与上次 `refresh_status` 对比；未变化目录跳过 ingest，仅对变化目录重建索引。
+  - `src/services/hmrs/hmrsRepository.ts`：
+    - 新增 `readJsonObjectByName`，按同名文件的最新版本读取并解析 JSON（通过 ToolGateway `getFileContent`）。
+    - `listDocsInFolder` 返回 `modifiedTime` 元数据，供增量 refresh 签名计算。
+  - `src/services/hmrs/model/layerSchemas.ts`：
+    - HMRS 基础对象新增 `wingId/roomId/drawerId` 字段（兼容可选），显式承载 MemPalace 语义位置。
+  - `src/services/hmrs/model/memoryObjects.ts`：
+    - 新增资源到 Wing/Room/Drawer 的推断映射（people/projects/resources/conversations）。
+  - `src/services/hmrs/query/summaryQueryService.ts` 与 `src/services/hmrs/facade/memoryFacade.ts`：
+    - 新增 `queryWingSummaries`、`queryRoomIndexes`；
+    - facade 新增 `refreshManagedFolders` 统一入口。
+    - `SummaryQueryService` 查询源升级：在本地 file-repo 结果之外，追加“基于 Feishu managed folders 的实时 L1/L2 补源”，并按 `qualityScore` 合并去重（向 Feishu HMRS 实体进一步收敛）。
+  - Writer/Writeback 观测闭环：
+    - `src/services/agent/writerAgent.ts`：
+      - 新增 `[writer-telemetry]` 日志，记录模板命中（`selectedSkillId/workflowTemplateId`）、证据规模（`evidenceChars/evidenceSourceCount`）与产物结构命中（section/chart/timeline/gantt）。
+    - `src/services/reportPipeline.ts`：
+      - 新增 `[pipeline-telemetry] quality baseline computed`，统一输出章节覆盖、模板贴合度、产物就绪度与模板元素命中。
+    - `src/services/agent/memoryUpdater.ts`：
+      - 新增 `[memory-update-telemetry]`，记录 learned preferences / edit signals 与写回触发状态。
+    - `src/services/hmrs/writeback/memoryWritebackService.ts`、`src/services/hmrs/repo/interfaces.ts`、`src/services/hmrs/repo/file/fileWritebackRepository.ts`：
+      - 扩展 HMRS writeback payload `telemetry` 字段，并写入 `hmrs-writeback.jsonl`，可离线审计写回对象统计。
+  - 严格真实模式（拒绝“无证据占位生成”）：
+    - `src/config/env.ts`、`env.example` 新增 `AGENT_STRICT_FACT_MODE`（默认 true）。
+    - `src/services/agent/analystAgent.ts`：
+      - 严格模式下，`context.facts=0` 直接报错；
+      - Analyst 解析失败时不再回退规则化 fallback 分析。
+    - `src/services/agent/writerAgent.ts`：
+      - 严格模式下，`analysisFactCount=0` 且 `evidenceSourceCount=0` 时拒绝生成；
+      - Writer 失败时不再回退 `fallbackDraft`；
+      - 严格模式下不再自动注入 chart/timeline/gantt 占位槽位。
+  - 清理 mock 数据与干扰脚本：
+    - 删除 `src/resource_pool/mock/*.json`（documents/contacts/projects/personas/feishu_details）。
+    - 删除 `src/data/resource-pool.json`，避免旧池静态样本干扰生成链路。
+    - 删除 `src/sync/resourceGovernance.ts`（旧资源治理同步脚本）。
+    - `src/api/report.ts` 移除 `/mock/im-contacts` 与 `/resource-pool/sync` 接口，避免误调用旧 mock/旧池流程。
+    - `src/services/resourcePool/poolManager.ts` 去除基于 `assets.md` 与 governance sync 的兜底生成逻辑，仅保留已持久化池 + 用户请求上下文扩展（联系人/历史）。
+  - 可视化进度与 UAT 失效体验优化：
+    - 新增 `src/services/progress/pipelineProgress.ts`：
+      - 维护按 `sessionId` 的进度事件流（内存快照 + 订阅）。
+    - `src/api/report.ts`：
+      - 新增 `GET /api/report/progress?sessionId=...`（SSE），可实时查看流程阶段进度。
+      - 在 `/generate-report` 与 `/generate-report-docx` 失败时，若检测到 UAT 无效，返回 `oauthRequired + authUrl`，便于前端直接引导重新授权。
+    - `src/services/reportPipeline.ts` 与关键图节点（hmrs_summary/intent/planner/retriever/analyst/writer/output/memory_update）：
+      - 增加阶段进度事件发布（start/done/failed + 节点结构化 meta）。
+    - 新增 `src/integrations/feishu/uatReminder.ts` + `FEISHU_UAT_REMIND_COOLDOWN_SECONDS`：
+      - 飞书 webhook 场景下，UAT 失效授权卡片按用户+会话冷却发送，避免高频重复提醒。
+    - `src/api/chat.ts`：
+      - 聊天生成与局部改写失败时同样附带 `oauthRequired + authUrl`（检测到 UAT 失效时）。
+  - 检索/正文读取错误修复（针对 99992402 与 1770032）：
+    - `src/services/toolGateway/feishuMcpAdapter.ts`：
+      - `searchDocuments` 对 query 做最小合法性过滤（长度 < 2 直接跳过），减少下游搜索接口 field validation failed。
+    - `src/integrations/feishu/docxRawContent.ts`：
+      - `fetchDocxRawText` 支持可选 `userAccessToken`，允许优先用户身份读取正文。
+    - `src/services/toolGateway/feishuOpenApiAdapter.ts`：
+      - `viewDocument` 在 `preferUserScope` + `userId` 场景下优先使用 UAT 拉取 docx raw_content，降低 TAT 访问用户私有文档导致的 1770032 forBidden。
+  - Wiki/Docx 读取路径纠偏（持续修复 1770032）：
+    - `src/services/hmrs/expand/detailRetrievalService.ts`：
+      - L3 展开优先使用候选 `link`（URL）作为 `viewDocument` 入参，不再仅依赖 `ext_doc_*` token，避免将 wiki token 误当 docx id。
+    - `src/services/toolGateway/feishuOpenApiAdapter.ts`：
+      - `normalizeDocxTokenForOpenApi` 对 URL 仅接受 `/docx/{id}`，若是 `/wiki/{token}` 直接返回空，避免继续调用 `docx raw_content` 触发 403。
+  - MCP 文档搜索稳定性修复（持续修复 99992402）：
+    - `src/services/toolGateway/feishuMcpAdapter.ts`：
+      - `searchDocuments` 新增 query 清洗（去 HTML/特殊符号、限长）。
+      - 当 MCP `search-doc` 返回 `VALIDATION` 时，不再中断主流程，自动回退 `list-docs` + 本地标题/摘要筛选。
+    - `src/services/resourcePool/mcpSearchQueries.ts`：
+      - 搜索词生成前统一清洗并缩短，减少无效参数进入 MCP 搜索接口。
+      - 查询数上限由 6 降到 4，降低重复失败与延迟。
+  - 模板结构抽取优先（Wiki 模板用于生成约束）：
+    - `src/services/agent/writerAgent.ts`：
+      - 新增 `extractTemplateSectionsFromDetailedContext`，从深读正文中自动抽取章节骨架（支持 Markdown 标题、中文序号标题、数字分级标题等）。
+    - `src/graph/nodes/writerAgentNode.ts`：
+      - Writer 前置注入模板骨架：若检测到有效模板章节（>=3），用其覆盖 `plan.targetSections`（按目标节数截断/补齐），并追加强制 rewriteHints，确保初稿结构贴近模板。
+  - 用户态读取防 403（持续修复 1770032）：
+    - `src/services/toolGateway/gateway.ts`：
+      - UAT + `preferUserScope` 场景下，`document.view/document.fileContent` 执行序列中跳过 OpenAPI，避免 TAT 误读用户私有文档触发 `docx raw_content 403`。
+    - `src/services/toolGateway/feishuMcpAdapter.ts`：
+      - 文档搜索 query 进一步收敛（长短句仅保留首关键词），降低 MCP 下游 `doc_wiki/search` 参数校验失败概率。
+  - 模板抽取独立能力（先于主流程接入）：
+    - `src/services/hmrs/templateExtractionService.ts`（新增）：
+      - 新增独立模板抽取服务：输入 `userId + documentRef(url/token)`，读取云文档正文后自动提取章节骨架（Markdown/中文序号/数字分级标题）。
+      - 自动生成模板特征（`templateHints`、`chartRules`）与 `skillDraft` 草案，并持久化到 `src/data/hmrs/hmrs-template-skills.json`。
+    - `src/api/hmrs.ts`：
+      - 新增 `POST /api/hmrs/extract-template`：执行模板抽取并落盘。
+      - 新增 `GET /api/hmrs/templates?userId=...`：按用户查询已抽取模板列表。
+  - 模板抽取可用性增强：
+    - `src/services/hmrs/templateExtractionService.ts`：
+      - 当 `toolGateway.viewDocument` 未返回正文时，新增 `lark-cli docs +fetch --api-version v2 --as user` 兜底读取路径，提升公开链接模板抽取成功率。
+      - `extractSections` 新增 XML 标题解析（优先提取 `<h1~h6>`），修复 docx XML 单行内容导致章节骨架提取为空的问题。
+      - 新增模板名编码污染防护：当 `templateName` 出现 `????`/`�` 等异常字符时，自动回退使用 `sourceTitle`，避免落盘技能名乱码。
+    - `src/data/hmrs/hmrs-template-skills.json`：
+      - 修复已抽取模板中的 `templateName` 与 `skillDraft.name` 乱码（问号占位）为正确中文名称。
+  - 模板深挖提取（嵌入数据源级）：
+    - `src/services/hmrs/templateExtractionService.ts`：
+      - 在 `embeddedAssets` 基础上新增 `assetDataSnapshots`：
+        - `sheet`：调用 `lark-cli sheets +info/+read` 抽取工作表列表与样例单元格。
+        - `bitable`：调用 `lark-cli base +table-list/+field-list/+record-list` 抽取表结构与样例记录。
+      - 输出结构支持“模板骨架 + 版式块 + 嵌入对象 + 数据快照”一体化沉淀，便于后续 Skill 化与图表填充。
+  - `src/graph/nodes/hmrsSummaryNode.ts`：
+    - screening 前触发 `refreshManagedFolders`（best effort）；
+    - L1 查询改为按 wing 暴露；
+    - `screeningReason` 增加 managed folder/ingest 统计。
+  - `src/services/agent/plannerAgent.ts`：
+    - Planner 读取改为 Wing/Room 语义查询，替代纯 flat L1/L2 读取。
+  - `src/services/hmrs/expand/expansionPlanner.ts`：
+    - L2 选择增加 room 多样性 boost，预算内优先覆盖更多主题 room。
+  - `src/services/hmrs/writeback/memoryWritebackService.ts`：
+    - 写回对象补齐 Wing/Room/Drawer 归档位置（style/template/exemplar）。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 新增：`src/services/hmrs/hmrsRefreshService.ts`
+  - 修改：`src/services/hmrs/{facade,memory model,query,expand,writeback}`、`src/graph/nodes/hmrsSummaryNode.ts`、`src/services/agent/plannerAgent.ts`、`src/config/env.ts`、`env.example`
+  - 文档：`history.md`（本文件追加记录）
 
 ## 2026-05-06
+
+### HMRS 第一版开工：Bootstrap + Feishu Repository + 单 Folder Ingest
+
+- **目标**：
+  - 按 MemPalace 方向落地 HMRS 第一版最小闭环：用户 OAuth 后自动初始化 HMRS，支持纳管单个飞书目录并生成基础索引对象。
+- **新增模块**：
+  - `src/services/hmrs/model/memPalaceTree.ts`
+    - 定义 HMRS Manifest / RefreshStatus / RecallBudget / Permissions 结构。
+  - `src/services/hmrs/hmrsStructureBuilder.ts`
+    - 固化 Wing/Room/Drawer 基础目录树与根目录命名规则（`{nickname}_{userId}_mempalace`）。
+  - `src/services/hmrs/hmrsRepository.ts`
+    - 新增 Feishu-backed repository（UAT）：
+      - root folder meta
+      - create/list/find folder
+      - ensureFolderPath
+      - `drive/v1/files/upload_all` 写 JSON/Markdown 对象。
+  - `src/services/hmrs/userDatabaseBootstrapService.ts`
+    - OAuth 后自动创建 HMRS 根目录与基础目录树；
+    - 写入 `_system/hmrs_manifest.json`、`refresh_status.json`、`recall_budget.json`、`permissions.json`；
+    - 初始化 `style_identity.md`、`writing_thought.md`。
+  - `src/services/hmrs/summaryBuilder.ts`
+    - 生成 `folder_summary` 与 `document_index`。
+  - `src/services/hmrs/hmrsIngestService.ts`
+    - 支持单 folder 纳管：扫描 doc/docx，深读并写入项目 room 的 summary/docs drawer。
+- **新增 API**：
+  - `src/api/hmrs.ts`
+    - `POST /api/hmrs/bootstrap`
+    - `POST /api/hmrs/ingest-folder`
+    - `GET /api/hmrs/root`
+    - `POST /api/hmrs/refresh`（手动触发 refresh，用于联调自动发现/纳管结果）
+    - `GET /api/hmrs/refresh-status`（读取最近一次 refresh 状态，便于前端/排障查看）
+  - `src/app.ts` 注册 HMRS 路由。
+- **OAuth 联动**：
+  - `src/api/feishuAuth.ts`
+    - 在 OAuth callback 成功后异步触发 `UserDatabaseBootstrapService.bootstrap()`，让用户授权后立即具备 HMRS 根目录。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 无新增问题。
 
 ### 纯 HMRS 硬切（移除旧 pool 依赖）
 

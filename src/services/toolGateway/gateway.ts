@@ -98,13 +98,32 @@ export class ToolGateway implements FeishuToolGatewayApi {
     return this.isDocPublishCapability(capability);
   }
 
+  /**
+   * UAT 主链路下，用户态文档读取优先走 MCP/lark-cli。
+   * OpenAPI 常以 TAT 读取用户私有文档导致 1770032 forBidden。
+   */
+  private shouldSkipOpenApiForUserScopedRead(
+    capability: GatewayCapability,
+    context?: GatewayRequestContext,
+  ): boolean {
+    if (env.FEISHU_MCP_IDENTITY !== "uat") return false;
+    if (!context?.userId?.trim()) return false;
+    if (!context.preferUserScope) return false;
+    return capability === "document.view" || capability === "document.fileContent";
+  }
+
   private filterOrderForContext(
     order: GatewayAdapterName[],
     capability: GatewayCapability,
     context?: GatewayRequestContext,
   ): GatewayAdapterName[] {
-    if (!this.shouldSkipOpenApiForUserScopedMutation(capability, context)) return order;
-    return order.filter((n) => n !== "openapi");
+    if (
+      !this.shouldSkipOpenApiForUserScopedMutation(capability, context) &&
+      !this.shouldSkipOpenApiForUserScopedRead(capability, context)
+    ) {
+      return order;
+    }
+    return order.filter((name) => name !== "openapi");
   }
 
   private async executeWithPolicy<T>(

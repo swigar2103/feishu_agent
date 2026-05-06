@@ -1,6 +1,7 @@
 import type { Draft } from "../../../schemas/agentContracts.js";
 import type { UserRequest } from "../../../schemas/index.js";
 import type { HmrsRepositories } from "../repo/interfaces.js";
+import { logger } from "../../../shared/logger.js";
 import {
   type L1CatalogObject,
   type L2IndexObject,
@@ -25,6 +26,9 @@ export class MemoryWritebackService {
       id: `l1_style_${owner}`,
       type: "StyleIdentitySummary",
       layer: "L1",
+      wingId: "people_wing",
+      roomId: "self_room",
+      drawerId: "style_drawer",
       owner,
       projectTag,
       timeRange: { end: new Date().toISOString() },
@@ -40,6 +44,9 @@ export class MemoryWritebackService {
         id: `l2_template_pref_${owner}_${idx + 1}`,
         type: "TemplateStructureIndex",
         layer: "L2",
+        wingId: "templates_wing",
+        roomId: "weekly_report_room",
+        drawerId: "structure_drawer",
         owner,
         parentId: l1Patch.id,
         projectTag,
@@ -57,6 +64,9 @@ export class MemoryWritebackService {
         id: `l3_edit_signal_${owner}_${idx + 1}`,
         type: "ExemplarSnippetPointer",
         layer: "L3",
+        wingId: "people_wing",
+        roomId: "self_room",
+        drawerId: "exemplar_drawer",
         owner,
         parentId: l2Patches[idx % Math.max(1, l2Patches.length)]?.id,
         projectTag,
@@ -71,11 +81,29 @@ export class MemoryWritebackService {
 
     await this.repos.catalog.upsert([l1Patch]);
     await this.repos.index.upsert(l2Patches);
+    const telemetry = {
+      reportType: input.request.reportType,
+      selectedSkillId: undefined,
+      workflowTemplateId: undefined,
+      sectionCount: input.draft.sections.length,
+      signalCount: input.signals.length,
+      chartSlotCount: input.draft.chartSlots.length,
+      timelineSlotCount: input.draft.timelineSlots.length,
+      ganttSlotCount: input.draft.ganttSlots.length,
+    } as const;
     await this.repos.writeback.write({
       owner,
       l1Patches: [l1Patch],
       l2Patches,
       l3Patches,
+      telemetry,
+    });
+    logger.info("[hmrs-writeback-telemetry] writeback persisted", {
+      owner,
+      l1Count: 1,
+      l2Count: l2Patches.length,
+      l3Count: l3Patches.length,
+      telemetry,
     });
   }
 }

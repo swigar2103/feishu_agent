@@ -1,54 +1,18 @@
 import type { ResourceSummary } from "../../schemas/agentContracts.js";
 import type { UserRequest } from "../../schemas/index.js";
-import { parseJsonFromMd } from "../retrieval/mdParser.js";
-import { runResourceGovernanceSync } from "../../sync/resourceGovernance.js";
 import { ResourcePoolStore } from "../../storage/resourcePoolStore.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 
-type RawAsset = {
-  sourceId: string;
-  sourceType: "message" | "doc" | "table";
-  content: string;
-};
-
-function inferResourceType(sourceType: RawAsset["sourceType"]): ResourceSummary["resourceType"] {
-  if (sourceType === "doc") return "doc_summary";
-  if (sourceType === "table") return "table_summary";
-  return "message_thread_summary";
-}
-
-function inferProject(text: string): string {
-  if (text.includes("医疗")) return "医疗运营";
-  if (text.includes("竞品") || text.includes("市场")) return "市场增长";
-  return "通用项目";
-}
-
 export class ResourcePoolManager {
-  private readonly assets: RawAsset[];
   private readonly store: ResourcePoolStore;
 
   constructor() {
-    this.assets = parseJsonFromMd<RawAsset[]>("src/data/assets.md");
     this.store = new ResourcePoolStore();
   }
 
   async buildResourcePool(request: UserRequest): Promise<ResourceSummary[]> {
-    let persistedPool = this.store.loadAll();
-    if (persistedPool.length === 0) {
-      await runResourceGovernanceSync();
-      persistedPool = this.store.loadAll();
-    }
-
-    const basePool: ResourceSummary[] = (persistedPool.length > 0 ? persistedPool : this.assets.map((asset) => ({
-      resourceId: asset.sourceId,
-      resourceType: inferResourceType(asset.sourceType),
-      title: asset.sourceId,
-      summary: asset.content,
-      project: inferProject(asset.content),
-      tags: [asset.sourceType, inferProject(asset.content)],
-      keywords: asset.content.split(/[，。,\s]/).filter(Boolean).slice(0, 8),
-      updatedAt: new Date().toISOString(),
-    })));
+    const persistedPool = this.store.loadAll();
+    const basePool: ResourceSummary[] = persistedPool;
 
     const contactResources: ResourceSummary[] = [];
     for (const [idx, contact] of request.imContacts.entries()) {

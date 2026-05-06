@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-06T17:41:47.973Z",
+  "updatedAt": "2026-05-06T20:53:34.820Z",
   "items": [
     {
       "id": "l1_doc_feishu_001",
@@ -97,10 +97,13 @@
       "id": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
       "type": "StyleIdentitySummary",
       "layer": "L1",
+      "wingId": "people_wing",
+      "roomId": "self_room",
+      "drawerId": "style_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
-      "projectTag": "default",
+      "projectTag": "通用",
       "timeRange": {
-        "end": "2026-05-06T17:41:47.972Z"
+        "end": "2026-05-06T20:19:36.556Z"
       },
       "keywords": [
         "今日完成",
@@ -113,7 +116,7 @@
         "sourceType": "unknown"
       },
       "title": "风格身份摘要",
-      "summary": "本周的工作重点在于关注竞品A在下沉市场的表现、优化支付流程以及跟进医疗集采器械类A项的最新进展。"
+      "summary": "本周我们继续推进项目的关键任务，并针对存在的风险制定了相应的应对措施。"
     },
     {
       "id": "l1_ext_doc_Z2QzdBeouobyelxTvQsc7dfBnBd",

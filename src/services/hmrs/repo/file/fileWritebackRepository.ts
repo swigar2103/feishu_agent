@@ -9,6 +9,7 @@ export class FileWritebackRepository implements HmrsWritebackRepository {
       l1Count: payload.l1Patches?.length ?? 0,
       l2Count: payload.l2Patches?.length ?? 0,
       l3Count: payload.l3Patches?.length ?? 0,
+      telemetry: payload.telemetry,
       payload,
     });
   }

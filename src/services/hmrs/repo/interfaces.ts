@@ -18,6 +18,16 @@ export type HmrsWritebackPayload = {
   l1Patches?: L1CatalogObject[];
   l2Patches?: L2IndexObject[];
   l3Patches?: L3DetailPointerObject[];
+  telemetry?: {
+    reportType?: string;
+    selectedSkillId?: string;
+    workflowTemplateId?: string;
+    sectionCount: number;
+    signalCount: number;
+    chartSlotCount: number;
+    timelineSlotCount: number;
+    ganttSlotCount: number;
+  };
 };
 
 export interface HmrsCatalogRepository {

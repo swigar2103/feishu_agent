@@ -9,14 +9,17 @@ import { buildExpansionDecision, type ExpansionDecision } from "../expand/expans
 import { fetchDetailByExpansion } from "../expand/detailRetrievalService.js";
 import { MemoryWritebackService } from "../writeback/memoryWritebackService.js";
 import type { Draft, MemoryUpdate } from "../../../schemas/agentContracts.js";
+import { HmrsRefreshService } from "../hmrsRefreshService.js";
 
 export class MemoryFacade {
   private readonly queryService: SummaryQueryService;
   private readonly writebackService: MemoryWritebackService;
+  private readonly refreshService: HmrsRefreshService;
 
   constructor(private readonly repos: HmrsRepositories) {
     this.queryService = new SummaryQueryService(repos);
     this.writebackService = new MemoryWritebackService(repos);
+    this.refreshService = new HmrsRefreshService();
   }
 
   async ingestResourcePool(request: UserRequest, resourcePool: ResourceSummary[]): Promise<void> {
@@ -35,6 +38,15 @@ export class MemoryFacade {
     return this.queryService.queryL1(input);
   }
 
+  async queryWingSummaries(input: {
+    owner: string;
+    keyword: string;
+    wings?: string[];
+    limit?: number;
+  }): Promise<L1CatalogObject[]> {
+    return this.queryService.queryWingSummaries(input);
+  }
+
   async queryL2(input: {
     owner: string;
     keyword: string;
@@ -43,6 +55,23 @@ export class MemoryFacade {
     ids?: string[];
   }): Promise<L2IndexObject[]> {
     return this.queryService.queryL2(input);
+  }
+
+  async queryRoomIndexes(input: {
+    owner: string;
+    keyword: string;
+    rooms?: string[];
+    limit?: number;
+  }): Promise<L2IndexObject[]> {
+    return this.queryService.queryRoomIndexes(input);
+  }
+
+  async refreshManagedFolders(input: { userId: string; nickname?: string }): Promise<{
+    rootFolderToken: string;
+    managedFolderCount: number;
+    ingestedDocCount: number;
+  }> {
+    return this.refreshService.refreshForUser(input);
   }
 
   async planExpansion(input: {

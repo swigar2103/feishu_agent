@@ -81,6 +81,15 @@ function pickTrimmedString(r: Record<string, unknown>, keys: string[]): string |
   return undefined;
 }
 
+function sanitizeSearchQuery(raw: string): string {
+  return raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 48);
+}
+
 /**
  * 飞书远程 MCP 的 update-doc 使用参数名 `docID`；值为 docx 的 file_token。
  * 若 create-doc 返回的是完整云文档 URL，需从路径 `/docx/<token>` 取出 token。
@@ -299,7 +308,28 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
   }
 
   async searchDocuments(query: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
-    const data = await this.callTool(MCP_TOOLS.searchDoc, { query }, context);
+    let normalized = sanitizeSearchQuery(query);
+    if (normalized.length > 16 && normalized.includes(" ")) {
+      normalized = normalized.split(" ")[0] ?? normalized;
+    }
+    if (normalized.length < 2) return [];
+    let data: unknown;
+    try {
+      data = await this.callTool(MCP_TOOLS.searchDoc, { query: normalized }, context);
+    } catch (error) {
+      if (error instanceof ToolGatewayError && error.code === "VALIDATION") {
+        logger.warn("MCP search-doc 参数校验失败，回退 list-docs 本地筛选", {
+          queryPreview: normalized.slice(0, 120),
+          causeText: error.causeText?.slice(0, 300),
+        });
+        const listed = await this.listDocuments("", context).catch(() => []);
+        const q = normalized.toLowerCase();
+        return listed
+          .filter((d) => `${d.title ?? ""} ${(d.summary ?? "")}`.toLowerCase().includes(q))
+          .slice(0, 8);
+      }
+      throw error;
+    }
     if (mcpSearchDocResponseIndicatesScopeGap(data)) {
       throw new ToolGatewayError(
         "SCOPE_INSUFFICIENT",
@@ -315,7 +345,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
       const sample =
         typeof data === "string" ? data.slice(0, 1_200) : JSON.stringify(data).slice(0, 1_200);
       logger.warn("MCP search-doc 解析后 0 条，请核对返回 JSON 字段是否与 docs/documents 等一致", {
-        queryPreview: query.slice(0, 200),
+        queryPreview: normalized.slice(0, 200),
         sample,
       });
     }

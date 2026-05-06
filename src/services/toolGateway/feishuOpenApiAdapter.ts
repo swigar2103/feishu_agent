@@ -7,6 +7,7 @@ import {
 import { fetchDocxRawText } from "../../integrations/feishu/docxRawContent.js";
 import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { getTenantAccessToken } from "../../integrations/feishu/token.js";
+import { ensureUserOAuthReady } from "../../integrations/feishu/userOAuthRefresh.js";
 import { parseJsonFromMd } from "../retrieval/mdParser.js";
 import { ResourcePoolStore } from "../../storage/resourcePoolStore.js";
 import type {
@@ -41,7 +42,9 @@ function normalizeDocxTokenForOpenApi(raw: string): string {
       const u = new URL(s);
       const segs = u.pathname.split("/").filter(Boolean);
       const idx = segs.indexOf("docx");
+      // OpenAPI raw_content 仅支持 docx 文档，不接受 wiki token。
       if (idx >= 0 && segs[idx + 1]) return segs[idx + 1]!;
+      return "";
     } catch {
       return s;
     }
@@ -137,7 +140,7 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
     );
   }
 
-  async viewDocument(documentId: string, _context?: GatewayRequestContext): Promise<GatewayDocument | null> {
+  async viewDocument(documentId: string, context?: GatewayRequestContext): Promise<GatewayDocument | null> {
     const poolHit = this.poolStore.loadAll().find((item) => item.resourceId === documentId);
     if (poolHit) {
       return {
@@ -166,7 +169,11 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       const token = normalizeDocxTokenForOpenApi(documentId);
       if (token && !/^https?:\/\//i.test(token)) {
         try {
-          const rawText = await fetchDocxRawText(c, token);
+          const userAccessToken =
+            context?.userId && context.preferUserScope
+              ? (await ensureUserOAuthReady(context.userId)).record?.accessToken
+              : undefined;
+          const rawText = await fetchDocxRawText(c, token, { userAccessToken });
           if (rawText.trim().length > 0) {
             return {
               id: token,

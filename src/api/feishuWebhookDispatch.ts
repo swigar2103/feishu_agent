@@ -10,6 +10,7 @@ import {
   createFeishuUserAuthorizeSession,
   splitOAuthScopes,
 } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
+import { shouldRemindUat } from "../integrations/feishu/uatReminder.js";
 import type { FeishuWebhookBody } from "../schemas/feishuWebhookBody.js";
 import { logger } from "../shared/logger.js";
 import {
@@ -68,32 +69,39 @@ export async function continueFeishuWebhookAfterChallenge(
       userId: imEvent.userId,
       requiredScopeCount: uatRequiredScopes.length,
     });
-    try {
-      const { authUrl } = createFeishuUserAuthorizeSession({
-        userId: imEvent.userId,
-        replay: {
-          chatId: imEvent.chatId,
-          text: imEvent.text,
-          messageId: imEvent.messageId,
-          pipeline: env.FEISHU_BOT_PIPELINE === "phase1" ? "phase1" : "full",
-        },
-      });
-      await sendCardMessage(c, {
-        receiveId: imEvent.chatId,
-        card: buildUserOAuthRequiredCard({ authUrl, userIdHint: imEvent.userId }),
-      });
-    } catch (error) {
-      logger.error("webhook: UAT 授权卡片发送失败", { error });
+    if (shouldRemindUat(imEvent.userId, imEvent.chatId)) {
       try {
-        await sendTextMessage(c, {
-          receiveId: imEvent.chatId,
-          text: `需要绑定文档搜索授权后才能继续。服务端配置异常：${
-            error instanceof Error ? error.message : String(error)
-          }。请联系管理员检查 FEISHU_USER_OAUTH_REDIRECT_URI 等环境变量。`,
+        const { authUrl } = createFeishuUserAuthorizeSession({
+          userId: imEvent.userId,
+          replay: {
+            chatId: imEvent.chatId,
+            text: imEvent.text,
+            messageId: imEvent.messageId,
+            pipeline: env.FEISHU_BOT_PIPELINE === "phase1" ? "phase1" : "full",
+          },
         });
-      } catch (notifyErr) {
-        logger.error("webhook: UAT 授权失败通知发送失败", { error: notifyErr });
+        await sendCardMessage(c, {
+          receiveId: imEvent.chatId,
+          card: buildUserOAuthRequiredCard({ authUrl, userIdHint: imEvent.userId }),
+        });
+      } catch (error) {
+        logger.error("webhook: UAT 授权卡片发送失败", { error });
+        try {
+          await sendTextMessage(c, {
+            receiveId: imEvent.chatId,
+            text: `需要绑定文档搜索授权后才能继续。服务端配置异常：${
+              error instanceof Error ? error.message : String(error)
+            }。请联系管理员检查 FEISHU_USER_OAUTH_REDIRECT_URI 等环境变量。`,
+          });
+        } catch (notifyErr) {
+          logger.error("webhook: UAT 授权失败通知发送失败", { error: notifyErr });
+        }
       }
+    } else {
+      logger.info("webhook: UAT 授权提醒处于冷却期，本次不重复发卡", {
+        userId: imEvent.userId,
+        chatId: imEvent.chatId,
+      });
     }
     await reply.status(200).send({ message: "ok", hint: "oauth_required" });
     return;

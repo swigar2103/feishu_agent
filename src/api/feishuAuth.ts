@@ -10,6 +10,8 @@ import {
   splitOAuthScopes,
 } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
 import { ensureUserOAuthReady } from "../integrations/feishu/userOAuthRefresh.js";
+import { UserDatabaseBootstrapService } from "../services/hmrs/userDatabaseBootstrapService.js";
+import { HmrsRefreshService } from "../services/hmrs/hmrsRefreshService.js";
 import { logger } from "../shared/logger.js";
 import { getUserOAuthRecord, upsertUserOAuthRecord } from "../storage/userOAuthStore.js";
 
@@ -165,6 +167,39 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
         expiresInSec,
         callbackElapsedMs: Date.now() - callbackStartedAt,
       });
+
+      // OAuth 成功后自动初始化用户 HMRS 根目录与基础对象。
+      const bootstrapService = new UserDatabaseBootstrapService();
+      const refreshService = new HmrsRefreshService();
+      bootstrapService
+        .bootstrap({ userId: pending.userId })
+        .then((result) => {
+          logger.info("hmrs bootstrap completed after oauth", {
+            userId: pending.userId,
+            rootFolderToken: result.rootFolderToken,
+          });
+          return refreshService
+            .refreshForUser({ userId: pending.userId })
+            .then((refreshResult) => {
+              logger.info("hmrs refresh completed after oauth", {
+                userId: pending.userId,
+                managedFolderCount: refreshResult.managedFolderCount,
+                ingestedDocCount: refreshResult.ingestedDocCount,
+              });
+            })
+            .catch((refreshError) => {
+              logger.warn("hmrs refresh failed after oauth", {
+                userId: pending.userId,
+                error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+              });
+            });
+        })
+        .catch((bootstrapError) => {
+          logger.warn("hmrs bootstrap failed after oauth", {
+            userId: pending.userId,
+            error: bootstrapError instanceof Error ? bootstrapError.message : String(bootstrapError),
+          });
+        });
 
       const replay = pending.replay;
       if (replay && c.appId && c.appSecret) {

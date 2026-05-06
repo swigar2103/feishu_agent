@@ -2,11 +2,58 @@ import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { UserRequestSchema } from "../schemas/index.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
+import { createFeishuUserAuthorizeSession } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
+import {
+  getPipelineProgressSnapshot,
+  subscribePipelineProgress,
+} from "../services/progress/pipelineProgress.js";
+
+function maybeBuildOAuthHint(error: unknown, userId?: string): { oauthRequired: true; authUrl: string } | null {
+  if (!userId) return null;
+  const msg = error instanceof Error ? error.message : String(error);
+  if (!msg.includes("无有效飞书用户访问令牌")) return null;
+  try {
+    const { authUrl } = createFeishuUserAuthorizeSession({ userId });
+    return { oauthRequired: true, authUrl };
+  } catch {
+    return null;
+  }
+}
 
 export async function registerReportRoutes(app: FastifyInstance): Promise<void> {
+  app.get("/api/report/progress", async (request, reply) => {
+    const query = UserRequestSchema.pick({ sessionId: true }).safeParse(request.query);
+    if (!query.success) {
+      return reply.status(400).send({ message: "invalid query", issues: query.error.issues });
+    }
+    const { sessionId } = query.data;
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    });
+    reply.raw.write(`event: ready\ndata: ${JSON.stringify({ sessionId })}\n\n`);
+    for (const event of getPipelineProgressSnapshot(sessionId)) {
+      reply.raw.write(`event: progress\ndata: ${JSON.stringify(event)}\n\n`);
+    }
+    const unsubscribe = subscribePipelineProgress(sessionId, (event) => {
+      reply.raw.write(`event: progress\ndata: ${JSON.stringify(event)}\n\n`);
+    });
+    const heartbeat = setInterval(() => {
+      reply.raw.write(`event: ping\ndata: ${JSON.stringify({ ts: new Date().toISOString() })}\n\n`);
+    }, 15000);
+    request.raw.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      reply.raw.end();
+    });
+  });
+
   app.post("/generate-report", async (request, reply) => {
+    let parsedUserId: string | undefined;
     try {
       const userRequest = UserRequestSchema.parse(request.body);
+      parsedUserId = userRequest.userId;
       const { runReportPipeline } = await import("../services/reportPipeline.js");
       const result = await runReportPipeline(userRequest);
       const response = GenerateReportResponseSchema.parse(result);
@@ -19,15 +66,19 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
         });
       }
       request.log.error({ error }, "generate-report failed");
+      const oauthHint = maybeBuildOAuthHint(error, parsedUserId);
       return reply.status(500).send({
         message: error instanceof Error ? error.message : "内部错误",
+        ...(oauthHint ?? {}),
       });
     }
   });
 
   app.post("/generate-report-docx", async (request, reply) => {
+    let parsedUserId: string | undefined;
     try {
       const userRequest = UserRequestSchema.parse(request.body);
+      parsedUserId = userRequest.userId;
       const { runReportPipeline } = await import("../services/reportPipeline.js");
       const { generateReportDocxBuffer, pickPrimaryTemplateProfile } = await import(
         "../services/wordExport.js"
@@ -59,24 +110,12 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
         });
       }
       request.log.error({ error }, "generate-report-docx failed");
+      const oauthHint = maybeBuildOAuthHint(error, parsedUserId);
       return reply.status(500).send({
         message: error instanceof Error ? error.message : "内部错误",
+        ...(oauthHint ?? {}),
       });
     }
   });
 
-  app.get("/mock/im-contacts", async () => {
-    return {
-      contacts: [
-        { id: "u_alice", name: "Alice", role: "项目经理" },
-        { id: "u_bob", name: "Bob", role: "数据分析师" },
-        { id: "u_cindy", name: "Cindy", role: "业务负责人" },
-      ],
-    };
-  });
-
-  app.post("/resource-pool/sync", async () => {
-    const { runResourceGovernanceSync } = await import("../sync/resourceGovernance.js");
-    return runResourceGovernanceSync();
-  });
 }

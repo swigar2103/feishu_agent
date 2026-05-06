@@ -40,6 +40,16 @@ async function buildApp() {
     });
   }
 
+  try {
+    const { registerHmrsRoutes } = await import("./api/hmrs.js");
+    await registerHmrsRoutes(app);
+    logger.info("hmrs routes registered");
+  } catch (error) {
+    logger.error("registerHmrsRoutes 失败（其他路由仍可用）", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   app.get("/healthz", async () => ({ ok: true }));
 
   const webRoot = path.resolve(process.cwd(), "src", "web");

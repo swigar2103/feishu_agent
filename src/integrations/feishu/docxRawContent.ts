@@ -26,8 +26,9 @@ function extractRawContent(parsed: RawContentResponse): string {
 export async function fetchDocxRawText(
   c: FeishuMvpConfig,
   documentId: string,
+  opts?: { userAccessToken?: string },
 ): Promise<string> {
-  const access = await getTenantAccessToken(c);
+  const access = opts?.userAccessToken?.trim() || (await getTenantAccessToken(c));
   const id = encodeURIComponent(documentId);
   const url = `${c.baseUrl}/open-apis/docx/v1/documents/${id}/raw_content`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${access}` } });

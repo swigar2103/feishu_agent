@@ -1,4 +1,5 @@
 import { analyzeContext } from "../../services/agent/analystAgent.js";
+import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
 import type { ReportGraphStateType } from "../state.js";
 
 export async function analystAgentNode(
@@ -11,6 +12,15 @@ export async function analystAgentNode(
   const analysisResult = await analyzeContext({
     plan: state.executionPlan,
     context: state.detailedContext,
+  });
+  publishPipelineProgress({
+    sessionId: state.taskRequest?.userRequest.sessionId ?? "unknown_session",
+    stage: "analyst",
+    message: "分析完成",
+    meta: {
+      insightCount: analysisResult.keyInsights.length,
+      chartSuggestionCount: analysisResult.chartSuggestions.length,
+    },
   });
 
   return {

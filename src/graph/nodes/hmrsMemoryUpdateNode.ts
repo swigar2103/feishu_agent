@@ -1,4 +1,5 @@
 import { updateMemoryFromRun } from "../../services/agent/memoryUpdater.js";
+import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
 import type { ReportGraphStateType } from "../state.js";
 
 export async function hmrsMemoryUpdateNode(
@@ -10,6 +11,15 @@ export async function hmrsMemoryUpdateNode(
   const memoryUpdate = await updateMemoryFromRun({
     request: state.taskRequest.userRequest,
     draft: state.draft,
+  });
+  publishPipelineProgress({
+    sessionId: state.taskRequest.userRequest.sessionId,
+    stage: "memory_update",
+    message: "记忆写回完成",
+    meta: {
+      updated: memoryUpdate.updated,
+      learnedPreferenceCount: memoryUpdate.learnedPreferences.length,
+    },
   });
   return {
     memoryUpdate,

@@ -1,4 +1,5 @@
 import { generateFinalOutput } from "../../services/agent/outputGenerator.js";
+import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
 import type { ReportGraphStateType } from "../state.js";
 
 export async function outputGeneratorNode(
@@ -12,6 +13,15 @@ export async function outputGeneratorNode(
     request: state.taskRequest.userRequest,
     intent: state.intentResult,
     draft: state.draft,
+  });
+  publishPipelineProgress({
+    sessionId: state.taskRequest.userRequest.sessionId,
+    stage: "output",
+    message: "产物发布完成",
+    meta: {
+      outputKind: finalDeliverable.outputKind,
+      targetCount: finalDeliverable.outputTargets.length,
+    },
   });
 
   return {

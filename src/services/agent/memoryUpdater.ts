@@ -2,6 +2,7 @@ import { MemoryUpdateSchema, type Draft, type MemoryUpdate } from "../../schemas
 import type { UserRequest } from "../../schemas/index.js";
 import { MemoryStore } from "../../storage/memoryStore.js";
 import { getMemoryFacade } from "../hmrs/facade/memoryFacade.js";
+import { logger } from "../../shared/logger.js";
 
 export async function updateMemoryFromRun(input: {
   request: UserRequest;
@@ -43,6 +44,17 @@ export async function updateMemoryFromRun(input: {
     request: input.request,
     draft: input.draft,
     memoryUpdate: parsed,
+  });
+  logger.info("[memory-update-telemetry] memory writeback completed", {
+    sessionId: input.request.sessionId,
+    userId: input.request.userId,
+    updated: parsed.updated,
+    learnedPreferenceCount: parsed.learnedPreferences.length,
+    editSignalCount: parsed.editSignals.length,
+    sectionCount: input.draft.sections.length,
+    chartSlotCount: input.draft.chartSlots.length,
+    timelineSlotCount: input.draft.timelineSlots.length,
+    ganttSlotCount: input.draft.ganttSlots.length,
   });
   return parsed;
 }

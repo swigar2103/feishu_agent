@@ -1,0 +1,978 @@
+{
+  "templates": [
+    {
+      "id": "tpl_1778105636617",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "长期项目方案与执行（含里程碑看板）",
+      "sourceDocumentRef": "https://jcneyh7qlo8i.feishu.cn/docx/BOQ0dW7Z7oMaTzxGvB7cAoYBnxc",
+      "sourceTitle": "长期项目方案与执行（含里程碑看板）",
+      "sourceUrl": "https://jcneyh7qlo8i.feishu.cn/docx/BOQ0dW7Z7oMaTzxGvB7cAoYBnxc",
+      "extractedAt": "2026-05-06T22:13:56.617Z",
+      "sections": [
+        "项目介绍",
+        "项目背景",
+        "核心成员与项目群组",
+        "项目群组",
+        "背景资料",
+        "项目目标",
+        "月度里程碑"
+      ],
+      "templateHints": [
+        "优先使用表格表达关键事项与状态。",
+        "包含时间线或里程碑段落。",
+        "包含任务排期/甘特图槽位。"
+      ],
+      "chartRules": [
+        "项目计划建议甘特图",
+        "关键事件建议时间线图"
+      ],
+      "layoutBlocks": [
+        {
+          "tag": "h1",
+          "count": 3
+        },
+        {
+          "tag": "h2",
+          "count": 3
+        },
+        {
+          "tag": "table",
+          "count": 1
+        },
+        {
+          "tag": "grid",
+          "count": 1
+        }
+      ],
+      "embeddedAssets": [
+        {
+          "kind": "gantt_marker"
+        }
+      ],
+      "assetDataSnapshots": [],
+      "skillDraft": {
+        "skillId": "user-template-1778105636617",
+        "name": "用户模板-长期项目方案与执行（含里程碑看板）",
+        "industry": "通用",
+        "reportType": "analysis_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "项目介绍",
+          "项目背景",
+          "核心成员与项目群组",
+          "项目群组",
+          "背景资料",
+          "项目目标",
+          "月度里程碑"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "项目计划建议甘特图",
+          "关键事件建议时间线图"
+        ],
+        "terminology": []
+      }
+    },
+    {
+      "id": "tpl_1778105636232",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "业务经营周报",
+      "sourceDocumentRef": "https://jcneyh7qlo8i.feishu.cn/docx/Q5UodFXuvo98IuxW69Ecdqcanwh",
+      "sourceTitle": "业务经营周报",
+      "sourceUrl": "https://jcneyh7qlo8i.feishu.cn/docx/Q5UodFXuvo98IuxW69Ecdqcanwh",
+      "extractedAt": "2026-05-06T22:13:56.232Z",
+      "sections": [
+        "门店销售概况",
+        "商品销售概括",
+        "新业务开展进度"
+      ],
+      "templateHints": [
+        "优先使用表格表达关键事项与状态。",
+        "包含时间线或里程碑段落。",
+        "包含任务排期/甘特图槽位。"
+      ],
+      "chartRules": [
+        "趋势类指标建议折线图",
+        "对比类指标建议柱状图或饼图",
+        "项目计划建议甘特图",
+        "关键事件建议时间线图"
+      ],
+      "layoutBlocks": [
+        {
+          "tag": "h1",
+          "count": 3
+        },
+        {
+          "tag": "grid",
+          "count": 1
+        },
+        {
+          "tag": "callout",
+          "count": 3
+        }
+      ],
+      "embeddedAssets": [
+        {
+          "kind": "gantt_marker"
+        },
+        {
+          "kind": "chart_marker"
+        }
+      ],
+      "assetDataSnapshots": [],
+      "skillDraft": {
+        "skillId": "user-template-1778105636231",
+        "name": "用户模板-业务经营周报",
+        "industry": "通用",
+        "reportType": "weekly_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "门店销售概况",
+          "商品销售概括",
+          "新业务开展进度"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "趋势类指标建议折线图",
+          "对比类指标建议柱状图或饼图",
+          "项目计划建议甘特图",
+          "关键事件建议时间线图"
+        ],
+        "terminology": []
+      }
+    },
+    {
+      "id": "tpl_1778105635849",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "团队工作周报",
+      "sourceDocumentRef": "https://jcneyh7qlo8i.feishu.cn/docx/O7J7dxZSKo72uGx3MCrcdElinlb",
+      "sourceTitle": "团队工作周报",
+      "sourceUrl": "https://jcneyh7qlo8i.feishu.cn/docx/O7J7dxZSKo72uGx3MCrcdElinlb",
+      "extractedAt": "2026-05-06T22:13:55.849Z",
+      "sections": [
+        "【项目名称】@总负责人",
+        "本周总结",
+        "已完成",
+        "进行中",
+        "下周计划"
+      ],
+      "templateHints": [
+        "优先使用表格表达关键事项与状态。",
+        "行动项必须包含负责人和截止时间。"
+      ],
+      "chartRules": [
+        "趋势类指标建议折线图",
+        "对比类指标建议柱状图"
+      ],
+      "layoutBlocks": [
+        {
+          "tag": "h2",
+          "count": 3
+        },
+        {
+          "tag": "h3",
+          "count": 4
+        },
+        {
+          "tag": "grid",
+          "count": 6
+        },
+        {
+          "tag": "checkbox",
+          "count": 10
+        },
+        {
+          "tag": "bitable",
+          "count": 2
+        }
+      ],
+      "embeddedAssets": [
+        {
+          "kind": "bitable",
+          "token": "IMWcb6UG5a4RAZs8GmRcaZBPn5b",
+          "id": "tbluVbV9qYrk7HVx"
+        },
+        {
+          "kind": "bitable",
+          "token": "IMWcb6UG5a4RAZs8GmRcaZBPn5b",
+          "id": "tbl03Ym2VFgFgZQG"
+        }
+      ],
+      "assetDataSnapshots": [
+        {
+          "kind": "bitable",
+          "token": "IMWcb6UG5a4RAZs8GmRcaZBPn5b",
+          "id": "tbluVbV9qYrk7HVx",
+          "data": {
+            "baseToken": "IMWcb6UG5a4RAZs8GmRcaZBPn5b",
+            "tableCount": 2,
+            "tables": [
+              {
+                "id": "tbl03Ym2VFgFgZQG",
+                "name": "tbls39aPd7gCZrXT"
+              },
+              {
+                "id": "tbluVbV9qYrk7HVx",
+                "name": "tblOkkC69cuNBkPd"
+              }
+            ],
+            "targetTableId": "tbluVbV9qYrk7HVx",
+            "fields": [
+              {
+                "id": "fld76WIZfz",
+                "name": "工作计划",
+                "type": "text"
+              },
+              {
+                "id": "fldgk6mHyL",
+                "name": "负责人",
+                "type": "user"
+              },
+              {
+                "id": "fldXbhcuPI",
+                "name": "工作事项",
+                "type": "text"
+              },
+              {
+                "id": "fld7ErZ9gJ",
+                "name": "状态",
+                "type": "select"
+              },
+              {
+                "id": "fldpXaWfKs",
+                "name": "截止时间",
+                "type": "datetime"
+              }
+            ],
+            "sampleRows": [
+              [
+                "完成...",
+                "跟进客户",
+                [
+                  "未开始"
+                ],
+                [
+                  {
+                    "id": "ou_773377e32aaf2757c7f13fa52cc29f83",
+                    "name": "周北北"
+                  }
+                ],
+                "2026-12-04 00:00:00"
+              ],
+              [
+                "统计...",
+                "准备材料",
+                [
+                  "已结束"
+                ],
+                [
+                  {
+                    "id": "ou_7519bf79fea9076024915e497efc66ac",
+                    "name": "董小力"
+                  }
+                ],
+                "2026-12-08 00:00:00"
+              ]
+            ]
+          }
+        },
+        {
+          "kind": "bitable",
+          "token": "IMWcb6UG5a4RAZs8GmRcaZBPn5b",
+          "id": "tbl03Ym2VFgFgZQG",
+          "data": {
+            "baseToken": "IMWcb6UG5a4RAZs8GmRcaZBPn5b",
+            "tableCount": 2,
+            "tables": [
+              {
+                "id": "tbl03Ym2VFgFgZQG",
+                "name": "tbls39aPd7gCZrXT"
+              },
+              {
+                "id": "tbluVbV9qYrk7HVx",
+                "name": "tblOkkC69cuNBkPd"
+              }
+            ],
+            "targetTableId": "tbl03Ym2VFgFgZQG",
+            "fields": [
+              {
+                "id": "fld76WIZfz",
+                "name": "工作计划",
+                "type": "text"
+              },
+              {
+                "id": "fldgk6mHyL",
+                "name": "负责人",
+                "type": "user"
+              },
+              {
+                "id": "fldXbhcuPI",
+                "name": "工作事项",
+                "type": "text"
+              },
+              {
+                "id": "fld7ErZ9gJ",
+                "name": "状态",
+                "type": "select"
+              },
+              {
+                "id": "fldpXaWfKs",
+                "name": "截止时间",
+                "type": "datetime"
+              }
+            ],
+            "sampleRows": [
+              [
+                "完成...",
+                "跟进客户",
+                [
+                  "未开始"
+                ],
+                [
+                  {
+                    "id": "ou_773377e32aaf2757c7f13fa52cc29f83",
+                    "name": "周北北"
+                  }
+                ],
+                "2026-12-11 00:00:00"
+              ],
+              [
+                "统计...",
+                "准备材料",
+                [
+                  "已结束"
+                ],
+                [
+                  {
+                    "id": "ou_7519bf79fea9076024915e497efc66ac",
+                    "name": "董小力"
+                  }
+                ],
+                "2026-12-10 00:00:00"
+              ]
+            ]
+          }
+        }
+      ],
+      "skillDraft": {
+        "skillId": "user-template-1778105635849",
+        "name": "用户模板-团队工作周报",
+        "industry": "通用",
+        "reportType": "weekly_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "【项目名称】@总负责人",
+          "本周总结",
+          "已完成",
+          "进行中",
+          "下周计划"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "趋势类指标建议折线图",
+          "对比类指标建议柱状图"
+        ],
+        "terminology": []
+      }
+    },
+    {
+      "id": "tpl_1778105632230",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "个人工作日报",
+      "sourceDocumentRef": "https://jcneyh7qlo8i.feishu.cn/docx/WnMedEcrqonh3kxZIIAcAp20nvc",
+      "sourceTitle": "个人工作日报",
+      "sourceUrl": "https://jcneyh7qlo8i.feishu.cn/docx/WnMedEcrqonh3kxZIIAcAp20nvc",
+      "extractedAt": "2026-05-06T22:13:52.230Z",
+      "sections": [
+        "XX月XX日",
+        "今日计划",
+        "今日总结",
+        "明日计划"
+      ],
+      "templateHints": [
+        "优先使用表格表达关键事项与状态。"
+      ],
+      "chartRules": [
+        "趋势类指标建议折线图",
+        "对比类指标建议柱状图"
+      ],
+      "layoutBlocks": [
+        {
+          "tag": "h1",
+          "count": 3
+        },
+        {
+          "tag": "h2",
+          "count": 9
+        },
+        {
+          "tag": "grid",
+          "count": 1
+        },
+        {
+          "tag": "callout",
+          "count": 4
+        },
+        {
+          "tag": "checkbox",
+          "count": 6
+        },
+        {
+          "tag": "sheet",
+          "count": 3
+        },
+        {
+          "tag": "bitable",
+          "count": 3
+        }
+      ],
+      "embeddedAssets": [
+        {
+          "kind": "sheet",
+          "token": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+          "id": "LMRKR5"
+        },
+        {
+          "kind": "sheet",
+          "token": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+          "id": "5UqhEs"
+        },
+        {
+          "kind": "sheet",
+          "token": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+          "id": "vEsTe1"
+        },
+        {
+          "kind": "bitable",
+          "token": "X7jjbg2x8anMncs70SrcOyrHnwg",
+          "id": "tbldP2iX3vrZLi7e"
+        },
+        {
+          "kind": "bitable",
+          "token": "X7jjbg2x8anMncs70SrcOyrHnwg",
+          "id": "tbllSypiYiUMM3QH"
+        },
+        {
+          "kind": "bitable",
+          "token": "X7jjbg2x8anMncs70SrcOyrHnwg",
+          "id": "tblAz9RNjSsi6ZCL"
+        }
+      ],
+      "assetDataSnapshots": [
+        {
+          "kind": "sheet",
+          "token": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+          "id": "LMRKR5",
+          "data": {
+            "spreadsheetToken": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+            "targetSheetId": "LMRKR5",
+            "sheetCount": 4,
+            "sheets": [
+              {
+                "sheetId": "vEsTe1",
+                "title": "vEsTe1"
+              },
+              {
+                "sheetId": "5UqhEs",
+                "title": "5UqhEs"
+              },
+              {
+                "sheetId": "LMRKR5",
+                "title": "LMRKR5"
+              },
+              {
+                "sheetId": "d0ca64",
+                "title": "Sheet1"
+              }
+            ],
+            "sampleValues": [
+              [
+                "重要工作事项",
+                "进度",
+                "已完成",
+                "相关文档",
+                "协作方（如有）",
+                null
+              ],
+              [
+                "在此处写下今日工作安排",
+                "🔹 未开始",
+                0,
+                "输入 @ 插入相关文档",
+                "如有协作方可以输入“@+人名”提及协作者",
+                null
+              ],
+              [
+                null,
+                "🔛 进行中",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                "❇️ 已完成",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                "⛑ 延期",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            ]
+          }
+        },
+        {
+          "kind": "sheet",
+          "token": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+          "id": "5UqhEs",
+          "data": {
+            "spreadsheetToken": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+            "targetSheetId": "5UqhEs",
+            "sheetCount": 4,
+            "sheets": [
+              {
+                "sheetId": "vEsTe1",
+                "title": "vEsTe1"
+              },
+              {
+                "sheetId": "5UqhEs",
+                "title": "5UqhEs"
+              },
+              {
+                "sheetId": "LMRKR5",
+                "title": "LMRKR5"
+              },
+              {
+                "sheetId": "d0ca64",
+                "title": "Sheet1"
+              }
+            ],
+            "sampleValues": [
+              [
+                "重要工作事项",
+                "进度",
+                "已完成",
+                "相关文档",
+                "协作方（如有）",
+                null
+              ],
+              [
+                "在此处写下今日工作安排",
+                "🔹 未开始",
+                0,
+                "输入 @ 插入相关文档",
+                "如有协作方可以输入“@+人名”提及协作者",
+                null
+              ],
+              [
+                null,
+                "🔛 进行中",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                "❇️ 已完成",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                "⛑ 延期",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            ]
+          }
+        },
+        {
+          "kind": "sheet",
+          "token": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+          "id": "vEsTe1",
+          "data": {
+            "spreadsheetToken": "CyEqs3BYDhZtDGtJ6SvcnOvYngh",
+            "targetSheetId": "vEsTe1",
+            "sheetCount": 4,
+            "sheets": [
+              {
+                "sheetId": "vEsTe1",
+                "title": "vEsTe1"
+              },
+              {
+                "sheetId": "5UqhEs",
+                "title": "5UqhEs"
+              },
+              {
+                "sheetId": "LMRKR5",
+                "title": "LMRKR5"
+              },
+              {
+                "sheetId": "d0ca64",
+                "title": "Sheet1"
+              }
+            ],
+            "sampleValues": [
+              [
+                "重要工作事项",
+                "进度",
+                "已完成",
+                "相关文档",
+                "协作方（如有）",
+                null
+              ],
+              [
+                "在此处写下今日工作安排",
+                "🔹 未开始",
+                0,
+                "输入 @ 插入相关文档",
+                "如有协作方可以输入“@+人名”提及协作者",
+                null
+              ],
+              [
+                null,
+                "🔛 进行中",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                "❇️ 已完成",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                "⛑ 延期",
+                0,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            ]
+          }
+        },
+        {
+          "kind": "bitable",
+          "token": "X7jjbg2x8anMncs70SrcOyrHnwg",
+          "id": "tbldP2iX3vrZLi7e",
+          "data": {
+            "baseToken": "X7jjbg2x8anMncs70SrcOyrHnwg",
+            "tableCount": 3,
+            "tables": [
+              {
+                "id": "tbldP2iX3vrZLi7e",
+                "name": "tblW4Gj4dtg4S8BE"
+              },
+              {
+                "id": "tbllSypiYiUMM3QH",
+                "name": "tblNKviC6XohLBC1"
+              },
+              {
+                "id": "tblAz9RNjSsi6ZCL",
+                "name": "tblmFrEVywraCd8g"
+              }
+            ],
+            "targetTableId": "tbldP2iX3vrZLi7e",
+            "fields": [
+              {
+                "id": "fldXbhcuPI",
+                "name": "计划",
+                "type": "text"
+              },
+              {
+                "id": "fldv3gX8ss",
+                "name": "相关附件（点击上传）",
+                "type": "attachment"
+              },
+              {
+                "id": "fld9yPCxbl",
+                "name": "进度",
+                "type": "number"
+              },
+              {
+                "id": "fldzdcLMsI",
+                "name": "相关链接（粘贴云文档链接）",
+                "type": "text"
+              }
+            ],
+            "sampleRows": [
+              [
+                "完成...",
+                0.39,
+                null,
+                null
+              ],
+              [
+                "统计...",
+                0.56,
+                null,
+                null
+              ]
+            ]
+          }
+        },
+        {
+          "kind": "bitable",
+          "token": "X7jjbg2x8anMncs70SrcOyrHnwg",
+          "id": "tbllSypiYiUMM3QH",
+          "data": {
+            "baseToken": "X7jjbg2x8anMncs70SrcOyrHnwg",
+            "tableCount": 3,
+            "tables": [
+              {
+                "id": "tbldP2iX3vrZLi7e",
+                "name": "tblW4Gj4dtg4S8BE"
+              },
+              {
+                "id": "tbllSypiYiUMM3QH",
+                "name": "tblNKviC6XohLBC1"
+              },
+              {
+                "id": "tblAz9RNjSsi6ZCL",
+                "name": "tblmFrEVywraCd8g"
+              }
+            ],
+            "targetTableId": "tbllSypiYiUMM3QH",
+            "fields": [
+              {
+                "id": "fld9yPCxbl",
+                "name": "进度",
+                "type": "number"
+              },
+              {
+                "id": "fldzdcLMsI",
+                "name": "相关链接（粘贴云文档链接）",
+                "type": "text"
+              },
+              {
+                "id": "fldXbhcuPI",
+                "name": "计划",
+                "type": "text"
+              },
+              {
+                "id": "fldv3gX8ss",
+                "name": "相关附件（点击上传）",
+                "type": "attachment"
+              }
+            ],
+            "sampleRows": [
+              [
+                "完成...",
+                0.39,
+                null,
+                null
+              ],
+              [
+                "统计...",
+                0.56,
+                null,
+                null
+              ]
+            ]
+          }
+        },
+        {
+          "kind": "bitable",
+          "token": "X7jjbg2x8anMncs70SrcOyrHnwg",
+          "id": "tblAz9RNjSsi6ZCL",
+          "data": {
+            "baseToken": "X7jjbg2x8anMncs70SrcOyrHnwg",
+            "tableCount": 3,
+            "tables": [
+              {
+                "id": "tbldP2iX3vrZLi7e",
+                "name": "tblW4Gj4dtg4S8BE"
+              },
+              {
+                "id": "tbllSypiYiUMM3QH",
+                "name": "tblNKviC6XohLBC1"
+              },
+              {
+                "id": "tblAz9RNjSsi6ZCL",
+                "name": "tblmFrEVywraCd8g"
+              }
+            ],
+            "targetTableId": "tblAz9RNjSsi6ZCL",
+            "fields": [
+              {
+                "id": "fldzdcLMsI",
+                "name": "相关链接（粘贴云文档链接）",
+                "type": "text"
+              },
+              {
+                "id": "fldXbhcuPI",
+                "name": "计划",
+                "type": "text"
+              },
+              {
+                "id": "fldv3gX8ss",
+                "name": "相关附件（点击上传）",
+                "type": "attachment"
+              },
+              {
+                "id": "fld9yPCxbl",
+                "name": "进度",
+                "type": "number"
+              }
+            ],
+            "sampleRows": [
+              [
+                "完成...",
+                0.39,
+                null,
+                null
+              ],
+              [
+                "统计...",
+                0.56,
+                null,
+                null
+              ]
+            ]
+          }
+        }
+      ],
+      "skillDraft": {
+        "skillId": "user-template-1778105632230",
+        "name": "用户模板-个人工作日报",
+        "industry": "通用",
+        "reportType": "daily_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "XX月XX日",
+          "今日计划",
+          "今日总结",
+          "明日计划"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "趋势类指标建议折线图",
+          "对比类指标建议柱状图"
+        ],
+        "terminology": []
+      }
+    }
+  ]
+}

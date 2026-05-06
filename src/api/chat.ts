@@ -15,9 +15,21 @@ import {
 } from "../services/chat/sessionStore.js";
 import { MemoryStore } from "../storage/memoryStore.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
+import { createFeishuUserAuthorizeSession } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
 
 const poolManager = new ResourcePoolManager();
 const memoryStore = new MemoryStore();
+
+function maybeBuildOAuthHint(error: unknown, userId: string): { oauthRequired: true; authUrl: string } | null {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (!msg.includes("无有效飞书用户访问令牌")) return null;
+  try {
+    const { authUrl } = createFeishuUserAuthorizeSession({ userId });
+    return { oauthRequired: true, authUrl };
+  } catch {
+    return null;
+  }
+}
 
 const CreateSessionBodySchema = z.object({
   userId: z.string().min(1),
@@ -412,8 +424,10 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
       });
     } catch (error) {
       request.log.error({ error }, "chat turn failed");
+      const oauthHint = maybeBuildOAuthHint(error, session.userId);
       return reply.status(500).send({
         message: error instanceof Error ? error.message : "生成失败",
+        ...(oauthHint ?? {}),
       });
     }
   });
@@ -524,8 +538,10 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
       });
     } catch (error) {
       request.log.error({ error }, "section rewrite failed");
+      const oauthHint = maybeBuildOAuthHint(error, session.userId);
       return reply.status(500).send({
         message: error instanceof Error ? error.message : "局部改写失败",
+        ...(oauthHint ?? {}),
       });
     }
   });

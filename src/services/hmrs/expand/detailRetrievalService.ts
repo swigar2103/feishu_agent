@@ -9,6 +9,7 @@ type ExpandedItem = {
   resourceId: string;
   title: string;
   summary: string;
+  link: string | undefined;
 };
 
 function toFact(sourceId: string, fact: string, evidence?: string) {
@@ -39,6 +40,7 @@ export async function fetchDetailByExpansion(input: {
         resourceId,
         title: candidate.title,
         summary: candidate.summary,
+        link: candidate.link ?? undefined,
       };
     })
     .filter((item): item is ExpandedItem => item !== null);
@@ -52,9 +54,11 @@ export async function fetchDetailByExpansion(input: {
   const sourceDetails: DetailedContext["sourceDetails"] = [];
 
   for (const item of expanded) {
-    const rawDocId = item.resourceId.startsWith("ext_doc_")
-      ? item.resourceId.replace("ext_doc_", "")
-      : item.resourceId;
+    const rawDocId =
+      item.link?.trim() ||
+      (item.resourceId.startsWith("ext_doc_")
+        ? item.resourceId.replace("ext_doc_", "")
+        : item.resourceId);
     const viewed = await toolGateway.viewDocument(rawDocId, context).catch(() => null);
     const content = viewed?.content?.trim();
     if (content) {

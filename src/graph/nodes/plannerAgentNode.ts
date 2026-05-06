@@ -1,4 +1,5 @@
 import { generateExecutionPlan } from "../../services/agent/plannerAgent.js";
+import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
 import { TaskPlanSchema } from "../../schemas/index.js";
 import type { ReportGraphStateType } from "../state.js";
 
@@ -14,6 +15,15 @@ export async function plannerAgentNode(
     intent: state.intentResult,
     skillMatch: state.skillMatch,
     screened: state.candidateResources,
+  });
+  publishPipelineProgress({
+    sessionId: state.taskRequest.userRequest.sessionId,
+    stage: "planner",
+    message: "计划生成完成",
+    meta: {
+      sectionCount: executionPlan.targetSections.length,
+      expansionCount: executionPlan.expansionDecision?.finalResourceIds.length ?? 0,
+    },
   });
 
   return {

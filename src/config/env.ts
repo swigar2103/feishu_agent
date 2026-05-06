@@ -138,6 +138,8 @@ const EnvSchema = z.object({
     .default("https://open.feishu.cn/open-apis/authen/v1/authorize"),
   /** OAuth pending state 文件条目上限，超过后按 createdAtMs 淘汰旧记录 */
   FEISHU_OAUTH_PENDING_STATE_MAX_ITEMS: z.coerce.number().int().positive().default(200),
+  /** UAT 失效提醒冷却时间（秒），防止同一用户频繁收到授权卡 */
+  FEISHU_UAT_REMIND_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(1800),
   /**
    * 可写数据目录（runtime-memories.json、resource-pool.json）。
    * 不设且 VERCEL=1 时默认 /tmp/feishu-agent-data；本地默认 src/data。
@@ -167,6 +169,12 @@ const EnvSchema = z.object({
   HMRS_RECALL_MAX_ITEMS: z.coerce.number().int().positive().default(6),
   /** HMRS：召回预算硬上限（最多展开字符预算） */
   HMRS_RECALL_MAX_CHARS: z.coerce.number().int().positive().default(30_000),
+  /** HMRS：纳管飞书目录 token 覆盖列表（逗号分隔）；为空时 refresh 自动发现 */
+  HMRS_MANAGED_FOLDER_TOKENS: z.string().default(""),
+  /** HMRS：refresh 最小间隔（秒），避免每次请求都全量扫描 */
+  HMRS_REFRESH_MIN_INTERVAL_SECONDS: z.coerce.number().int().positive().default(900),
+  /** 严格真实模式：无事实证据时禁止生成“占位化”初稿 */
+  AGENT_STRICT_FACT_MODE: z.coerce.boolean().default(true),
 });
 
 export const env = EnvSchema.parse(process.env);

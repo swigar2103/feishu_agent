@@ -146,6 +146,18 @@ export function buildPipelineResultCard(input: {
   sessionId: string;
   workbenchUrl?: string;
 }): Record<string, unknown> {
+  const unavailableHintFor = (label: string): string => {
+    if (label.includes("报告文档")) {
+      return "本次未生成可访问的云文档链接，请以摘要为准或联系管理员查看服务端 MCP 日志";
+    }
+    if (label.includes("演示稿")) {
+      return "本次未生成可访问的演示稿链接（通常为 outline_only 回退）";
+    }
+    if (label.includes("多维表格")) {
+      return "本次未生成可访问的多维表格链接";
+    }
+    return "本次未生成可访问链接";
+  };
   const statusText =
     input.status === "completed"
       ? "已完成"
@@ -158,7 +170,7 @@ export function buildPipelineResultCard(input: {
           .map((item) => {
             const src = item.artifactSource ? ` _${item.artifactSource}_` : "";
             if (item.unavailable || !item.url?.trim()) {
-              return `- **${item.label}**（本次未生成可访问的云文档链接，请以摘要为准或联系管理员查看服务端 MCP 日志）${src}`;
+              return `- **${item.label}**（${unavailableHintFor(item.label)}）${src}`;
             }
             return `- [${item.label}](${item.url})${src}`;
           })

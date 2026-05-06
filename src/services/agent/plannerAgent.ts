@@ -77,18 +77,17 @@ async function attachHmrsExpansion(
   const facade = getMemoryFacade();
   const l1 =
     input.hmrsL1 ??
-    (await facade.queryL1({
+    (await facade.queryWingSummaries({
       owner: input.userRequest.userId,
       keyword: input.userRequest.prompt,
-      projectTag: input.userRequest.industry,
+      wings: ["projects_wing", "templates_wing", "people_wing", "resources_wing"],
       limit: 8,
     }));
   const l2 =
     input.hmrsL2 ??
-    (await facade.queryL2({
+    (await facade.queryRoomIndexes({
       owner: input.userRequest.userId,
       keyword: input.userRequest.prompt,
-      projectTag: input.userRequest.industry,
       limit: 12,
     }));
   const expansion = await facade.planExpansion({ plan, l1, l2 });
@@ -132,16 +131,15 @@ export async function generateExecutionPlan(input: {
   let hmrsL1: L1CatalogObject[] | undefined;
   let hmrsL2: L2IndexObject[] | undefined;
   const facade = getMemoryFacade();
-  hmrsL1 = await facade.queryL1({
+  hmrsL1 = await facade.queryWingSummaries({
     owner: input.userRequest.userId,
     keyword: input.userRequest.prompt,
-    projectTag: input.userRequest.industry,
+    wings: ["projects_wing", "templates_wing", "people_wing", "resources_wing"],
     limit: 8,
   });
-  hmrsL2 = await facade.queryL2({
+  hmrsL2 = await facade.queryRoomIndexes({
     owner: input.userRequest.userId,
     keyword: input.userRequest.prompt,
-    projectTag: input.userRequest.industry,
     limit: 12,
   });
   try {

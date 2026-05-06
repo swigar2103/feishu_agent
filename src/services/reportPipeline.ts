@@ -1,6 +1,7 @@
 import { reportGraph } from "../graph/reportGraph.js";
 import { env } from "../config/env.js";
 import { logger } from "../shared/logger.js";
+import { publishPipelineProgress } from "./progress/pipelineProgress.js";
 import {
   UserRequestSchema,
   type TaskPlan,
@@ -134,6 +135,12 @@ export async function generateReport(
   const request = UserRequestSchema.parse(userRequest);
   const t0 = Date.now();
   logger.info("report graph 开始", { sessionId: request.sessionId });
+  publishPipelineProgress({
+    sessionId: request.sessionId,
+    stage: "pipeline_start",
+    message: "报告流程已启动",
+    meta: { userId: request.userId },
+  });
   let ok = false;
   try {
     const state = await withReportPipelineTimeout(
@@ -145,6 +152,11 @@ export async function generateReport(
       throw new Error("报告生成失败：writerOutput 为空");
     }
     ok = true;
+    publishPipelineProgress({
+      sessionId: request.sessionId,
+      stage: "pipeline_done",
+      message: "报告流程完成",
+    });
     return state.writerOutput;
   } finally {
     logger.info("report graph 结束", {
@@ -161,6 +173,12 @@ export async function runReportPipeline(
   const request = UserRequestSchema.parse(userRequest);
   const t0 = Date.now();
   logger.info("report graph 开始", { sessionId: request.sessionId });
+  publishPipelineProgress({
+    sessionId: request.sessionId,
+    stage: "pipeline_start",
+    message: "报告流程已启动",
+    meta: { userId: request.userId },
+  });
   let ok = false;
   try {
     const state = await withReportPipelineTimeout(
@@ -178,6 +196,28 @@ export async function runReportPipeline(
       executionPlan: state.executionPlan ?? undefined,
       skillMatch: state.skillMatch ?? undefined,
       finalDeliverable: state.finalDeliverable ?? undefined,
+    });
+    logger.info("[pipeline-telemetry] quality baseline computed", {
+      sessionId: request.sessionId,
+      userId: request.userId,
+      selectedSkillId: state.executionPlan.selectedSkillId,
+      workflowTemplateId: state.skillMatch?.workflowMeta?.workflowTemplateId,
+      sectionCoverage: qualityBaseline.sectionCoverage,
+      templateStructureCoverage: qualityBaseline.templateStructureCoverage,
+      artifactReadinessScore: qualityBaseline.artifactReadinessScore,
+      chartHits: qualityBaseline.templateElementHits.chart,
+      timelineHits: qualityBaseline.templateElementHits.timeline,
+      ganttHits: qualityBaseline.templateElementHits.gantt,
+      publishedArtifactCount: state.finalDeliverable?.publishedArtifacts?.length ?? 0,
+    });
+    publishPipelineProgress({
+      sessionId: request.sessionId,
+      stage: "pipeline_done",
+      message: "报告流程完成",
+      meta: {
+        sectionCoverage: qualityBaseline.sectionCoverage,
+        templateStructureCoverage: qualityBaseline.templateStructureCoverage,
+      },
     });
 
     return {
@@ -209,6 +249,13 @@ export async function runReportPipeline(
     templateDistillation: state.retrievalContext?.templateDistillation ?? undefined,
   };
   } finally {
+    if (!ok) {
+      publishPipelineProgress({
+        sessionId: request.sessionId,
+        stage: "pipeline_failed",
+        message: "报告流程失败",
+      });
+    }
     logger.info("report graph 结束", {
       sessionId: request.sessionId,
       ms: Date.now() - t0,

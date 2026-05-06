@@ -43,6 +43,70 @@ export function buildWriterSourceEvidence(ctx: DetailedContext | null | undefine
   ].join("\n\n");
 }
 
+function normalizeHeadingCandidate(line: string): string {
+  return line
+    .replace(/^#{1,6}\s*/, "")
+    .replace(/^[\-*]\s+/, "")
+    .replace(/^\d+(\.\d+){0,2}\s+/, "")
+    .trim();
+}
+
+function isHeadingLike(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (t.length > 32) return false;
+  if (/^#{1,6}\s+\S+/.test(t)) return true;
+  if (/^[一二三四五六七八九十]+[、.．]\s*\S+/.test(t)) return true;
+  if (/^\d+(\.\d+){0,2}\s+\S+/.test(t)) return true;
+  if (/^[（(][一二三四五六七八九十\d]+[)）]\s*\S+/.test(t)) return true;
+  return false;
+}
+
+/**
+ * 从深读正文中抽取模板章节骨架（优先包含“周报/模板”上下文的文档）。
+ */
+export function extractTemplateSectionsFromDetailedContext(
+  ctx: DetailedContext | null | undefined,
+): string[] {
+  if (!ctx?.sourceDetails?.length) return [];
+  const preferred = [...ctx.sourceDetails].sort((a, b) => {
+    const aScore = /周报|模板|template/i.test(a.detail) ? 1 : 0;
+    const bScore = /周报|模板|template/i.test(b.detail) ? 1 : 0;
+    return bScore - aScore;
+  });
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of preferred) {
+    const lines = item.detail
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    for (const line of lines) {
+      if (!isHeadingLike(line)) continue;
+      const normalized = normalizeHeadingCandidate(line);
+      if (normalized.length < 2 || seen.has(normalized)) continue;
+      seen.add(normalized);
+      out.push(normalized);
+      if (out.length >= 10) return out;
+    }
+  }
+  return out;
+}
+
+function computeEvidenceTelemetry(sourceEvidence?: string): {
+  evidenceChars: number;
+  evidenceSourceCount: number;
+} {
+  const text = sourceEvidence?.trim() ?? "";
+  if (!text) return { evidenceChars: 0, evidenceSourceCount: 0 };
+  const evidenceSourceCount = (text.match(/^###\s+/gm) ?? []).length;
+  return {
+    evidenceChars: text.length,
+    evidenceSourceCount,
+  };
+}
+
 function collectAnalysisLines(analysis: AnalysisResult): string[] {
   return [...analysis.keyInsights, ...analysis.normalizedFacts].filter(
     (s) => typeof s === "string" && s.trim().length > 0,
@@ -84,7 +148,7 @@ function buildDraftV2Extensions(input: {
     title: c.title,
     metricHint: c.dataHint,
   }));
-  if (chartSlots.length === 0) {
+  if (!env.AGENT_STRICT_FACT_MODE && chartSlots.length === 0) {
     chartSlots.push({
       slotId: "chart_1",
       chartType: "bar",
@@ -92,7 +156,7 @@ function buildDraftV2Extensions(input: {
       metricHint: "建议填充本期与上期的关键指标",
     });
   }
-  if (timelineSlots.length === 0) {
+  if (!env.AGENT_STRICT_FACT_MODE && timelineSlots.length === 0) {
     timelineSlots.push({
       slotId: "timeline_1",
       title: "关键里程碑（占位）",
@@ -100,7 +164,7 @@ function buildDraftV2Extensions(input: {
       notes: "用于在编辑工作台补全项目时间线",
     });
   }
-  if (ganttSlots.length === 0) {
+  if (!env.AGENT_STRICT_FACT_MODE && ganttSlots.length === 0) {
     ganttSlots.push({
       slotId: "gantt_1",
       task: "关键任务（占位）",
@@ -298,10 +362,32 @@ export async function writeDraft(input: {
   /** 云文档/附件深读摘录；与 analysis 一并供模型落笔 */
   sourceEvidence?: string;
 }): Promise<Draft> {
+  const evidence = computeEvidenceTelemetry(input.sourceEvidence);
+  const factCount = input.analysis.normalizedFacts.filter((f) => f.trim().length > 0).length;
+  if (env.AGENT_STRICT_FACT_MODE && factCount === 0 && evidence.evidenceSourceCount === 0) {
+    throw new Error("严格真实模式：Writer 阶段没有任何事实证据，拒绝生成占位化初稿。");
+  }
+  logger.info("[writer-telemetry] drafting started", {
+    sessionId: input.userRequest.sessionId,
+    userId: input.userRequest.userId,
+    selectedSkillId: input.plan.selectedSkillId,
+    workflowTemplateId: input.skillMatch.workflowMeta?.workflowTemplateId,
+    targetSectionCount: input.plan.targetSections.length,
+    analysisFactCount: factCount,
+    evidenceChars: evidence.evidenceChars,
+    evidenceSourceCount: evidence.evidenceSourceCount,
+  });
   try {
     const firstPayload = await invokeWriterRaw(input);
     const firstTry = DraftSchema.safeParse(firstPayload);
     if (firstTry.success) {
+      logger.info("[writer-telemetry] drafting succeeded first-pass", {
+        sessionId: input.userRequest.sessionId,
+        sectionCount: firstTry.data.sections.length,
+        chartSlotCount: firstTry.data.chartSlots.length,
+        timelineSlotCount: firstTry.data.timelineSlots.length,
+        ganttSlotCount: firstTry.data.ganttSlots.length,
+      });
       return firstTry.data;
     }
 
@@ -314,6 +400,13 @@ export async function writeDraft(input: {
     if (repaired.success) {
       logger.warn("Writer JSON 初次校验失败，已通过本地 repair 纠正", {
         issues: firstTry.error.issues.map((issue) => `${issue.path.join(".")}:${issue.message}`).slice(0, 6),
+      });
+      logger.info("[writer-telemetry] drafting succeeded by repair", {
+        sessionId: input.userRequest.sessionId,
+        sectionCount: repaired.data.sections.length,
+        chartSlotCount: repaired.data.chartSlots.length,
+        timelineSlotCount: repaired.data.timelineSlots.length,
+        ganttSlotCount: repaired.data.ganttSlots.length,
       });
       return repaired.data;
     }
@@ -332,11 +425,34 @@ export async function writeDraft(input: {
         .slice(0, 8)
         .join(" | ")}。请返回完全符合 DraftSchema 的 JSON。`,
     );
-    return DraftSchema.parse(retryPayload);
+    const parsedRetry = DraftSchema.parse(retryPayload);
+    logger.info("[writer-telemetry] drafting succeeded after retry", {
+      sessionId: input.userRequest.sessionId,
+      sectionCount: parsedRetry.sections.length,
+      chartSlotCount: parsedRetry.chartSlots.length,
+      timelineSlotCount: parsedRetry.timelineSlots.length,
+      ganttSlotCount: parsedRetry.ganttSlots.length,
+    });
+    return parsedRetry;
   } catch (error) {
+    if (env.AGENT_STRICT_FACT_MODE) {
+      throw new Error(
+        `严格真实模式：Writer 失败且不允许兜底占位稿。原始错误：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
     logger.warn("Writer JSON 调用失败，已使用兜底草稿", {
       message: error instanceof Error ? error.message : String(error),
     });
-    return fallbackDraft(input);
+    const fallback = fallbackDraft(input);
+    logger.info("[writer-telemetry] drafting fallback used", {
+      sessionId: input.userRequest.sessionId,
+      sectionCount: fallback.sections.length,
+      chartSlotCount: fallback.chartSlots.length,
+      timelineSlotCount: fallback.timelineSlots.length,
+      ganttSlotCount: fallback.ganttSlots.length,
+    });
+    return fallback;
   }
 }

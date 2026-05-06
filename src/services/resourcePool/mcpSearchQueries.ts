@@ -5,8 +5,15 @@
 export function deriveMcpDocumentSearchQueries(fullPrompt: string): string[] {
   const t = fullPrompt.trim().replace(/\s+/g, " ");
   const out: string[] = [];
+  const sanitize = (s: string): string =>
+    s
+      .replace(/<[^>]*>/g, " ")
+      .replace(/[^\p{L}\p{N}\s_-]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 32);
   const add = (s: string) => {
-    const x = s.trim();
+    const x = sanitize(s);
     if (x.length < 2) return;
     if (!out.includes(x)) out.push(x);
   };
@@ -71,5 +78,5 @@ export function deriveMcpDocumentSearchQueries(fullPrompt: string): string[] {
     if (t.includes(k)) add(k);
   }
 
-  return out.slice(0, 6);
+  return out.slice(0, 4);
 }

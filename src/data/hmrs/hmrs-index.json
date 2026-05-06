@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-06T17:41:47.974Z",
+  "updatedAt": "2026-05-06T20:53:34.823Z",
   "items": [
     {
       "id": "l2_doc_feishu_001",
@@ -190,20 +190,23 @@
       "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_1",
       "type": "TemplateStructureIndex",
       "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
-      "projectTag": "default",
+      "projectTag": "通用",
       "timeRange": {
-        "end": "2026-05-06T17:41:47.972Z"
+        "end": "2026-05-06T20:19:36.556Z"
       },
       "keywords": [
         "今日完成",
-        "本周体育类新闻中",
-        "竞品A在下沉市场的渗透率提升了12%",
-        "这主要得益于其轻量版小程序的上线",
-        "此外",
-        "我们还收到了用户反馈",
-        "指出我们的支付流程相比竞品多出了2个跳转页面",
-        "导致用户体验不佳"
+        "<ul><li>完成了模块A的功能开发",
+        "包括新增功能点X和优化功能点Y",
+        "</li><li>修复了模块B的bug",
+        "提升了系统的稳定性",
+        "</li><li>完成了用户反馈问题Z的处理",
+        "增强了用户体验",
+        "</li></ul>"
       ],
       "qualityScore": 0.68,
       "sourceRef": {
@@ -211,25 +214,29 @@
       },
       "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
       "title": "今日完成",
-      "structureSummary": "本周体育类新闻中，竞品A在下沉市场的渗透率提升了12%，这主要得益于其轻量版小程序的上线。此外，我们还收到了用户反馈，指出我们的支付流程相比竞品多出了2个跳转页面，导致用户体验不佳。"
+      "structureSummary": "<ul><li>完成了模块A的功能开发，包括新增功能点X和优化功能点Y。</li><li>修复了模块B的bug，提升了系统的稳定性。</li><li>完成了用户反馈问题Z的处理，增强了用户体验。</li></ul>"
     },
     {
       "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_2",
       "type": "TemplateStructureIndex",
       "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
-      "projectTag": "default",
+      "projectTag": "通用",
       "timeRange": {
-        "end": "2026-05-06T17:41:47.972Z"
+        "end": "2026-05-06T20:19:36.556Z"
       },
       "keywords": [
         "明日计划",
-        "下周我们将继续关注竞品A在下沉市场的表现",
-        "并进一步优化支付流程",
-        "减少用户在支付过程中的跳转次数",
-        "同时",
-        "我们也会持续跟进医疗集采的最新动态",
-        "以便及时调整策略"
+        "<ul><li>计划开始模块C的功能开发",
+        "预计在下周三前完成主要功能",
+        "</li><li>安排团队成员进行模块D的代码审查",
+        "确保代码质量",
+        "</li><li>准备下周的项目演示材料",
+        "确保所有关键功能都能顺利展示",
+        "</li></ul>"
       ],
       "qualityScore": 0.68,
       "sourceRef": {
@@ -237,27 +244,30 @@
       },
       "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
       "title": "明日计划",
-      "structureSummary": "下周我们将继续关注竞品A在下沉市场的表现，并进一步优化支付流程，减少用户在支付过程中的跳转次数。同时，我们也会持续跟进医疗集采的最新动态，以便及时调整策略。"
+      "structureSummary": "<ul><li>计划开始模块C的功能开发，预计在下周三前完成主要功能。</li><li>安排团队成员进行模块D的代码审查，确保代码质量。</li><li>准备下周的项目演示材料，确保所有关键功能都能顺利展示。</li></ul>"
     },
     {
       "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_3",
       "type": "TemplateStructureIndex",
       "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
-      "projectTag": "default",
+      "projectTag": "通用",
       "timeRange": {
-        "end": "2026-05-06T17:41:47.972Z"
+        "end": "2026-05-06T20:19:36.556Z"
       },
       "keywords": [
         "阻塞项与协作",
-        "目前",
-        "我们面临的主要挑战是支付流程的改进",
-        "Alice在群里提到",
-        "我们需要与其他相关部门紧密协作",
-        "共同解决这一问题",
-        "此外",
-        "还需与其他部门协调",
-        "确保能够及时获取医疗集采的相关信息"
+        "<p>目前存在以下阻塞项：<br>-",
+        "模块E的数据接口尚未稳定",
+        "影响了后续开发进度",
+        "<br>-",
+        "模块F与其他系统集成时遇到了兼容性问题",
+        "需要进一步沟通解决",
+        "</p><p>协作需求：<br>-",
+        "请技术部提供模块E数据接口的稳定版本"
       ],
       "qualityScore": 0.68,
       "sourceRef": {
@@ -265,27 +275,29 @@
       },
       "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
       "title": "阻塞项与协作",
-      "structureSummary": "目前，我们面临的主要挑战是支付流程的改进。Alice在群里提到，我们需要与其他相关部门紧密协作，共同解决这一问题。此外，还需与其他部门协调，确保能够及时获取医疗集采的相关信息。"
+      "structureSummary": "<p>目前存在以下阻塞项：<br>- 模块E的数据接口尚未稳定，影响了后续开发进度。<br>- 模块F与其他系统集成时遇到了兼容性问题，需要进一步沟通解决。</p><p>协作需求：<br>- 请技术部提供模块E数据接口的稳定版本。<br>- 请产品部确认模块F与其他系统的集成需求。</p>"
     },
     {
       "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_4",
       "type": "TemplateStructureIndex",
       "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
-      "projectTag": "default",
+      "projectTag": "通用",
       "timeRange": {
-        "end": "2026-05-06T17:41:47.972Z"
+        "end": "2026-05-06T20:19:36.556Z"
       },
       "keywords": [
         "行动项",
-        "为了改善支付流程",
-        "我们将由张三负责优化支付系统",
-        "预计在下周二前完成初步改进方案",
-        "同时",
-        "Alice将负责协调技术部门进行优化",
-        "预计在两周内完成",
-        "此外",
-        "我们将安排李四与相关部门进行沟通协调"
+        "<ul><li>由张三负责跟进模块E的数据接口问题",
+        "预计在下周五前解决",
+        "</li><li>由李四负责协调模块F与其他系统的集成问题",
+        "预计在下周二前完成初步解决方案",
+        "</li><li>由王五负责整理并提交下周的项目演示材料",
+        "预计在下周四前完成",
+        "</li></ul>"
       ],
       "qualityScore": 0.68,
       "sourceRef": {
@@ -293,7 +305,7 @@
       },
       "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
       "title": "行动项",
-      "structureSummary": "为了改善支付流程，我们将由张三负责优化支付系统，预计在下周二前完成初步改进方案。同时，Alice将负责协调技术部门进行优化，预计在两周内完成。此外，我们将安排李四与相关部门进行沟通协调，确保改进措施能够顺利实施。"
+      "structureSummary": "<ul><li>由张三负责跟进模块E的数据接口问题，预计在下周五前解决。</li><li>由李四负责协调模块F与其他系统的集成问题，预计在下周二前完成初步解决方案。</li><li>由王五负责整理并提交下周的项目演示材料，预计在下周四前完成。</li></ul>"
     },
     {
       "id": "l2_ext_doc_Z2QzdBeouobyelxTvQsc7dfBnBd",
