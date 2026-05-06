@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { UserRequestSchema, type UserRequest } from "../schemas/index.js";
+import { UserRequestSchema, WriterOutputSchema, type UserRequest } from "../schemas/index.js";
 import type { ResourceSummary } from "../schemas/agentContracts.js";
 import type { WriterOutput } from "../schemas/index.js";
 import { runReportPipeline } from "../services/reportPipeline.js";
@@ -13,9 +13,11 @@ import {
   listChatSessionsForUser,
   setLatestReport,
 } from "../services/chat/sessionStore.js";
+import { MemoryStore } from "../storage/memoryStore.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
 
 const poolManager = new ResourcePoolManager();
+const memoryStore = new MemoryStore();
 
 const CreateSessionBodySchema = z.object({
   userId: z.string().min(1),
@@ -128,6 +130,14 @@ function summarizeReceivedSelections(contexts: ChatSelectionContext[]) {
   }));
 }
 
+function reportOutline(report: WriterOutput) {
+  return report.sections.map((section, index) => ({
+    index,
+    heading: section.heading,
+    preview: section.content.slice(0, 120),
+  }));
+}
+
 export function writerOutputToMarkdown(report: WriterOutput): string {
   const lines = [
     `# ${report.title}`,
@@ -137,6 +147,29 @@ export function writerOutputToMarkdown(report: WriterOutput): string {
     ...report.sections.flatMap((s) => [`## ${s.heading}`, "", s.content, ""]),
   ];
   return lines.join("\n").trim();
+}
+
+function updateReportSection(input: {
+  report: WriterOutput;
+  sectionIndex: number;
+  content: string;
+  mode: "replace" | "append";
+}): WriterOutput {
+  const nextSections = input.report.sections.map((section, index) => {
+    if (index !== input.sectionIndex) return section;
+    const nextContent =
+      input.mode === "append"
+        ? [section.content.trim(), input.content.trim()].filter(Boolean).join("\n\n")
+        : input.content.trim();
+    return {
+      ...section,
+      content: nextContent || section.content,
+    };
+  });
+  return WriterOutputSchema.parse({
+    ...input.report,
+    sections: nextSections,
+  });
 }
 
 async function loadResourcePoolSnapshot(userId: string): Promise<ResourceSummary[]> {
@@ -263,6 +296,22 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(session);
   });
 
+  app.get("/api/chat/sessions/:sessionId/outline", async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string };
+    const session = loadChatSession(sessionId);
+    if (!session) return reply.status(404).send({ message: "会话不存在" });
+    if (!session.latestReport) {
+      return reply.send({
+        outline: [],
+        hasLatestReport: false,
+      });
+    }
+    return reply.send({
+      hasLatestReport: true,
+      outline: reportOutline(session.latestReport),
+    });
+  });
+
   app.delete("/api/chat/sessions/:sessionId", async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string };
     const q = z.object({ userId: z.string().min(1) }).parse(request.query);
@@ -354,6 +403,8 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
 
       return reply.send({
         assistantMarkdown: md,
+        outline: reportOutline(result.report),
+        latestReport: result.report,
         pipeline: response,
         ...(body.selectionContexts.length > 0
           ? { receivedSelections: summarizeReceivedSelections(body.selectionContexts) }
@@ -363,6 +414,118 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
       request.log.error({ error }, "chat turn failed");
       return reply.status(500).send({
         message: error instanceof Error ? error.message : "生成失败",
+      });
+    }
+  });
+
+  app.patch("/api/chat/sessions/:sessionId/sections/:sectionIndex", async (request, reply) => {
+    const { sessionId, sectionIndex } = request.params as { sessionId: string; sectionIndex: string };
+    const body = z
+      .object({
+        content: z.string().min(1),
+        mode: z.enum(["replace", "append"]).default("replace"),
+      })
+      .parse(request.body);
+    const session = loadChatSession(sessionId);
+    if (!session || !session.latestReport) {
+      return reply.status(404).send({ message: "会话不存在或尚无可编辑报告" });
+    }
+    const idx = Number(sectionIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= session.latestReport.sections.length) {
+      return reply.status(400).send({ message: "sectionIndex 非法" });
+    }
+    const nextReport = updateReportSection({
+      report: session.latestReport,
+      sectionIndex: idx,
+      content: body.content,
+      mode: body.mode,
+    });
+    setLatestReport(sessionId, nextReport);
+    appendChatMessage(sessionId, {
+      role: "user",
+      content: `【编辑工作台】手动${body.mode === "append" ? "增补" : "改写"}：${nextReport.sections[idx]?.heading ?? `Section ${idx + 1}`}`,
+      revisionMode: "incremental",
+    });
+    appendChatMessage(sessionId, {
+      role: "assistant",
+      content: "已按工作台局部编辑写回当前报告草稿。",
+    });
+    memoryStore.recordEditSignal({
+      userId: session.userId,
+      sectionHeading: nextReport.sections[idx]?.heading,
+      mode: "manual_edit",
+    });
+    return reply.send({
+      latestReport: nextReport,
+      assistantMarkdown: writerOutputToMarkdown(nextReport),
+      outline: reportOutline(nextReport),
+    });
+  });
+
+  app.post("/api/chat/sessions/:sessionId/sections/:sectionIndex/rewrite", async (request, reply) => {
+    const { sessionId, sectionIndex } = request.params as { sessionId: string; sectionIndex: string };
+    const body = z
+      .object({
+        instruction: z.string().min(1),
+      })
+      .parse(request.body);
+    const session = loadChatSession(sessionId);
+    if (!session || !session.latestReport) {
+      return reply.status(404).send({ message: "会话不存在或尚无可编辑报告" });
+    }
+    const idx = Number(sectionIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= session.latestReport.sections.length) {
+      return reply.status(400).send({ message: "sectionIndex 非法" });
+    }
+    const section = session.latestReport.sections[idx]!;
+    const selectionContexts: ChatSelectionContext[] = [
+      {
+        source: "chat",
+        pseudoPath: `draft://${sessionId}/section/${idx}`,
+        language: "markdown",
+        lineStart: 1,
+        lineEnd: Math.max(1, section.content.split("\n").length),
+        snippet: `## ${section.heading}\n${section.content}`.slice(0, 12_000),
+        role: "assistant",
+        messageIndex: 0,
+      },
+    ];
+    const userRequest = buildUserRequestForTurn({
+      session,
+      content: `请仅改写「${section.heading}」这一节，要求：${body.instruction}。其余章节只做必要联动且尽量不改动。`,
+      revisionMode: "incremental",
+      mentionedResourceIds: [],
+      selectionContexts,
+    });
+    try {
+      const result = await runReportPipeline(userRequest);
+      const response = GenerateReportResponseSchema.parse(result);
+      const md = writerOutputToMarkdown(result.report);
+      appendChatMessage(sessionId, {
+        role: "user",
+        content: `【编辑工作台】AI局部改写：${section.heading}\n要求：${body.instruction}`,
+        revisionMode: "incremental",
+      });
+      appendChatMessage(sessionId, {
+        role: "assistant",
+        content: md,
+      });
+      setLatestReport(sessionId, result.report);
+      memoryStore.recordEditSignal({
+        userId: session.userId,
+        sectionHeading: section.heading,
+        mode: "ai_partial_rewrite",
+      });
+      return reply.send({
+        latestReport: result.report,
+        assistantMarkdown: md,
+        outline: reportOutline(result.report),
+        pipeline: response,
+      });
+    } catch (error) {
+      request.log.error({ error }, "section rewrite failed");
+      return reply.status(500).send({
+        message: error instanceof Error ? error.message : "局部改写失败",
       });
     }
   });

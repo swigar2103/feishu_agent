@@ -144,6 +144,7 @@ export function buildPipelineResultCard(input: {
   summary: string[];
   links: PipelineResultLink[];
   sessionId: string;
+  workbenchUrl?: string;
 }): Record<string, unknown> {
   const statusText =
     input.status === "completed"
@@ -169,6 +170,9 @@ export function buildPipelineResultCard(input: {
   const primaryLine = primary?.url
     ? `主成果：${primary.url}`
     : "主成果：暂无（见上「未生成可访问链接」说明）";
+  const workbenchLine = input.workbenchUrl?.trim()
+    ? `- [进入在线编辑工作台](${input.workbenchUrl})`
+    : "- 在线编辑工作台：未配置（请设置 FEISHU_WORKBENCH_BASE_URL）";
 
   return {
     schema: "2.0",
@@ -190,7 +194,7 @@ export function buildPipelineResultCard(input: {
         },
         {
           tag: "markdown",
-          content: `### 快速入口\n- ${primaryLine}\n- 会话ID：\`${input.sessionId}\``,
+          content: `### 快速入口\n- ${primaryLine}\n${workbenchLine}\n- 会话ID：\`${input.sessionId}\``,
         },
       ],
     },

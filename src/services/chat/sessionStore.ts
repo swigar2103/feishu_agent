@@ -58,6 +58,29 @@ export function createChatSession(input: {
   return session;
 }
 
+export function ensureChatSession(input: {
+  sessionId: string;
+  userId: string;
+  industry?: string;
+  reportType?: string;
+}): ChatSession {
+  ensureDir();
+  const existing = loadChatSession(input.sessionId);
+  if (existing) return existing;
+  const now = new Date().toISOString();
+  const session: ChatSession = {
+    sessionId: input.sessionId,
+    userId: input.userId,
+    industry: input.industry,
+    reportType: input.reportType,
+    createdAt: now,
+    updatedAt: now,
+    messages: [],
+  };
+  saveChatSession(session);
+  return session;
+}
+
 export function loadChatSession(sessionId: string): ChatSession | null {
   const p = sessionPath(sessionId);
   if (!fs.existsSync(p)) return null;

@@ -9,6 +9,9 @@ let pendingMentions = [];
 /** Cursor 式对话选区上下文，发送时进入 extraContext */
 /** @type {object[]} */
 let pendingSelectionContexts = [];
+/** @type {{index:number, heading:string, preview:string}[]} */
+let latestOutline = [];
+let selectedSectionIndex = null;
 let msgCounter = 0;
 
 function escapeHtml(s) {
@@ -105,6 +108,78 @@ function setStatus(t) {
 
 function updateIncButton() {
   el("btnSendInc").disabled = !hasLatestReport;
+}
+
+function setEditorActionDisabled(disabled) {
+  const ids = ["btnEditorSaveReplace", "btnEditorSaveAppend", "btnEditorAiRewrite"];
+  ids.forEach((id) => {
+    const btn = el(id);
+    if (btn) btn.disabled = disabled;
+  });
+}
+
+function clearEditorPanel() {
+  latestOutline = [];
+  selectedSectionIndex = null;
+  const outline = el("editorOutline");
+  const content = el("editorSectionContent");
+  const append = el("editorAppendContent");
+  const instruction = el("editorRewriteInstruction");
+  if (outline) outline.innerHTML = "";
+  if (content) content.value = "";
+  if (append) append.value = "";
+  if (instruction) instruction.value = "";
+  setEditorActionDisabled(true);
+}
+
+function renderEditorOutline() {
+  const box = el("editorOutline");
+  const sectionContent = el("editorSectionContent");
+  if (!box || !sectionContent) return;
+  box.innerHTML = "";
+  if (!latestOutline.length) {
+    box.innerHTML = '<p class="editor-hint">当前无可编辑章节，请先生成报告。</p>';
+    setEditorActionDisabled(true);
+    return;
+  }
+  latestOutline.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `outline-item${selectedSectionIndex === item.index ? " active" : ""}`;
+    btn.innerHTML = `${escapeHtml(item.heading)}<small>${escapeHtml(item.preview || "")}</small>`;
+    btn.addEventListener("click", () => {
+      selectedSectionIndex = item.index;
+      sectionContent.value = item.fullContent || item.preview || "";
+      renderEditorOutline();
+      setEditorActionDisabled(false);
+    });
+    box.appendChild(btn);
+  });
+}
+
+function syncEditorFromReport(report, outline) {
+  if (!report) {
+    clearEditorPanel();
+    return;
+  }
+  latestOutline = (outline && Array.isArray(outline) ? outline : report.sections.map((s, idx) => ({
+    index: idx,
+    heading: s.heading,
+    preview: (s.content || "").slice(0, 120),
+  }))).map((item) => ({
+    ...item,
+    fullContent: report.sections[item.index]?.content || "",
+  }));
+  if (selectedSectionIndex == null || !latestOutline.some((x) => x.index === selectedSectionIndex)) {
+    selectedSectionIndex = latestOutline[0]?.index ?? null;
+  }
+  const sectionContent = el("editorSectionContent");
+  if (sectionContent && selectedSectionIndex != null) {
+    const selected = latestOutline.find((x) => x.index === selectedSectionIndex);
+    sectionContent.value = selected?.fullContent || "";
+  }
+  setEditorActionDisabled(selectedSectionIndex == null);
+  renderEditorOutline();
 }
 
 async function refreshSessionList() {
@@ -249,6 +324,7 @@ async function loadSession(sid) {
       }
     }
     updateIncButton();
+    syncEditorFromReport(data.latestReport || null, data.latestReport ? null : []);
     setStatus("就绪");
   } catch (e) {
     setStatus("加载失败");
@@ -316,6 +392,7 @@ async function createSession() {
   el("messages").innerHTML = "";
   renderChips();
   renderContextChips();
+  clearEditorPanel();
   updateIncButton();
   setStatus("新会话已创建");
   refreshSessionList();
@@ -361,6 +438,7 @@ async function sendTurn(revisionMode) {
     pendingSelectionContexts = [];
     renderChips();
     renderContextChips();
+    syncEditorFromReport(out.latestReport || null, out.outline || null);
     setStatus("就绪");
   } catch (e) {
     appendMessage("assistant", escapeHtml(String(e.message)), false);
@@ -370,6 +448,67 @@ async function sendTurn(revisionMode) {
     updateIncButton();
   }
   refreshSessionList();
+}
+
+async function saveSectionEdit(mode) {
+  if (!sessionId || selectedSectionIndex == null) {
+    alert("请先选择章节");
+    return;
+  }
+  const content = mode === "append" ? el("editorAppendContent").value.trim() : el("editorSectionContent").value.trim();
+  if (!content) {
+    alert("请输入要保存的内容");
+    return;
+  }
+  setStatus("保存局部编辑…");
+  try {
+    const out = await api(
+      `/api/chat/sessions/${encodeURIComponent(sessionId)}/sections/${selectedSectionIndex}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ content, mode }),
+      },
+    );
+    if (mode === "append") el("editorAppendContent").value = "";
+    appendMessage("assistant", renderMarkdown(out.assistantMarkdown), true);
+    syncEditorFromReport(out.latestReport || null, out.outline || null);
+    hasLatestReport = true;
+    updateIncButton();
+    setStatus("已保存");
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+    setStatus("保存失败");
+  }
+}
+
+async function rewriteSectionByAi() {
+  if (!sessionId || selectedSectionIndex == null) {
+    alert("请先选择章节");
+    return;
+  }
+  const instruction = el("editorRewriteInstruction").value.trim();
+  if (!instruction) {
+    alert("请填写改写指令");
+    return;
+  }
+  setStatus("AI 局部改写中…");
+  try {
+    const out = await api(
+      `/api/chat/sessions/${encodeURIComponent(sessionId)}/sections/${selectedSectionIndex}/rewrite`,
+      {
+        method: "POST",
+        body: JSON.stringify({ instruction }),
+      },
+    );
+    appendMessage("assistant", renderMarkdown(out.assistantMarkdown), true);
+    syncEditorFromReport(out.latestReport || null, out.outline || null);
+    hasLatestReport = true;
+    updateIncButton();
+    setStatus("局部改写完成");
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+    setStatus("局部改写失败");
+  }
 }
 
 let mentionTimer = null;
@@ -617,6 +756,9 @@ function bindChatUi() {
   const bNew = el("btnNewSession");
   const bFull = el("btnSendFull");
   const bInc = el("btnSendInc");
+  const bEditorReplace = el("btnEditorSaveReplace");
+  const bEditorAppend = el("btnEditorSaveAppend");
+  const bEditorRewrite = el("btnEditorAiRewrite");
   if (!bNew || !bFull || !bInc || !el("messages") || !el("chatStatus")) {
     console.error("[chat] 缺少必要 DOM 节点");
     return;
@@ -647,9 +789,25 @@ function bindChatUi() {
       alert(msg);
     }
   });
+  if (bEditorReplace) {
+    bEditorReplace.addEventListener("click", () => {
+      void saveSectionEdit("replace");
+    });
+  }
+  if (bEditorAppend) {
+    bEditorAppend.addEventListener("click", () => {
+      void saveSectionEdit("append");
+    });
+  }
+  if (bEditorRewrite) {
+    bEditorRewrite.addEventListener("click", () => {
+      void rewriteSectionByAi();
+    });
+  }
 
   setupMentionTrigger();
   setupSelectionToChat();
+  clearEditorPanel();
   updateIncButton();
 
   if (el("chatUserId")) {
@@ -671,12 +829,23 @@ function bindChatUi() {
 }
 
 async function bootstrapChat() {
+  const params = new URLSearchParams(window.location.search);
+  const sidFromUrl = (params.get("sessionId") || "").trim();
+  const uidFromUrl = (params.get("userId") || "").trim();
+  if (uidFromUrl && el("chatUserId")) {
+    el("chatUserId").value = uidFromUrl;
+  }
   const uid = el("chatUserId")?.value?.trim();
   if (!uid) {
     setStatus("请填写用户 ID");
     return;
   }
   try {
+    if (sidFromUrl) {
+      await loadSession(sidFromUrl);
+      setStatus("已从链接载入工作会话");
+      return;
+    }
     await createSession();
   } catch (e) {
     console.error(e);

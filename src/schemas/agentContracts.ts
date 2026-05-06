@@ -78,6 +78,22 @@ export const LarkCliGuidanceSchema = z.object({
   styleHints: z.array(z.string()).default([]),
   templateHints: z.array(z.string()).default([]),
   qualityChecks: z.array(z.string()).default([]),
+  workflowTemplates: z
+    .array(
+      z.object({
+        workflowTemplateId: z.string().min(1),
+        workflowSourceId: z.string().min(1),
+        sections: z.array(z.string()).default([]),
+        reviewRules: z.array(z.string()).default([]),
+        recommendedTools: z.array(z.string()).default([]),
+        outputTargets: z
+          .array(z.enum(["feishu_doc", "bitable", "slides"]))
+          .default(["feishu_doc"]),
+        templateHints: z.array(z.string()).default([]),
+        qualityChecks: z.array(z.string()).default([]),
+      }),
+    )
+    .default([]),
 });
 
 export const WorkflowMetaSchema = z.object({
@@ -89,6 +105,8 @@ export const WorkflowMetaSchema = z.object({
     .array(z.enum(["feishu_doc", "bitable", "slides"]))
     .default([]),
   reviewRules: z.array(z.string()).default([]),
+  templateHints: z.array(z.string()).default([]),
+  qualityChecks: z.array(z.string()).default([]),
 });
 
 export const SkillMatchSchema = z.object({
@@ -145,6 +163,51 @@ export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 export const DraftSchema = WriterOutputSchema.extend({
   format: OutputKindSchema.default("doc"),
+  /**
+   * Draft v2：供「在线编辑工作台」和发布层做结构化处理。
+   * 所有新增字段均为可选，确保兼容旧 Writer 输出。
+   */
+  sectionBlocks: z
+    .array(
+      z.object({
+        blockId: z.string().min(1),
+        sectionHeading: z.string().min(1),
+        blockType: z.enum(["paragraph", "bullet_list", "table", "timeline", "gantt", "chart_slot"]),
+        content: z.string().min(1),
+      }),
+    )
+    .default([]),
+  timelineSlots: z
+    .array(
+      z.object({
+        slotId: z.string().min(1),
+        title: z.string().min(1),
+        periodHint: z.string().min(1),
+        notes: z.string().optional(),
+      }),
+    )
+    .default([]),
+  ganttSlots: z
+    .array(
+      z.object({
+        slotId: z.string().min(1),
+        task: z.string().min(1),
+        ownerHint: z.string().optional(),
+        startHint: z.string().optional(),
+        endHint: z.string().optional(),
+      }),
+    )
+    .default([]),
+  chartSlots: z
+    .array(
+      z.object({
+        slotId: z.string().min(1),
+        chartType: z.string().min(1),
+        title: z.string().min(1),
+        metricHint: z.string().min(1),
+      }),
+    )
+    .default([]),
 });
 
 export type Draft = z.infer<typeof DraftSchema>;
@@ -195,6 +258,14 @@ export type FinalDeliverable = z.infer<typeof FinalDeliverableSchema>;
 export const MemoryUpdateSchema = z.object({
   updated: z.boolean(),
   learnedPreferences: z.array(z.string()).default([]),
+  editSignals: z
+    .array(
+      z.object({
+        signalType: z.enum(["manual_edit", "ai_partial_rewrite", "template_preference"]),
+        sectionHeading: z.string().optional(),
+      }),
+    )
+    .default([]),
 });
 
 export type MemoryUpdate = z.infer<typeof MemoryUpdateSchema>;
@@ -206,3 +277,20 @@ export const ResourcePoolChangeSchema = z.object({
 });
 
 export type ResourcePoolChange = z.infer<typeof ResourcePoolChangeSchema>;
+
+export const QualityBaselineSchema = z.object({
+  source: z.literal("heuristic_v1").default("heuristic_v1"),
+  sectionCoverage: z.number().min(0).max(1),
+  templateStructureCoverage: z.number().min(0).max(1),
+  artifactReadinessScore: z.number().min(0).max(1),
+  templateElementHits: z.object({
+    chart: z.number().int().min(0),
+    timeline: z.number().int().min(0),
+    gantt: z.number().int().min(0),
+    table: z.number().int().min(0),
+    bulletList: z.number().int().min(0),
+  }),
+  notes: z.array(z.string()).default([]),
+});
+
+export type QualityBaseline = z.infer<typeof QualityBaselineSchema>;

@@ -5,6 +5,7 @@ import {
   ExecutionPlanSchema,
   FinalDeliverableSchema,
   IntentResultSchema,
+  QualityBaselineSchema,
   MemoryUpdateSchema,
   ResourcePoolChangeSchema,
   SkillMatchSchema,
@@ -28,6 +29,7 @@ export const GenerateReportResponseSchema = z.object({
   resourcePoolChange: ResourcePoolChangeSchema.optional(),
   outputTargets: z.array(z.enum(["feishu_doc", "bitable", "slides"])).optional(),
   report: WriterOutputSchema,
+  qualityBaseline: QualityBaselineSchema.optional(),
   debugTrace: z.array(z.string()).optional(),
   templateDistillation: TemplateDistillationSchema.optional(),
 });

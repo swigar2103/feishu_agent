@@ -111,6 +111,11 @@ const EnvSchema = z.object({
    * - user_default：优先用户身份（仅建议联调）
    */
   FEISHU_IDENTITY_MODE: z.enum(["bot_default", "user_default"]).default("bot_default"),
+  /**
+   * 编辑工作台对外基址（用于 IM 结果卡片「进入编辑工作台」深链）。
+   * 例如：https://www.feishu.space
+   */
+  FEISHU_WORKBENCH_BASE_URL: z.string().default(""),
   /** 用户授权增强：回调地址（需与开放平台一致） */
   FEISHU_USER_OAUTH_REDIRECT_URI: z.string().default(""),
   /** 用户授权增强：scope 列表（空格分隔） */

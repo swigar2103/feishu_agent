@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { WORKFLOW_SKILL_REGISTRY } from "./workflowSkillRegistry.js";
 
 export type LarkCliGuidance = {
   enabled: boolean;
@@ -10,6 +11,16 @@ export type LarkCliGuidance = {
   styleHints: string[];
   templateHints: string[];
   qualityChecks: string[];
+  workflowTemplates: Array<{
+    workflowTemplateId: string;
+    workflowSourceId: string;
+    sections: string[];
+    reviewRules: string[];
+    recommendedTools: string[];
+    outputTargets: Array<"feishu_doc" | "bitable" | "slides">;
+    templateHints: string[];
+    qualityChecks: string[];
+  }>;
 };
 
 const DEFAULT_GUIDANCE: LarkCliGuidance = {
@@ -21,6 +32,7 @@ const DEFAULT_GUIDANCE: LarkCliGuidance = {
   styleHints: [],
   templateHints: [],
   qualityChecks: [],
+  workflowTemplates: [],
 };
 
 let cached: LarkCliGuidance | null = null;
@@ -112,13 +124,24 @@ export function loadLarkCliGuidance(): LarkCliGuidance {
   ];
   const hardRules = collectDocSkillHardRules(skillText, fetchRefText);
   const styleHints = collectDocSkillStyleHints(skillText);
+  const workflowTemplates = WORKFLOW_SKILL_REGISTRY.map((entry) => ({
+    workflowTemplateId: entry.name,
+    workflowSourceId: entry.workflowSourceId,
+    sections: entry.sections,
+    reviewRules: entry.reviewRules,
+    recommendedTools: entry.toolHints,
+    outputTargets: entry.outputTargets,
+    templateHints: entry.templateHints,
+    qualityChecks: entry.qualityChecks,
+  }));
 
   cached = {
     enabled:
       supportedDocsCommands.length > 0 ||
       commandPatterns.length > 0 ||
       hardRules.length > 0 ||
-      styleHints.length > 0,
+      styleHints.length > 0 ||
+      workflowTemplates.length > 0,
     sourceRoot: sourceRoots.join(";"),
     supportedDocsCommands,
     commandPatterns,
@@ -134,6 +157,7 @@ export function loadLarkCliGuidance(): LarkCliGuidance {
       "更新后建议执行一次 fetch 校验标题/关键内容是否落地。",
       "支持 dry-run 时，避免把语义告警文案当成最终报告内容输出。",
     ],
+    workflowTemplates,
   };
   return cached;
 }

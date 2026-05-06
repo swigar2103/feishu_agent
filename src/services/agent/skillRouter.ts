@@ -130,6 +130,8 @@ export function routeSkill(intent: IntentResult): SkillMatch {
         recommendedTools: workflowMatched.entry.toolHints,
         outputTargets: workflowMatched.entry.outputTargets,
         reviewRules: workflowMatched.entry.reviewRules,
+        templateHints: workflowMatched.entry.templateHints,
+        qualityChecks: workflowMatched.entry.qualityChecks,
       },
     });
   }

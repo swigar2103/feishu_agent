@@ -25,32 +25,57 @@
         <div id="sessionList" class="session-list"></div>
       </aside>
       <section class="chat-main">
-        <div id="messages" class="messages" aria-live="polite"></div>
-        <div class="composer">
-          <div id="mentionWrap" class="mention-wrap hidden">
-            <div class="mention-title">选择资源（来自当前资源池）</div>
-            <ul id="mentionList" class="mention-list"></ul>
-          </div>
-          <div id="mentionChips" class="chips"></div>
-          <div id="contextChips" class="chips context-chips" aria-label="已加入的对话区引用"></div>
-          <textarea
-            id="chatInput"
-            rows="3"
-            placeholder="描述任务… 输入 @ 可插入资源 id（须为池内已有）。"
-          ></textarea>
-          <div class="composer-actions">
-            <div class="mode-btns">
-              <button type="button" id="btnSendFull" class="btn primary">发送 · 整份重生成</button>
-              <button type="button" id="btnSendInc" class="btn secondary" disabled>
-                发送 · 基于当前报告修订
-              </button>
+        <div class="chat-core">
+          <div id="messages" class="messages" aria-live="polite"></div>
+          <div class="composer">
+            <div id="mentionWrap" class="mention-wrap hidden">
+              <div class="mention-title">选择资源（来自当前资源池）</div>
+              <ul id="mentionList" class="mention-list"></ul>
             </div>
-            <p class="tinyhint">
-              首轮仅有「整份重生成」。生成成功后，可用「基于当前报告修订」迭代修改。
-              在对话区选中文字，点「加入 Chat」可将选区（路径 / 行号 / 语言）结构化地一并发送。
-            </p>
+            <div id="mentionChips" class="chips"></div>
+            <div id="contextChips" class="chips context-chips" aria-label="已加入的对话区引用"></div>
+            <textarea
+              id="chatInput"
+              rows="3"
+              placeholder="描述任务… 输入 @ 可插入资源 id（须为池内已有）。"
+            ></textarea>
+            <div class="composer-actions">
+              <div class="mode-btns">
+                <button type="button" id="btnSendFull" class="btn primary">发送 · 整份重生成</button>
+                <button type="button" id="btnSendInc" class="btn secondary" disabled>
+                  发送 · 基于当前报告修订
+                </button>
+              </div>
+              <p class="tinyhint">
+                首轮仅有「整份重生成」。生成成功后，可用「基于当前报告修订」迭代修改。
+                在对话区选中文字，点「加入 Chat」可将选区（路径 / 行号 / 语言）结构化地一并发送。
+              </p>
+            </div>
           </div>
         </div>
+        <aside class="editor-panel">
+          <h3>在线编辑工作台（MVP）</h3>
+          <p class="editor-hint">选择章节后可手动改写，或让 AI 仅重写当前章节。</p>
+          <div id="editorOutline" class="editor-outline"></div>
+          <label class="editor-label">
+            章节内容编辑
+            <textarea id="editorSectionContent" rows="8" placeholder="请选择章节后编辑"></textarea>
+          </label>
+          <label class="editor-label">
+            AI 局部改写指令
+            <textarea id="editorRewriteInstruction" rows="4" placeholder="例如：改成周报语气，保留事实，压缩到 3 条要点"></textarea>
+          </label>
+          <textarea
+            id="editorAppendContent"
+            rows="3"
+            placeholder="可选：追加内容（保留原段落）"
+          ></textarea>
+          <div class="editor-actions">
+            <button type="button" id="btnEditorSaveReplace" class="btn secondary" disabled>保存替换</button>
+            <button type="button" id="btnEditorSaveAppend" class="btn secondary" disabled>保存追加</button>
+            <button type="button" id="btnEditorAiRewrite" class="btn primary" disabled>AI 局部改写</button>
+          </div>
+        </aside>
       </section>
     </div>
     <script src="/chat.js"></script>

@@ -1,0 +1,266 @@
+{
+  "source": "https://jcneyh7qlo8i.feishu.cn/docx/NLcmdZHBaoO8UixGfvhc613kn0c",
+  "documentId": "NLcmdZHBaoO8UixGfvhc613kn0c",
+  "fetchedAt": "2026-05-06T13:48:13.496Z",
+  "blockCount": 35,
+  "orphanBlockIds": [],
+  "roots": [
+    {
+      "kind": "page",
+      "blockId": "NLcmdZHBaoO8UixGfvhc613kn0c",
+      "blockType": 1,
+      "children": [
+        {
+          "kind": "callout",
+          "blockId": "doxcnUgaYeyMnCAMmpk9wRabNxb",
+          "blockType": 19,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnhfWPjiXRuvdl5dtJc05TQc",
+              "blockType": 2,
+              "children": [],
+              "plainText": "会议主题：简要描述会议主题和目标"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcntwAitmHgRfiP14geA5xlxg",
+              "blockType": 2,
+              "children": [],
+              "plainText": "参会人员：输入“@+人名”插入参会人员"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcnA5i4DZQWjC771HAK1T8AVf",
+              "blockType": 2,
+              "children": [],
+              "plainText": "会前必读：输入@ 插入相关背景资料"
+            }
+          ],
+          "note": "高亮块"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnUYGPpA9oBaozlVELX6lMOd",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnAPrsm0wEgFCQ6RrDzPFqWd",
+          "blockType": 5,
+          "children": [],
+          "headingLevel": 3,
+          "plainText": "议程 1 ：输入要讨论的主题"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnPcgGsyGkF7VBkbkxNHBXUg",
+          "blockType": 24,
+          "children": [
+            {
+              "kind": "unknown",
+              "blockId": "doxcn7MdJn8Aoxy58bQOjaWsYsg",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "bullet",
+                  "blockId": "doxcnsWkEGys79nabi5N1MC4Qid",
+                  "blockType": 12,
+                  "children": [
+                    {
+                      "kind": "bullet",
+                      "blockId": "doxcn6vbU8JKEeud0eMdeRyBGib",
+                      "blockType": 12,
+                      "children": [],
+                      "plainText": "高亮讨论中的重要信息"
+                    },
+                    {
+                      "kind": "bullet",
+                      "blockId": "doxcnYohVvbXPjfu8v7ZxYo6HEd",
+                      "blockType": 12,
+                      "children": [],
+                      "plainText": "......"
+                    }
+                  ],
+                  "plainText": "讨论过程："
+                },
+                {
+                  "kind": "text",
+                  "blockId": "doxcn28R2ouBQDHDUNalcm8dHrd",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnKmwGbuxaYQsKohtcAvmEZn",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "bullet",
+                  "blockId": "doxcn6uxajKJFRlgYRpERLkDRVZ",
+                  "blockType": 12,
+                  "children": [
+                    {
+                      "kind": "unknown",
+                      "blockId": "doxcnhK7huo7x5xnSlDuPEoUXeb",
+                      "blockType": 17,
+                      "children": [],
+                      "note": "block_type=17 未细分映射"
+                    },
+                    {
+                      "kind": "unknown",
+                      "blockId": "doxcnGMRuN1k6vtp8NeV6EB5p0f",
+                      "blockType": 17,
+                      "children": [],
+                      "note": "block_type=17 未细分映射"
+                    },
+                    {
+                      "kind": "unknown",
+                      "blockId": "doxcnseu8KtAkaGwqBMtWChyiHh",
+                      "blockType": 17,
+                      "children": [],
+                      "note": "block_type=17 未细分映射"
+                    },
+                    {
+                      "kind": "text",
+                      "blockId": "doxcnLQZ7xUh51SYx0rzyY56jJf",
+                      "blockType": 2,
+                      "children": []
+                    }
+                  ],
+                  "plainText": "后续安排："
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            }
+          ],
+          "note": "block_type=24 未细分映射"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcn6R7ZF26QfsmPOnlP63uHIm",
+          "blockType": 5,
+          "children": [],
+          "headingLevel": 3,
+          "plainText": "议程 2 ：输入要讨论的主题"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnIZ1yktwT2fK1TV6TcqZn9g",
+          "blockType": 24,
+          "children": [
+            {
+              "kind": "unknown",
+              "blockId": "doxcnzlS706HFPVRufMZJIltxq1",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "bullet",
+                  "blockId": "doxcn00u2L5hKCu31iZtuzmci6g",
+                  "blockType": 12,
+                  "children": [
+                    {
+                      "kind": "bullet",
+                      "blockId": "doxcn6LJp2EabzUWx558AGhuxAc",
+                      "blockType": 12,
+                      "children": [],
+                      "plainText": "高亮讨论中的重要信息"
+                    },
+                    {
+                      "kind": "bullet",
+                      "blockId": "doxcnWPXJ3RtVXo37yKG2EduzOe",
+                      "blockType": 12,
+                      "children": [],
+                      "plainText": "......"
+                    }
+                  ],
+                  "plainText": "讨论过程："
+                },
+                {
+                  "kind": "text",
+                  "blockId": "doxcnjoJjLHu9gygyl71j6Sj62f",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnLmZDPqQtL31HrzsYLEQn0c",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "bullet",
+                  "blockId": "doxcnLQnYu4UQM0CTWGht21m8Ah",
+                  "blockType": 12,
+                  "children": [
+                    {
+                      "kind": "unknown",
+                      "blockId": "doxcnychn4C3JyddfDmMVtjlCXS",
+                      "blockType": 17,
+                      "children": [],
+                      "note": "block_type=17 未细分映射"
+                    },
+                    {
+                      "kind": "unknown",
+                      "blockId": "doxcnNg20llwGHkdNNhdz3Z9dHM",
+                      "blockType": 17,
+                      "children": [],
+                      "note": "block_type=17 未细分映射"
+                    }
+                  ],
+                  "plainText": "后续安排："
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            }
+          ],
+          "note": "block_type=24 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnsrHUD8Dg06tiBMCS8HG9Hf",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "unknown",
+          "blockId": "ZnQLds92tsMK2pbXuZhcCjP5nng",
+          "blockType": 49,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnkYdPHaMAWgYEgJ11dOTxZM",
+              "blockType": 2,
+              "children": [],
+              "plainText": "🌟 将“任务安排”放入同步块中，复制并粘贴到其他文档，则可以实现跨文档实时更新和同步的效果。"
+            }
+          ],
+          "note": "block_type=49 未细分映射"
+        },
+        {
+          "kind": "bitable",
+          "blockId": "doxcnIIdlxFqsn6HEt3j4L5DNLc",
+          "blockType": 18,
+          "children": [],
+          "bitableToken": "QmkXbjBJlajeIfsOKF8cslPjnOe_tblxxpJu5h4spcvf",
+          "note": "仅含 bitable token；记录/字段需调用多维表格（bitable）OpenAPI"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcniDb4RgsEs72UPO7kLdqu5z",
+          "blockType": 2,
+          "children": []
+        }
+      ],
+      "plainText": "会议记录 (简洁版)"
+    }
+  ],
+  "documentTitle": "会议记录 (简洁版)",
+  "structureFile": "会议记录 (简洁版)structure.json"
+}

@@ -192,12 +192,108 @@ body.chat-shell {
 }
 
 .chat-main {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
   background: var(--bg);
+}
+
+.chat-core {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-panel {
+  border-left: 1px solid var(--border);
+  background: #121217;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.editor-panel h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.editor-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.editor-outline {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f0f14;
+  padding: 0.35rem;
+  min-height: 120px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.outline-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  cursor: pointer;
+}
+
+.outline-item small {
+  display: block;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
+.outline-item:hover {
+  background: #1a1b22;
+}
+
+.outline-item.active {
+  border-color: #2d6457;
+  background: #162724;
+}
+
+.editor-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.editor-panel textarea {
+  width: 100%;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0c0d12;
+  color: var(--text);
+  padding: 0.55rem 0.6rem;
+  font: inherit;
+  min-height: 64px;
+}
+
+.editor-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.editor-actions .btn {
+  width: 100%;
+  min-width: 0;
 }
 
 .selection-toolbar {
@@ -428,5 +524,16 @@ body.chat-shell {
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     max-height: min(38vh, 240px);
+  }
+  .chat-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(auto, 42vh);
+  }
+  .editor-panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .editor-actions {
+    grid-template-columns: 1fr;
   }
 }

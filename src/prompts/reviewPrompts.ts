@@ -56,6 +56,12 @@ export function buildWriterUserPrompt(
     input.skillMatch.workflowMeta
       ? "【官方 workflow 命中】请优先满足 workflowMeta.reviewRules，输出目标参考 workflowMeta.outputTargets。"
       : "",
+    input.skillMatch.larkCliGuidance?.templateHints?.length
+      ? "【模板提示】请把 templateHints 当作文档结构与版式硬参考。"
+      : "",
+    input.skillMatch.larkCliGuidance?.qualityChecks?.length
+      ? "【质量门禁】请在正文中直接满足 qualityChecks，避免产出后再补救。"
+      : "",
     `userRequest=${JSON.stringify(input.userRequest)}`,
     `plan=${JSON.stringify(input.plan)}`,
     `analysis=${JSON.stringify(input.analysis)}`,
@@ -63,6 +69,9 @@ export function buildWriterUserPrompt(
     `larkCliGuidance=${JSON.stringify(input.skillMatch.larkCliGuidance ?? null)}`,
     `larkCliHardRules=${JSON.stringify(input.skillMatch.larkCliGuidance?.hardRules ?? [])}`,
     `larkCliStyleHints=${JSON.stringify(input.skillMatch.larkCliGuidance?.styleHints ?? [])}`,
+    `templateHints=${JSON.stringify(input.skillMatch.larkCliGuidance?.templateHints ?? [])}`,
+    `qualityChecks=${JSON.stringify(input.skillMatch.larkCliGuidance?.qualityChecks ?? [])}`,
+    `sectionSchema=${JSON.stringify(input.plan.targetSections)}`,
     `workflowMeta=${JSON.stringify(input.skillMatch.workflowMeta ?? null)}`,
     `rewriteHints=${JSON.stringify(input.rewriteHints ?? [])}`,
     evidenceBlock,

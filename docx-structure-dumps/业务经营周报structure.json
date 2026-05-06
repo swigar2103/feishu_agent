@@ -1,0 +1,246 @@
+{
+  "source": "https://jcneyh7qlo8i.feishu.cn/docx/UVW2dlK4Xo1ATsxETiYcPltWnAf",
+  "documentId": "UVW2dlK4Xo1ATsxETiYcPltWnAf",
+  "fetchedAt": "2026-05-06T13:55:02.438Z",
+  "blockCount": 32,
+  "orphanBlockIds": [],
+  "roots": [
+    {
+      "kind": "page",
+      "blockId": "UVW2dlK4Xo1ATsxETiYcPltWnAf",
+      "blockType": 1,
+      "children": [
+        {
+          "kind": "heading",
+          "blockId": "doxcnhApxRVAnMifIl4bnY7vFbb",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "一、门店销售概况"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcno24OUZYXba80mLr1jM39EX",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcn1WiRROeL1BOaaXHOYdlMHh",
+              "blockType": 2,
+              "children": [],
+              "plainText": "用 1-3 句话概括整体情况"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "callout",
+          "blockId": "doxcn0DPEEgCaBg3ABW19OwoQrf",
+          "blockType": 19,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnriS0xK0AmV7H6URBrAmfkd",
+              "blockType": 2,
+              "children": [],
+              "plainText": "各门店本周销售量 4972 单，同比上周增长 44.6%，销售总额 ￥75640 ，同比上周增长 31.7% 本周各门店经营状况对比上周仍呈现上涨趋势 ↑，各门店营业额均有明显上升 ↑，经营状况持续好转"
+            }
+          ],
+          "note": "高亮块"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnr0C1mYVeLQ3CUMWhlejrfh",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnahkmQap58tGaYb8u5qaeph",
+              "blockType": 2,
+              "children": [],
+              "plainText": "复制多维表格的仪表盘图表，粘贴在文档中即可展示图表。修改多维表格数据后，点击刷新即可更新图表数据"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcn0XAaO8EeviETX9PxU5xgNh",
+          "blockType": 24,
+          "children": [
+            {
+              "kind": "unknown",
+              "blockId": "doxcnhd3xjazO7Ugh7J7cBYd68e",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "unknown",
+                  "blockId": "doxcnzNs4x46eDU9zwUFeD5SJqf",
+                  "blockType": 999,
+                  "children": [],
+                  "note": "block_type=999 未细分映射"
+                },
+                {
+                  "kind": "unknown",
+                  "blockId": "doxcnEJUOOXLSmVypMDPWIt0lPd",
+                  "blockType": 999,
+                  "children": [],
+                  "note": "block_type=999 未细分映射"
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnQAHenXtlKRt2sl4xYLVsJh",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "unknown",
+                  "blockId": "doxcnVtLy3AW44GBZIB2suojp4g",
+                  "blockType": 999,
+                  "children": [],
+                  "note": "block_type=999 未细分映射"
+                },
+                {
+                  "kind": "unknown",
+                  "blockId": "doxcnonZjCJYgSliWfnQi8B1i8c",
+                  "blockType": 999,
+                  "children": [],
+                  "note": "block_type=999 未细分映射"
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            }
+          ],
+          "note": "block_type=24 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnnwF0EiJZw4qA2epe0i25rc",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcndWVc8odcbzpC8PIuypkU8d",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "二、商品销售概括"
+        },
+        {
+          "kind": "callout",
+          "blockId": "doxcn8au34AxJ55yf6hcCY8GSBE",
+          "blockType": 19,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnqYOi8wc9N3JcxqefdHBjEh",
+              "blockType": 2,
+              "children": [],
+              "plainText": "甜品冰淇淋稳居高位，大范围领先"
+            }
+          ],
+          "note": "高亮块"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnFohJK8ZfDPLXjCA9swZxeh",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnuyWkINCqwq57LbNsQXCUig",
+              "blockType": 2,
+              "children": [],
+              "plainText": "可以通过切换多维表格的视图，展示画册或列表视图"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnHProcD81qTHBcLNLD2Rjfg",
+          "blockType": 53,
+          "children": [],
+          "note": "block_type=53 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnpYKHOH7ZCMrEyE3u63OyLe",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnK77yypgWpffACsmy3ObYDg",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "三、新业务开展进度"
+        },
+        {
+          "kind": "callout",
+          "blockId": "doxcnI5j1MffV3wqn66hITYptId",
+          "blockType": 19,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcneoapIHqwjceaQnYSDOi2Dh",
+              "blockType": 2,
+              "children": [],
+              "plainText": "蛇口百草堂店筹备进度 70%，暂无风险"
+            }
+          ],
+          "note": "高亮块"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnu6kco8nukCRwS5GmADV8gf",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnPCRDXWryzHjpajxb0up3Hb",
+              "blockType": 2,
+              "children": [],
+              "plainText": "插入任务清单，切换至甘特图视图，可清晰展示指派的任务、项目成员的进度、项目里程碑等"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcnjRE8DtO8up1us2Frcyo68g",
+              "blockType": 2,
+              "children": [],
+              "plainText": "鼠标悬浮在空白行左侧，在“+”工具栏的 团队协作 模块点击 任务清单 插入文档"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcneoGlqIYuLwrWiARpjslFCg",
+              "blockType": 2,
+              "children": [],
+              "plainText": "具体使用方法：在文档中插入任务清单"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnqlp5QIgtOY74EFFIkxiztd",
+          "blockType": 999,
+          "children": [],
+          "note": "block_type=999 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnpzCRnJpjvYeveuXFnzzl2g",
+          "blockType": 2,
+          "children": []
+        }
+      ],
+      "plainText": "业务经营周报"
+    }
+  ],
+  "documentTitle": "业务经营周报",
+  "structureFile": "业务经营周报structure.json"
+}

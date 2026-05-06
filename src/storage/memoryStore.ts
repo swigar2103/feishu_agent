@@ -11,6 +11,12 @@ export type RuntimeMemoryRecord = {
   preferredStructure: string[];
   commonTerms: string[];
   styleNotes: string[];
+  editStats?: {
+    manualEditCount: number;
+    aiRewriteCount: number;
+    frequentlyEditedSections: string[];
+    lastEditedAt?: string;
+  };
   updatedAt: string;
 };
 
@@ -43,6 +49,11 @@ export class MemoryStore {
       preferredStructure: [],
       commonTerms: [],
       styleNotes: [],
+      editStats: {
+        manualEditCount: 0,
+        aiRewriteCount: 0,
+        frequentlyEditedSections: [],
+      },
       updatedAt: new Date(0).toISOString(),
     };
 
@@ -51,11 +62,59 @@ export class MemoryStore {
       preferredStructure: Array.from(new Set([...(prev.preferredStructure ?? []), ...(patch.preferredStructure ?? [])])),
       commonTerms: Array.from(new Set([...(prev.commonTerms ?? []), ...(patch.commonTerms ?? [])])),
       styleNotes: Array.from(new Set([...(prev.styleNotes ?? []), ...(patch.styleNotes ?? [])])),
+      editStats: {
+        manualEditCount: patch.editStats?.manualEditCount ?? prev.editStats?.manualEditCount ?? 0,
+        aiRewriteCount: patch.editStats?.aiRewriteCount ?? prev.editStats?.aiRewriteCount ?? 0,
+        frequentlyEditedSections: Array.from(
+          new Set([
+            ...(prev.editStats?.frequentlyEditedSections ?? []),
+            ...(patch.editStats?.frequentlyEditedSections ?? []),
+          ]),
+        ).slice(0, 30),
+        lastEditedAt: patch.editStats?.lastEditedAt ?? prev.editStats?.lastEditedAt,
+      },
       updatedAt: new Date().toISOString(),
     };
 
     all[userId] = merged;
     saveAllMemories(all);
     return merged;
+  }
+
+  recordEditSignal(input: {
+    userId: string;
+    sectionHeading?: string;
+    mode: "manual_edit" | "ai_partial_rewrite";
+  }): RuntimeMemoryRecord {
+    const prev = this.get(input.userId) ?? {
+      preferredStructure: [],
+      commonTerms: [],
+      styleNotes: [],
+      editStats: {
+        manualEditCount: 0,
+        aiRewriteCount: 0,
+        frequentlyEditedSections: [],
+      },
+      updatedAt: new Date(0).toISOString(),
+    };
+    const editStats = {
+      manualEditCount:
+        (prev.editStats?.manualEditCount ?? 0) + (input.mode === "manual_edit" ? 1 : 0),
+      aiRewriteCount:
+        (prev.editStats?.aiRewriteCount ?? 0) + (input.mode === "ai_partial_rewrite" ? 1 : 0),
+      frequentlyEditedSections: Array.from(
+        new Set([
+          ...(prev.editStats?.frequentlyEditedSections ?? []),
+          ...(input.sectionHeading ? [input.sectionHeading] : []),
+        ]),
+      ).slice(0, 30),
+      lastEditedAt: new Date().toISOString(),
+    };
+    return this.upsert(input.userId, {
+      styleNotes: [
+        input.mode === "manual_edit" ? "偏好人工精修" : "偏好AI局部改写",
+      ],
+      editStats,
+    });
   }
 }

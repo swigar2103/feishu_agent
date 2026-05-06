@@ -35,5 +35,41 @@ export function deriveMcpDocumentSearchQueries(fullPrompt: string): string[] {
     .trim();
   if (core.length >= 6 && core.length <= 120) add(core);
 
+  // 从中文任务句中提取短关键词，提升 search-doc 命中率（避免整句导致 field validation/0 命中）
+  const stopwords = new Set([
+    "请你",
+    "帮我",
+    "一下",
+    "最近",
+    "内容",
+    "风格",
+    "类似",
+    "参考",
+    "云文档",
+    "中的",
+    "工作",
+    "总结",
+    "生成",
+    "报告",
+  ]);
+  const chineseChunks = t
+    .split(/[，。；、\s:：/|]+/g)
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 2 && x.length <= 14 && !stopwords.has(x));
+  for (const chunk of chineseChunks.slice(0, 10)) {
+    add(chunk);
+  }
+  // 常见组合关键词保底
+  const combos = [
+    "项目报告",
+    "周报",
+    "会议纪要",
+    "工作总结",
+    "项目复盘",
+  ];
+  for (const k of combos) {
+    if (t.includes(k)) add(k);
+  }
+
   return out.slice(0, 6);
 }

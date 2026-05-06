@@ -2,6 +2,69 @@
 
 ## 2026-05-06
 
+### IM 质量链路补强：编辑入口、会话落盘、结构占位保底
+
+- **问题背景**：
+  - IM 侧已返回成果链接，但缺少“进入在线编辑工作台”的明确入口；
+  - webhook full 链路未把 IM 对话结果写入 `chat_sessions`，导致工作台无法直接接管同一会话；
+  - 低上下文命中时 `chartSuggestions` 可能为空，初稿缺少图表/时间线/甘特等结构骨架。
+- **处理**：
+  - `src/integrations/feishu/cards.ts`：
+    - `buildPipelineResultCard` 新增可选 `workbenchUrl`；
+    - 卡片“快速入口”新增“进入在线编辑工作台”链接（未配置时给出提示文案）。
+  - `src/config/env.ts` + `env.example`：
+    - 新增 `FEISHU_WORKBENCH_BASE_URL`（用于 IM 卡片深链到前端工作台）。
+  - `src/services/chat/sessionStore.ts`：
+    - 新增 `ensureChatSession(sessionId, userId, ...)`，支持外部链路按固定 `sessionId` 落盘。
+  - `src/integrations/feishu/reportImDelivery.ts`：
+    - full 流程生成完成后将 user/assistant 消息与 `latestReport` 写入 `chat_sessions`；
+    - 自动推导工作台 URL（优先 `FEISHU_WORKBENCH_BASE_URL`，否则尝试从 OAuth 回调地址推导域名）并写入结果卡片；
+    - 工作台 URL 透传 `sessionId`、`userId`、`docUrl`。
+  - `src/web/chat.js`：
+    - 启动时支持从 URL 参数读取 `sessionId` / `userId` 并直接加载对应会话，支持 IM 卡片深链直达。
+  - `src/services/agent/writerAgent.ts`：
+    - Draft v2 扩展中对 `chartSlots` / `timelineSlots` / `ganttSlots` 增加保底占位；
+    - 若模型未返回 `chartSuggestions`，自动由 `chartSlots` 反推一组可发布图表建议，避免“无结构可视提示”。
+  - `src/services/output/publisher.ts`：
+    - 发布模板增加 `图表槽位（可继续编辑）` 区块，保证初稿有结构化可编辑位。
+  - `src/services/resourcePool/mcpSearchQueries.ts`：
+    - 增强中文关键词拆分与组合关键词保底（项目报告/周报/会议纪要等），降低整句搜索导致的低命中。
+- **验证**：
+  - `npm run check` 通过。
+
+### 中书省产品愿景对齐：生成质量与协作编辑改造（本次）
+
+- **目标对齐**：
+  - 将系统心智从“聊天回文本”推进到“IM 触发任务 -> 模板化初稿 -> 在线协作编辑 -> 正式文档交付”。
+- **生成质量基线（gap-baseline）**：
+  - `src/schemas/agentContracts.ts` 新增 `QualityBaselineSchema`；
+  - `src/services/reportPipeline.ts` 增加 `computeQualityBaseline()`，输出章节覆盖率、模板结构贴合度、产物就绪度与模板元素命中；
+  - `src/types/contracts.ts`、`src/integrations/feishu/reportImDelivery.ts` 接入质量基线回传/摘要展示。
+- **workflow/skill 模板接入（skill-ingest）**：
+  - `src/services/agent/workflowSkillRegistry.ts` 改为优先解析 `cli-main/skills/lark-workflow-standup-report|meeting-summary/SKILL.md`，失败回退本地默认表；
+  - `src/services/agent/larkCliGuidance.ts` 注入 `workflowTemplates`，统一透传模板结构、评审规则、推荐工具、输出目标。
+- **Planner/Writer 契约升级（planner-writer-contract）**：
+  - `src/prompts/agentPrompts.ts` 与 `src/prompts/reviewPrompts.ts` 显式注入 `templateHints`、`qualityChecks`、`sectionSchema`；
+  - `src/schemas/agentContracts.ts` 的 `WorkflowMetaSchema` 新增 `templateHints`、`qualityChecks`；
+  - `src/services/agent/skillRouter.ts` 在 workflow 命中时回传上述字段。
+- **Draft v2（draft-v2）**：
+  - `DraftSchema` 新增 `sectionBlocks`、`timelineSlots`、`ganttSlots`、`chartSlots`；
+  - `src/services/agent/writerAgent.ts` 在 repair/fallback 自动补齐 v2 槽位；
+  - `src/services/output/publisher.ts` 发布文档时渲染时间线与甘特占位。
+- **在线编辑工作台 MVP（editor-mvp）**：
+  - 前端：`src/web/chat.html`、`src/web/chat.css`、`src/web/chat.js` 升级为“对话区 + 编辑工作台”双栏；
+  - 后端：`src/api/chat.ts` 新增
+    - `GET /api/chat/sessions/:sessionId/outline`
+    - `PATCH /api/chat/sessions/:sessionId/sections/:sectionIndex`（手动局部改写/追加）
+    - `POST /api/chat/sessions/:sessionId/sections/:sectionIndex/rewrite`（AI 局部改写）
+  - 对话发送接口返回 `latestReport` 与 `outline` 供前端同步。
+- **编辑行为回流（memory-feedback）**：
+  - `src/storage/memoryStore.ts` 新增 `editStats` 与 `recordEditSignal()`；
+  - `src/api/chat.ts` 在手动编辑和 AI 局部改写后写回编辑信号；
+  - `src/services/agent/memoryUpdater.ts` 将结构化版式偏好回写为 `template_preference` 信号。
+- **验证**：
+  - `npm run check` 通过。
+
 ### OAuth pending state 文件防膨胀增强
 
 - **原因**：

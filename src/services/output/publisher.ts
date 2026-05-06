@@ -39,15 +39,45 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
         ),
       ].join("\n")
     : "";
+  const chartSlotBlock = draft.chartSlots.length > 0
+    ? [
+        "## 图表槽位（可继续编辑）",
+        ...draft.chartSlots.map(
+          (slot) => `- ${slot.title}（${slot.chartType}）｜指标建议：${slot.metricHint}`,
+        ),
+      ].join("\n")
+    : "";
   const openQuestions = draft.openQuestions.length > 0
     ? ["## 待确认事项", ...draft.openQuestions.map((item) => `- ${item}`)].join("\n")
+    : "";
+  const timelineBlock = draft.timelineSlots.length > 0
+    ? [
+        "## 时间线（可继续编辑）",
+        ...draft.timelineSlots.map(
+          (slot) => `- ${slot.title}｜周期：${slot.periodHint}${slot.notes ? `｜说明：${slot.notes}` : ""}`,
+        ),
+      ].join("\n")
+    : "";
+  const ganttBlock = draft.ganttSlots.length > 0
+    ? [
+        "## 甘特任务占位（可继续细化）",
+        "| 任务 | 负责人 | 开始 | 结束 |",
+        "|---|---|---|---|",
+        ...draft.ganttSlots.map(
+          (slot) =>
+            `| ${slot.task} | ${slot.ownerHint ?? "待定"} | ${slot.startHint ?? "待定"} | ${slot.endHint ?? "待定"} |`,
+        ),
+      ].join("\n")
     : "";
   return [
     `# ${draft.title}`,
     "## 摘要",
     normalizeMultilineToBullets(draft.summary || "待补充摘要"),
     sections,
+    timelineBlock,
+    ganttBlock,
     chartBlock,
+    chartSlotBlock,
     openQuestions,
   ]
     .filter(Boolean)

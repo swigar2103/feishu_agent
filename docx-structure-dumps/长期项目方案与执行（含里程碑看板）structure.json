@@ -1,0 +1,607 @@
+{
+  "source": "https://jcneyh7qlo8i.feishu.cn/docx/HNXMdGaaOoUPOHxzUJpcTtLcnke",
+  "documentId": "HNXMdGaaOoUPOHxzUJpcTtLcnke",
+  "fetchedAt": "2026-05-06T13:48:13.798Z",
+  "blockCount": 81,
+  "orphanBlockIds": [],
+  "roots": [
+    {
+      "kind": "page",
+      "blockId": "HNXMdGaaOoUPOHxzUJpcTtLcnke",
+      "blockType": 1,
+      "children": [
+        {
+          "kind": "heading",
+          "blockId": "doxcnUCJuoT32Rt0mht247gEeqd",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "一、项目介绍"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnZ2dPpLiCerAGY7qyKPvGwh",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnoVWmPeyrfwrzAOYOuBU50g",
+              "blockType": 2,
+              "children": [],
+              "plainText": "此模板适用于规划以季度、年度为时间维度的中长期项目"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnpjyZfZPzsboWWLDrbdz65g",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "项目背景"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnyq1xwx3ofALURqK5lRkgnj",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "核心成员与项目群组"
+        },
+        {
+          "kind": "table",
+          "blockId": "doxcn03gQEVK3zSAoC2qUWo4WFy",
+          "blockType": 31,
+          "children": [
+            {
+              "kind": "unknown",
+              "blockId": "doxcnhEXR6YjSSIEpSakjlBR00e",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnonN2bgg5XhTkfOWVPKotpb",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "核心成员"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnFJclTjhIn0yXruUtZaUqve",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnOBsSdSIlcwa32Y9eZC0XYf",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "部门"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnlUJ6Z0VlwsiicbeflUy86c",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnMOE5R3t6X7i5L9OdSRn4Wp",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "项目角色与负责事项"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnbzzGCyA0aNwGXkNzufeVke",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnKDsZvkHrhEGwWccpt2Nwvd",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "输入“@+人名”提及项目成员"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcn0vBTD295q39OFKu6qDq4Sg",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcn5X7xppZIw0hsJ3PUKcoAqc",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnLaRaT2j2fAvL1wlagTWood",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnhwCSkggGB0X1JjCw40FSWd",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnNvH6R0PB0K6VwJqogJ90li",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnCwdZ7Yu3bEqiIekhI6GpWf",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcn6sfSJpQ3H4Jh1Qca0E8tdh",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnftKkBsaPysQg1vT4si8szh",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnrMpwip0XMgVQpvCeCpreSe",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcntez9SHckklHHjMHa8WUG9G",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            }
+          ],
+          "tableRows": 3,
+          "tableColumns": 3,
+          "note": "表格单元格需遍历 table_cell 子块或单独接口解析"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnL34QqjPEV7cLVntvmjCK7c",
+          "blockType": 6,
+          "children": [],
+          "headingLevel": 4,
+          "plainText": "项目群组"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcn0Hj1cMGpKRYbsQrBV2Mq4E",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnvA3soqeJyQB1B0llNXmPDc",
+              "blockType": 2,
+              "children": [],
+              "plainText": "鼠标悬浮在空白行左侧，在“+”工具栏选择“群名片”插入群组信息"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnrBXwTb2Ed8AFVNl7pOvbse",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnyw0cWfZls0ORVvCbf5ifIe",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnjYgRC54J0jKoiqMD92AGYc",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "背景资料"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnCkIEgW5jURzhOjGuNnADyc",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnUL5O0INpTQfsdCwuMJDKDe",
+              "blockType": 2,
+              "children": [],
+              "plainText": "输入 @ 插入云文档"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnanco4qvnvUEBgkNDJ7kvXf",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "二、项目目标"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnyOEviJbIXYZaQBlJ9SzAJg",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnG6BdEGKF44NtartEDpdqeh",
+              "blockType": 2,
+              "children": [],
+              "plainText": "项目目标指在项目规划之初设定的项目总体目标。项目目标应该是被清晰定义的、可实现的且可测量的项目成功标准"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "OqrWdZBdKsISm5bYsctcEOQqnjf",
+          "blockType": 49,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnKnqGhQgpj0YM81npUaXEcb",
+              "blockType": 2,
+              "children": [],
+              "plainText": "🌟 将“项目目标”放入此同步块中，复制并粘贴到其他文档，则可以实现跨文档实时更新和同步的效果。"
+            }
+          ],
+          "note": "block_type=49 未细分映射"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnNGt5q6YOtrj0wSmUDmGl24",
+          "blockType": 24,
+          "children": [
+            {
+              "kind": "unknown",
+              "blockId": "doxcn42po6IdWWUixjOwcsBGilh",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnnm8ELY8Achuz0CWtE4dUme",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "目标一"
+                },
+                {
+                  "kind": "ordered",
+                  "blockId": "doxcnV0nou4fGvtDrWqUEzspCsg",
+                  "blockType": 13,
+                  "children": []
+                },
+                {
+                  "kind": "ordered",
+                  "blockId": "doxcngs2D5UgWoydJO6c1NVH5pf",
+                  "blockType": 13,
+                  "children": []
+                },
+                {
+                  "kind": "ordered",
+                  "blockId": "doxcnh0kFB6q1YTCMtkPuWI3Uih",
+                  "blockType": 13,
+                  "children": []
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnrC4Q373h6KBh9SUHnmUxkd",
+              "blockType": 25,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnfUe9e9CUbg8kcTcSMB5Ejf",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "目标二"
+                },
+                {
+                  "kind": "ordered",
+                  "blockId": "doxcniBsbOGASScD45brKZn9GOg",
+                  "blockType": 13,
+                  "children": []
+                },
+                {
+                  "kind": "ordered",
+                  "blockId": "doxcnyk7XfZH6NgsxXZyf6RgeMO",
+                  "blockType": 13,
+                  "children": []
+                },
+                {
+                  "kind": "ordered",
+                  "blockId": "doxcnfbobCJq9BBGrfazzjCUuag",
+                  "blockType": 13,
+                  "children": []
+                }
+              ],
+              "note": "block_type=25 未细分映射"
+            }
+          ],
+          "note": "block_type=24 未细分映射"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnO9xNKBmJknNyWY2Zs6xc1c",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "三、月度里程碑"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnGp8OYfUaHS3vHc3ki7E8tf",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnX8Yj2wWJUVBkMFpcuJg9Ig",
+              "blockType": 2,
+              "children": [],
+              "plainText": "可以在看板左上角选择“里程碑看板”、“里程碑列表”或“甘特图” 3 种视图"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnL3Q5cHKwLHK1uxMwPfnFge",
+          "blockType": 2,
+          "children": [],
+          "plainText": "💡 里程碑在项目管理过程中的定义为一个状态点，代表在此时间点能够达到此状态。\b你可以将项目关键节点需要完成的事项设为里程碑，并在此看板中追踪完成状态"
+        },
+        {
+          "kind": "bitable",
+          "blockId": "doxcnnhvZsL8scNAfpuGsnEXAbg",
+          "blockType": 18,
+          "children": [],
+          "bitableToken": "T5nvbDE5vaZy9esRc2ccKAw1nEe_tbliMuaN9m1cqtv5",
+          "note": "仅含 bitable token；记录/字段需调用多维表格（bitable）OpenAPI"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcngQhAauU7U0uiNDGD0rK2Jh",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "四、任务拆解"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnQ9BL0SVKE0nGPn9VTSBQBe",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnHGTWhblCjOZ3ZuNYN4KMPc",
+              "blockType": 2,
+              "children": [],
+              "plainText": "将项目任务进行细化拆解是项目管理中的重要一环，你可将项目任务拆解至下方表格，并提及负责人与设定起止时间"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "sheet",
+          "blockId": "doxcndskRYXixwbC9n0StAmz9we",
+          "blockType": 30,
+          "children": [],
+          "sheetToken": "IMTUsMUIJhLigdtU4hNcOUCAnZf_5HVrE9",
+          "note": "电子表格嵌入，需 sheets OpenAPI 读取"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnWNTVQoB8JzR0rlXmXg8thb",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnbYDjF9k5GmTbAhjLMD1SYe",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "五、项目例会"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcn8VtloMl8AqIMmHc0dQQhCe",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "例会 1：写下会议日期"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnWRpxmrhv0uBDWv9rdnMa4d",
+          "blockType": 5,
+          "children": [],
+          "headingLevel": 3,
+          "plainText": "会议记录"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnDHbPALQrYSw9b7OSYTB6qd",
+          "blockType": 12,
+          "children": [],
+          "plainText": "写下关键结论"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnzCbjYmU1SKUAIfEyt37VTc",
+          "blockType": 12,
+          "children": [],
+          "plainText": "......"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnrQKjEpryWNa8fWvhEOAxOb",
+          "blockType": 5,
+          "children": [],
+          "headingLevel": 3,
+          "plainText": "行动方案"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnTiyOxmYs820iAyYQ2M4gIe",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnSFQBOoyR50uiEjDZID5pce",
+              "blockType": 2,
+              "children": [],
+              "plainText": "创建任务列表，输入 @ 提及相关负责人，并插入截止时间"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnG4bDmDlhZ5KPRptqry7hGf",
+          "blockType": 17,
+          "children": [],
+          "note": "block_type=17 未细分映射"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnoaoBo9aav2J4XAeDzJKtye",
+          "blockType": 17,
+          "children": [],
+          "note": "block_type=17 未细分映射"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcn23xTNg0APi8G9tNYdI0qSH",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "例会 2：写下会议日期"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnaQpBGi9ZIolD84CGXAvAGb",
+          "blockType": 5,
+          "children": [],
+          "headingLevel": 3,
+          "plainText": "会议记录"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnd8XgYNMnjK6X6JECiaoZpg",
+          "blockType": 12,
+          "children": [],
+          "plainText": "写下关键结论"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnXwViPPuCOwcvRVE6CDikBe",
+          "blockType": 12,
+          "children": [],
+          "plainText": "......"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnUQhlychtqbcus7pzjHlu7g",
+          "blockType": 5,
+          "children": [],
+          "headingLevel": 3,
+          "plainText": "行动方案"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnRk41wsXhRasES7PI91MYKV",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnSH5hlyDO3TM1lXrEyBIP0d",
+              "blockType": 2,
+              "children": [],
+              "plainText": "创建任务列表，输入 @ 提及相关负责人，并插入截止时间"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnzOAzZyYJdbWbVoQMlQEjPg",
+          "blockType": 17,
+          "children": [],
+          "note": "block_type=17 未细分映射"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcn92gdm2PEa25x14124zwqLg",
+          "blockType": 17,
+          "children": [],
+          "note": "block_type=17 未细分映射"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnXV7yoRilB6NA3ZviBCI8Hh",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "六、项目物料汇总"
+        },
+        {
+          "kind": "sheet",
+          "blockId": "doxcniglaoxHX17Qq5LF5gcjUTF",
+          "blockType": 30,
+          "children": [],
+          "sheetToken": "IMTUsMUIJhLigdtU4hNcOUCAnZf_OM7HP9",
+          "note": "电子表格嵌入，需 sheets OpenAPI 读取"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnXUmldAt2VER01LBKpOatah",
+          "blockType": 2,
+          "children": []
+        }
+      ],
+      "plainText": "长期项目方案与执行（含里程碑看板）"
+    }
+  ],
+  "documentTitle": "长期项目方案与执行（含里程碑看板）",
+  "structureFile": "长期项目方案与执行（含里程碑看板）structure.json"
+}

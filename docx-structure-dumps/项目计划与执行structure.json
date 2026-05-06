@@ -1,0 +1,242 @@
+{
+  "source": "https://jcneyh7qlo8i.feishu.cn/docx/Owf4dYy6no27NhxH0KNc7Ow7naf",
+  "documentId": "Owf4dYy6no27NhxH0KNc7Ow7naf",
+  "fetchedAt": "2026-05-06T13:58:30.906Z",
+  "blockCount": 31,
+  "orphanBlockIds": [],
+  "roots": [
+    {
+      "kind": "page",
+      "blockId": "Owf4dYy6no27NhxH0KNc7Ow7naf",
+      "blockType": 1,
+      "children": [
+        {
+          "kind": "heading",
+          "blockId": "doxcnxYMlTMh4M9VyEVasCv1jQc",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "一、项目背景"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnXblc3CkAF2kVNelIkY5xNe",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcn8GpsjVxij8JGqBniOUnaOd",
+              "blockType": 2,
+              "children": [],
+              "plainText": "输入 @ 插入相关文档，介绍项目成立的背景"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "ordered",
+          "blockId": "doxcnQSbgwoVoYat8K5jKFNsAse",
+          "blockType": 13,
+          "children": [],
+          "plainText": "..."
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnrrFmcC07YSfOnp2XD1Dn1d",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "二、项目目标"
+        },
+        {
+          "kind": "callout",
+          "blockId": "doxcnREeVf8oUvmFGDqaK83iwrg",
+          "blockType": 19,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnzj0QlW5cYxykogFEkBbxZd",
+              "blockType": 2,
+              "children": [],
+              "plainText": "目标一：制定具体、细化、可拆解的目标"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcnU8tYA8ySb75SSjGUXHqcab",
+              "blockType": 2,
+              "children": [],
+              "plainText": "目标二：......"
+            }
+          ],
+          "note": "高亮块"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnobmBW8iPeUPLvP7R2qPsrc",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "三、里程碑"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnvgjo5WFPAt87b86uhNZ2Vg",
+          "blockType": 43,
+          "children": [],
+          "note": "block_type=43 未细分映射"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnVyXailYgYO8jHncgssqoec",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "四、核心成员与项目群组"
+        },
+        {
+          "kind": "table",
+          "blockId": "doxcn53Ay1vcPPUr9YbunQVkKfg",
+          "blockType": 31,
+          "children": [
+            {
+              "kind": "unknown",
+              "blockId": "doxcndvfyCfzpm3E2i2jXQhtaHe",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnhPiaaapklHotL5fu1wSYqf",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "核心成员"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcn8gEYl9fKW2W3UgL6S8Q8lb",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnycYNPnPADHsjX4m43IA02r",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "部门"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnTLDwZWN6yPEFlBrhwvtlWg",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnuusCeWJd0qsAQUiDVNAf5d",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "项目角色与负责事项"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnW1nCRhgOHJLe0eBRKOtD6b",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcn91MSU3B3ZGY5RHfOVFw1Ag",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "输入“@+人名”提及项目成员"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnsBh37pWX0aqlmw1Zq5VYGe",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnE5duoBBVxs3pXduiAqGshd",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnhEssXm9uXOwyNaWp4M0Nqg",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnQY1jNUV6Sfn529oFPb01jf",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnUUDxVfoQKHTWqdl3mnH2Nf",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnGOPxT38ObSYBsGNj9raRsj",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnHDUbdSrECKpnNvj472EF2c",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcn9tbaGhhhKnAbE4claGBbng",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnVHB5e4gvzeZAadtSDXpndc",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcn2jTlCE8BDmCU2qC88AJcoe",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            }
+          ],
+          "tableRows": 3,
+          "tableColumns": 3,
+          "note": "表格单元格需遍历 table_cell 子块或单独接口解析"
+        }
+      ],
+      "plainText": "项目计划与执行"
+    }
+  ],
+  "documentTitle": "项目计划与执行",
+  "structureFile": "项目计划与执行structure.json"
+}

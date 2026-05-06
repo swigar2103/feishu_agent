@@ -5,6 +5,11 @@ import type { FeishuMvpConfig } from "./feishuConfig.js";
 import type { FinalDeliverable } from "../../schemas/agentContracts.js";
 import { env } from "../../config/env.js";
 import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
+import {
+  appendChatMessage,
+  ensureChatSession,
+  setLatestReport,
+} from "../../services/chat/sessionStore.js";
 import { buildPipelineProgressCard, buildPipelineResultCard } from "./cards.js";
 import { sendCardMessage, sendTextMessage, updateCardMessage } from "./imMessage.js";
 import type { ParsedFeishuImTextEvent } from "./webhookMessageParse.js";
@@ -82,6 +87,31 @@ function formatResultFallbackText(input: Awaited<ReturnType<typeof runReportPipe
   ].join("\n");
 }
 
+function inferWorkbenchBaseUrl(): string {
+  const explicit = env.FEISHU_WORKBENCH_BASE_URL.trim();
+  if (explicit) return explicit.replace(/\/+$/g, "");
+  const redirect = env.FEISHU_USER_OAUTH_REDIRECT_URI.trim();
+  if (redirect.startsWith("http://") || redirect.startsWith("https://")) {
+    try {
+      const u = new URL(redirect);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
+function buildWorkbenchUrl(sessionId: string, userId: string, docUrl?: string): string {
+  const base = inferWorkbenchBaseUrl();
+  if (!base) return "";
+  const params = new URLSearchParams();
+  params.set("sessionId", sessionId);
+  params.set("userId", userId);
+  if (docUrl?.trim()) params.set("docUrl", docUrl.trim());
+  return `${base}/?${params.toString()}`;
+}
+
 function mapArtifactLabel(type: "feishu_doc" | "bitable" | "slides"): string {
   if (type === "feishu_doc") return "报告文档";
   if (type === "slides") return "演示稿";
@@ -99,6 +129,11 @@ function buildStructuredSummary(input: Awaited<ReturnType<typeof runReportPipeli
   }
   if (input.report.chartSuggestions.length > 0) {
     items.push(`图表规划：${input.report.chartSuggestions.length} 项（已写入成果模板）`);
+  }
+  if (input.qualityBaseline) {
+    items.push(
+      `质量基线：章节覆盖 ${(input.qualityBaseline.sectionCoverage * 100).toFixed(0)}%，模板贴合 ${(input.qualityBaseline.templateStructureCoverage * 100).toFixed(0)}%`,
+    );
   }
   if (input.followUpQuestions?.length) {
     items.push(`待补信息：${input.followUpQuestions.slice(0, 2).join("；")}`);
@@ -129,6 +164,29 @@ function extractResultLinks(deliverable?: FinalDeliverable): Array<{
       unavailable: placeholder,
     };
   });
+}
+
+function persistImSession(input: {
+  userId: string;
+  sessionId: string;
+  prompt: string;
+  assistantMarkdown: string;
+  report: Awaited<ReturnType<typeof runReportPipeline>>["report"];
+}): void {
+  ensureChatSession({
+    sessionId: input.sessionId,
+    userId: input.userId,
+  });
+  appendChatMessage(input.sessionId, {
+    role: "user",
+    content: input.prompt,
+    revisionMode: "full",
+  });
+  appendChatMessage(input.sessionId, {
+    role: "assistant",
+    content: input.assistantMarkdown,
+  });
+  setLatestReport(input.sessionId, input.report);
 }
 
 export function chunkForFeishuIm(text: string, maxLen = FEISHU_TEXT_CHUNK_SIZE): string[] {
@@ -180,7 +238,17 @@ export async function runFullPipelineAndNotifyChat(
   }
 
   const result = await runReportPipeline(userRequest);
+  const assistantMarkdown = formatReportBody(result);
+  persistImSession({
+    userId: parsed.userId,
+    sessionId: userRequest.sessionId,
+    prompt: parsed.text,
+    assistantMarkdown,
+    report: result.report,
+  });
   const links = extractResultLinks(result.finalDeliverable);
+  const primaryDoc = links.find((x) => x.label === "报告文档" && !x.unavailable);
+  const workbenchUrl = buildWorkbenchUrl(userRequest.sessionId, parsed.userId, primaryDoc?.url);
   const summary = buildStructuredSummary(result);
   const expectedTargetCount = result.outputTargets?.length ?? 0;
   const status: "completed" | "partial" | "need_info" =
@@ -197,6 +265,7 @@ export async function runFullPipelineAndNotifyChat(
     summary,
     links,
     sessionId: userRequest.sessionId,
+    workbenchUrl,
   });
 
   logger.info("im pipeline completed", {

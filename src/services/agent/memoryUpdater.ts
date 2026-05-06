@@ -7,11 +7,19 @@ export function updateMemoryFromRun(input: {
   draft: Draft;
 }): MemoryUpdate {
   const learnedPreferences: string[] = [];
+  const editSignals: MemoryUpdate["editSignals"] = [];
   if (input.draft.summary.length < 120) {
     learnedPreferences.push("偏好短摘要");
   }
   if (input.draft.sections.some((section) => section.heading.includes("行动"))) {
     learnedPreferences.push("偏好行动导向结构");
+  }
+  if (input.draft.timelineSlots.length > 0 || input.draft.ganttSlots.length > 0) {
+    learnedPreferences.push("偏好结构化计划版式");
+    editSignals.push({
+      signalType: "template_preference",
+      sectionHeading: input.draft.timelineSlots[0]?.title ?? input.draft.ganttSlots[0]?.task,
+    });
   }
 
   const memoryStore = new MemoryStore();
@@ -27,5 +35,6 @@ export function updateMemoryFromRun(input: {
   return MemoryUpdateSchema.parse({
     updated: learnedPreferences.length > 0,
     learnedPreferences,
+    editSignals,
   });
 }

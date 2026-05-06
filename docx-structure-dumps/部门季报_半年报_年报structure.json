@@ -1,0 +1,454 @@
+{
+  "source": "https://jcneyh7qlo8i.feishu.cn/docx/BMOddROF5oiz5Hx1nzrcKL7cnyP",
+  "documentId": "BMOddROF5oiz5Hx1nzrcKL7cnyP",
+  "fetchedAt": "2026-05-06T13:58:30.685Z",
+  "blockCount": 61,
+  "orphanBlockIds": [],
+  "roots": [
+    {
+      "kind": "page",
+      "blockId": "BMOddROF5oiz5Hx1nzrcKL7cnyP",
+      "blockType": 1,
+      "children": [
+        {
+          "kind": "table",
+          "blockId": "doxcnx79XrKGFM9N4aB9HWrRjrd",
+          "blockType": 31,
+          "children": [
+            {
+              "kind": "unknown",
+              "blockId": "doxcnpBHAlc860Xdx4f8zRrDldd",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcn6rimpizLFNgAeKV6Wpaamd",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "讨论"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnywdjYatvVP2Y6WBrwMqV8f",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnxq02V8YF0Fx9gN7YnMXNIh",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "研发部"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnQVakF6nv22E1KUDVuKga2e",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnLbDzxiDfJYFbNOH8Td6oER",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "时间"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnWQcTx5up0XLnw8Mtw7o47b",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcny3PTAz50LyTqbdm6L09UGc",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "2026 年第 x 季度"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnCQuxSPEuS7I9qO2dDVmJ0G",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnTD7AMcklV5Aih1OdDnfCRf",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "撰稿人"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcngjCWo7vgKpmp1T3E0bVZbh",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnVUSOZKhxdWlV4nsvcJQoAc",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnIPS7rlw4qw2ihTx6bSm3Pd",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnlV0HFIoEUcUGnjcwmJzYOc",
+                  "blockType": 2,
+                  "children": [],
+                  "plainText": "相关文档"
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            },
+            {
+              "kind": "unknown",
+              "blockId": "doxcnjzNQcujrlxJQPyNLafjKQg",
+              "blockType": 32,
+              "children": [
+                {
+                  "kind": "text",
+                  "blockId": "doxcnrAEBa4BhwwuCQYT23Rnmtb",
+                  "blockType": 2,
+                  "children": []
+                }
+              ],
+              "note": "block_type=32 未细分映射"
+            }
+          ],
+          "tableRows": 4,
+          "tableColumns": 2,
+          "note": "表格单元格需遍历 table_cell 子块或单独接口解析"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnsfEUrpPmzn0m8VXxggDrFe",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "季度/半年度/年度小结"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnSnAhxblWVswbMLKLsAWAGc",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnKYCc5LrNtpiYvyLp9zN6Tg",
+              "blockType": 2,
+              "children": [],
+              "plainText": "2-4 句话简短概括，要聚焦而不是全面"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcnJrQTR6Sy8NgaEUlsUmgGAc",
+              "blockType": 2,
+              "children": [],
+              "plainText": "用数据 “我们本季度同比增长85%” 替换主观 “我们本季度增长强劲” 的说法"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnKeJ089aRjcbW2g3YGbgH8g",
+          "blockType": 12,
+          "children": [],
+          "plainText": "一季度我们交付了 X，比上一季度增加/降低了 Y，包括 …"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnFUPlNsot5P4iVJ2pMmiIRh",
+          "blockType": 12,
+          "children": [],
+          "plainText": "在稳定性上：发生在 …数据库缓存事件有所下降，由 99.99% 下降到 99.98%"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnm1LmzBLGZ3e0UuVC4kHqQf",
+          "blockType": 12,
+          "children": [],
+          "plainText": "其他指标季度环比持稳，包括我们每用户控制在 0.4 元 的成本上"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnrsFIcvLjRJd8EJnA59DSSf",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnO7rxlEFteustiJIf00469d",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "交付甘特图"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnzsnxsha3NMRyYvswhWxbec",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnzcX6tH5JEU2R7ZhALjjCgc",
+              "blockType": 2,
+              "children": [],
+              "plainText": "突出标记 2-3 个关键的交付事项，围绕已完成的工作而不是正在进行的工作"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcnXIobYCYpdYCOLpWRSeSm3b",
+              "blockType": 2,
+              "children": []
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnvWxz3HfZmXz0uGimOOZaCb",
+          "blockType": 12,
+          "children": [],
+          "plainText": "提升业务收入专项一期"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcno2N7vcLJTLoMv1QEUy1bXh",
+          "blockType": 12,
+          "children": [],
+          "plainText": "性能建设一期-增强数据库的缓存策略"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcncZSu04ncXoZJ4YEANAlgle",
+          "blockType": 999,
+          "children": [],
+          "note": "block_type=999 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcn1nvgXxOoLlbIrnC8ZQWDLe",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcn1Sdi1EMGZYGRT2KRHBltYb",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "关键指标"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnQeLpI0cbekmpHZyD5sSJFh",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnMroeW98od7ykMBcfBFRQjd",
+              "blockType": 2,
+              "children": [],
+              "plainText": "突出几个有助评估该领域的指标，每个指标显示当前值、趋势和目标"
+            },
+            {
+              "kind": "text",
+              "blockId": "doxcnvXGo1DrSkOF4oYCC0Gea0c",
+              "blockType": 2,
+              "children": [],
+              "plainText": "修改数据源可点击此表格"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnG1sFB1UEDZoiJ0lb5QbGMb",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "用户注册率"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcn7H9KooygMgVWZkIY9fACnd",
+          "blockType": 999,
+          "children": [],
+          "note": "block_type=999 未细分映射"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnbdJtMXPUtVfLpijaMpWbrf",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "接口可用性"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnxWN8e6u5oKPLdRVSkhx2Xg",
+          "blockType": 999,
+          "children": [],
+          "note": "block_type=999 未细分映射"
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcn4RhwbhQZFc2DTjSfS3oMdb",
+          "blockType": 4,
+          "children": [],
+          "headingLevel": 2,
+          "plainText": "应用商城评分"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnFT8aHP4KGcZQZy7twcXQmf",
+          "blockType": 999,
+          "children": [],
+          "note": "block_type=999 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnAKpE0uVsJo9skF3B2SnY6c",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnKPmFITiTNNofgttp73aPgc",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "组织建设"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnsv0NuR2UVXu3KPMBGlLe6d",
+          "blockType": 2,
+          "children": [],
+          "plainText": "我们招了三名工程师（2 名在客户部门，1 名在基础设施部门），和 1 名经理（客户部门）"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcn05DoboOBzdAEMPgEIfqosb",
+          "blockType": 53,
+          "children": [],
+          "note": "block_type=53 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnTRnnKnrGNipljVwwZjkVsf",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnignbsNvpPbnBVPZ0TliIwb",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "成本控制"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnqmDPXgLMNeCCaVvjoi5YUg",
+          "blockType": 12,
+          "children": [],
+          "plainText": "我们正在按照与财务部门达成的预算进行操作，详细信息请参照财务预算跟踪器和工程成本仪表板。"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnTCJXsoF2dPa3xuywUC1Jde",
+          "blockType": 12,
+          "children": [],
+          "plainText": "我们在第一季度的重大开支是我们与 XXX 的合同从每年 70,000 元增加到每年 230,000 元。这是由我们这端使用量大幅度增加导致的，而非供应商价格的变动。我们正在调查如何减少我们在 XXX 上的使用量。"
+        },
+        {
+          "kind": "unknown",
+          "blockId": "doxcnt3AsIrY1I6eRquqW5yu86f",
+          "blockType": 53,
+          "children": [],
+          "note": "block_type=53 未细分映射"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnoIVKnMo1SE4QwAUVH6zJed",
+          "blockType": 2,
+          "children": []
+        },
+        {
+          "kind": "heading",
+          "blockId": "doxcnuYypFKY2YBcgPXYcrH3Owg",
+          "blockType": 3,
+          "children": [],
+          "headingLevel": 1,
+          "plainText": "附录"
+        },
+        {
+          "kind": "quote_container",
+          "blockId": "doxcnIodNctSiSVBzACjpcnPw4p",
+          "blockType": 34,
+          "children": [
+            {
+              "kind": "text",
+              "blockId": "doxcnD24Cyev3UAwNEvdvGsxlye",
+              "blockType": 2,
+              "children": [],
+              "plainText": "在这里添加资源链接和其他随机资料，以避免让读者感到过于压力重重。"
+            }
+          ],
+          "note": "引用容器"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnvtnvz4iMlzoeGvcDrktVub",
+          "blockType": 12,
+          "children": [],
+          "plainText": "工程指标更新"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcnSgn9e4tGMoMayX7rF18Ped",
+          "blockType": 12,
+          "children": [],
+          "plainText": "工程招聘跟踪器"
+        },
+        {
+          "kind": "bullet",
+          "blockId": "doxcn8QUQEgf12JhdTPg6on6Che",
+          "blockType": 12,
+          "children": [],
+          "plainText": "工程成本仪表板"
+        },
+        {
+          "kind": "text",
+          "blockId": "doxcnXkmuMlP3IGITrSr2KOAgdg",
+          "blockType": 2,
+          "children": []
+        }
+      ],
+      "plainText": "部门季报/半年报/年报"
+    }
+  ],
+  "documentTitle": "部门季报/半年报/年报",
+  "structureFile": "部门季报_半年报_年报structure.json"
+}
