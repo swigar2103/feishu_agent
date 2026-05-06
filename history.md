@@ -2,6 +2,48 @@
 
 ## 2026-05-06
 
+### OAuth pending state 文件防膨胀增强
+
+- **原因**：
+  - `oauth-pending-states.json` 在长时间联调下可能持续增长，影响排障与维护。
+- **处理**：
+  - `src/config/env.ts` 新增 `FEISHU_OAUTH_PENDING_STATE_MAX_ITEMS`（默认 200）。
+  - `src/integrations/feishu/userOAuthAuthorizeFlow.ts` 增加条目上限裁剪逻辑：
+    - 写入时按 `createdAtMs` 仅保留最新 N 条；
+    - 清理过期 state 后再次执行上限裁剪。
+  - `env.example` 与 `README.md` 补充该配置和行为说明。
+- **验证**：
+  - `npm run check` 通过。
+
+### OAuth state 持久化（修复重启/多用户误点导致 state 失效）
+
+- **原因**：
+  - 授权回调 state 之前仅存内存，进程重启后会丢失；多次授权卡并存时容易点击旧链接，触发 `state 无效或已过期`。
+- **处理**：
+  - `src/integrations/feishu/userOAuthAuthorizeFlow.ts`：
+    - pending state 改为落盘到可写目录 `oauth-pending-states.json`；
+    - 保留 TTL 清理逻辑；
+    - 同一 `userId` 只保留最新授权会话，减少旧卡片干扰；
+    - 回调消费后从持久化文件移除对应 state。
+  - `README.md`：补充 OAuth state 持久化行为说明。
+- **验证**：
+  - `npm run check` 通过。
+
+### 公网 502 链路修复与可观测性增强
+
+- **现象**：
+  - 本地 `http://127.0.0.1:3000/healthz` 正常，但 `https://www.feishu.space/healthz` 间歇性 502。
+- **排查结论**：
+  - 应用进程与业务路由正常，故障位于“公网域名 -> 本机服务”的转发层（隧道/反代）。
+- **处理**：
+  - 连通性验收：本地与公网 `healthz`、公网 `config-check` 均恢复 200。
+  - `src/api/feishuAuth.ts`：新增 OAuth 回调结构化诊断日志（回调入站、state 命中/失效、token 交换耗时与结果）。
+  - `src/api/phase1.ts`：新增 `GET /api/phase1/public-reachability-check`，输出本地与公网可达性检测结果。
+  - `README.md`：新增 `feishu.space 502` 排障 SOP（三步定位、修复动作、OAuth state 注意事项）。
+- **验证**：
+  - `npm run check` 通过；
+  - 公网 `https://www.feishu.space/healthz` 连续多次 200。
+
 ### 文档搜索：拆词 + 兼容返回结构
 
 - **原因**：整句任务描述直接 `search-doc` 易 **0 条**（飞书侧更像关键词检索）；MCP 若返回 `documents` / `data.files` 等而非 `docs`，原解析会得到空数组。

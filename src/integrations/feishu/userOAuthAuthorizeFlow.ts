@@ -1,5 +1,8 @@
 import crypto from "node:crypto";
 import { env } from "../../config/env.js";
+import fs from "node:fs";
+import path from "node:path";
+import { getWritableDataDir } from "../../storage/writableDataDir.js";
 
 /** OAuth 完成后是否在 IM 中自动续跑用户刚才的请求 */
 export type OAuthReplayPayload = {
@@ -17,13 +20,49 @@ export type PendingOAuthState = {
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
-const pendingStates = new Map<string, PendingOAuthState>();
+const FILE_PATH = path.join(getWritableDataDir(), "oauth-pending-states.json");
+
+type PendingOAuthStoreData = {
+  items: Array<PendingOAuthState & { state: string }>;
+};
+
+function trimToMaxItems(
+  items: Array<PendingOAuthState & { state: string }>,
+): Array<PendingOAuthState & { state: string }> {
+  const maxItems = env.FEISHU_OAUTH_PENDING_STATE_MAX_ITEMS;
+  if (items.length <= maxItems) return items;
+  return items
+    .slice()
+    .sort((a, b) => b.createdAtMs - a.createdAtMs)
+    .slice(0, maxItems);
+}
+
+function readStore(): PendingOAuthStoreData {
+  if (!fs.existsSync(FILE_PATH)) {
+    return { items: [] };
+  }
+  try {
+    const raw = fs.readFileSync(FILE_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as PendingOAuthStoreData;
+    if (!Array.isArray(parsed.items)) return { items: [] };
+    return parsed;
+  } catch {
+    return { items: [] };
+  }
+}
+
+function writeStore(data: PendingOAuthStoreData): void {
+  const trimmed = trimToMaxItems(data.items);
+  fs.writeFileSync(FILE_PATH, JSON.stringify({ items: trimmed }, null, 2), "utf-8");
+}
 
 export function cleanupPendingOAuthStates(nowMs = Date.now()): void {
-  for (const [state, item] of pendingStates.entries()) {
-    if (item.createdAtMs + OAUTH_STATE_TTL_MS < nowMs) {
-      pendingStates.delete(state);
-    }
+  const store = readStore();
+  const alive = trimToMaxItems(
+    store.items.filter((item) => item.createdAtMs + OAUTH_STATE_TTL_MS >= nowMs),
+  );
+  if (alive.length !== store.items.length) {
+    writeStore({ items: alive });
   }
 }
 
@@ -54,11 +93,17 @@ export function createFeishuUserAuthorizeSession(input: CreateAuthorizeSessionIn
   }
   cleanupPendingOAuthStates();
   const state = crypto.randomUUID();
-  pendingStates.set(state, {
+  const store = readStore();
+  const current = Date.now();
+  // 同一用户仅保留最新授权会话，避免误点旧卡片导致 state 冲突。
+  const filtered = store.items.filter((item) => item.userId !== input.userId);
+  filtered.push({
+    state,
     userId: input.userId,
-    createdAtMs: Date.now(),
+    createdAtMs: current,
     replay: input.replay,
   });
+  writeStore({ items: filtered });
   const scopes = splitOAuthScopes(env.FEISHU_USER_OAUTH_SCOPES);
   const authUrl = new URL(env.FEISHU_USER_OAUTH_AUTHORIZE_URL);
   /** 新版文档以 client_id + response_type=code 为准；部分旧域名校验 app_id，双写兼容 */
@@ -80,8 +125,15 @@ export function createFeishuUserAuthorizeSession(input: CreateAuthorizeSessionIn
 /** 消费并移除 state；不存在或过期则返回 null */
 export function consumePendingOAuthState(state: string): PendingOAuthState | null {
   cleanupPendingOAuthStates();
-  const pending = pendingStates.get(state);
+  const store = readStore();
+  const pending = store.items.find((item) => item.state === state);
   if (!pending) return null;
-  pendingStates.delete(state);
-  return pending;
+  writeStore({
+    items: store.items.filter((item) => item.state !== state),
+  });
+  return {
+    userId: pending.userId,
+    createdAtMs: pending.createdAtMs,
+    replay: pending.replay,
+  };
 }

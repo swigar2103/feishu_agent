@@ -131,6 +131,8 @@ const EnvSchema = z.object({
   FEISHU_USER_OAUTH_AUTHORIZE_URL: z
     .string()
     .default("https://open.feishu.cn/open-apis/authen/v1/authorize"),
+  /** OAuth pending state 文件条目上限，超过后按 createdAtMs 淘汰旧记录 */
+  FEISHU_OAUTH_PENDING_STATE_MAX_ITEMS: z.coerce.number().int().positive().default(200),
   /**
    * 可写数据目录（runtime-memories.json、resource-pool.json）。
    * 不设且 VERCEL=1 时默认 /tmp/feishu-agent-data；本地默认 src/data。

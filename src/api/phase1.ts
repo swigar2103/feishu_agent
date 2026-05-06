@@ -34,6 +34,33 @@ const CardCallbackBodySchema = z
   .passthrough();
 
 export async function registerPhase1Routes(app: FastifyInstance): Promise<void> {
+  async function probeHttpStatus(url: string, timeoutMs = 8000): Promise<{
+    ok: boolean;
+    status?: number;
+    elapsedMs: number;
+    error?: string;
+  }> {
+    const startedAt = Date.now();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      return {
+        ok: res.ok,
+        status: res.status,
+        elapsedMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        elapsedMs: Date.now() - startedAt,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   /**
    * 本地/联调：手动 POST 即跑通「复制 → 读块 → 按节生成 → 写回 → 可选发群」
    * POST /api/phase1/mvp  JSON { "userText": "…", "chatId"?: "oc_…" }
@@ -384,6 +411,45 @@ export async function registerPhase1Routes(app: FastifyInstance): Promise<void> 
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  });
+
+  /**
+   * 公网可达自检：用于排查「本地 /healthz 正常但公网 502」。
+   * GET /api/phase1/public-reachability-check
+   */
+  app.get("/api/phase1/public-reachability-check", async (_request, reply) => {
+    const localBase = `http://127.0.0.1:${env.PORT}`;
+    const redirect = env.FEISHU_USER_OAUTH_REDIRECT_URI.trim();
+    let publicOrigin = "";
+    if (redirect) {
+      try {
+        publicOrigin = new URL(redirect).origin;
+      } catch {
+        publicOrigin = "";
+      }
+    }
+    const localHealth = await probeHttpStatus(`${localBase}/healthz`);
+    const publicHealth = publicOrigin
+      ? await probeHttpStatus(`${publicOrigin}/healthz`)
+      : { ok: false, elapsedMs: 0, error: "FEISHU_USER_OAUTH_REDIRECT_URI 未配置或不可解析" };
+    const publicConfigCheck = publicOrigin
+      ? await probeHttpStatus(`${publicOrigin}/api/phase1/config-check`)
+      : { ok: false, elapsedMs: 0, error: "FEISHU_USER_OAUTH_REDIRECT_URI 未配置或不可解析" };
+
+    return reply.send({
+      ok: localHealth.ok && publicHealth.ok && publicConfigCheck.ok,
+      localBase,
+      publicOrigin: publicOrigin || null,
+      checks: {
+        localHealth,
+        publicHealth,
+        publicConfigCheck,
+      },
+      hint:
+        publicOrigin.length === 0
+          ? "先配置 FEISHU_USER_OAUTH_REDIRECT_URI（含公网域名）再做公网连通性诊断。"
+          : "若 localHealth=true 且 publicHealth=false，优先检查 cloudflared/域名转发链路。",
+    });
   });
 
   app.get("/api/phase1/config-check", async (_request, reply) => {

@@ -55,17 +55,34 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
   });
 
   app.get("/api/feishu/auth/callback", async (request, reply) => {
+    const callbackStartedAt = Date.now();
     const parsed = CallbackQuerySchema.safeParse(request.query);
     if (!parsed.success) {
+      logger.warn("feishu oauth callback invalid query", {
+        host: request.headers.host ?? "",
+        path: request.url,
+        issues: parsed.error.issues,
+      });
       return reply.status(400).send({ message: "invalid callback query", issues: parsed.error.issues });
     }
+    logger.info("feishu oauth callback received", {
+      host: request.headers.host ?? "",
+      path: request.url,
+      hasCode: Boolean(parsed.data.code),
+      statePrefix: parsed.data.state.slice(0, 8),
+    });
     const pending = consumePendingOAuthState(parsed.data.state);
     if (!pending) {
+      logger.warn("feishu oauth callback state missing_or_expired", {
+        statePrefix: parsed.data.state.slice(0, 8),
+        elapsedMs: Date.now() - callbackStartedAt,
+      });
       return reply.status(400).send({ message: "state 无效或已过期，请重新发起授权" });
     }
 
     try {
       const c = getFeishuMvpConfig();
+      const exchangeStartedAt = Date.now();
       const tokenResp = await feishuHttpFetch(`${c.baseUrl}/open-apis/authen/v2/oauth/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -94,6 +111,13 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
       };
       const data = tokenBody.data;
       const accessToken = data?.access_token ?? tokenBody.access_token ?? "";
+      logger.info("feishu oauth token exchange finished", {
+        userId: pending.userId,
+        httpStatus: tokenResp.status,
+        code: tokenBody.code,
+        elapsedMs: Date.now() - exchangeStartedAt,
+        hasAccessToken: Boolean(accessToken),
+      });
       if (!tokenResp.ok || tokenBody.code !== 0 || !accessToken) {
         logger.error("feishu oauth token exchange failed", {
           status: tokenResp.status,
@@ -128,6 +152,7 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
         userId: pending.userId,
         scopes,
         expiresInSec,
+        callbackElapsedMs: Date.now() - callbackStartedAt,
       });
 
       const replay = pending.replay;

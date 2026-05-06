@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "state": "ceafd790-0d8b-4ec3-8fbb-3ce4dc5b1f02",
+      "userId": "ou_ec074de53e44c0829c0344144e472677",
+      "createdAtMs": 1778072588250,
+      "replay": {
+        "chatId": "oc_851cc2c7c028bb097d1e38942ce0632f",
+        "text": "请根据本周院周会纪要与第17周医疗运营周报（华章义远·滨江院区），写一份运营分析摘要。",
+        "messageId": "om_x100b50878e6408a4c4e4527ed781ef1",
+        "pipeline": "full"
+      }
+    }
+  ]
+}

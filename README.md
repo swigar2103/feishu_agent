@@ -428,3 +428,41 @@ P2（质量增强）：
   - MCP 未命中，走了 OpenAPI 兜底；优先修复 MCP 可用性。
 - IM 出现文本降级：
   - 先看卡片接口错误（schema/字段），不一定是文档发布失败。
+
+---
+
+## 13. feishu.space 502 排障 SOP
+
+适用现象：`http://127.0.0.1:3000/healthz` 正常，但 `https://www.feishu.space/healthz` 返回 502（Cloudflare Host Error）。
+
+### 13.1 快速结论
+
+- 这类情况通常不是 Node 业务代码崩溃，而是「公网域名 -> 本机服务」转发链路异常（隧道/反代/DNS）。
+
+### 13.2 三步定位
+
+1. 本地健康检查：
+   - `http://127.0.0.1:3000/healthz` 应返回 `{\"ok\":true}`。
+2. 公网健康检查：
+   - `https://www.feishu.space/healthz` 应返回 200。
+3. 使用自检接口（新增）：
+   - `GET /api/phase1/public-reachability-check`
+   - 若 `localHealth.ok=true` 且 `publicHealth.ok=false`，优先排查隧道层。
+
+### 13.3 修复动作
+
+- 重启 cloudflared 隧道进程/服务；
+- 校验隧道 ingress 是否把 `www.feishu.space` 指向 `http://127.0.0.1:3000`；
+- 校验 DNS/CNAME 仍指向正确 tunnel；
+- 恢复后再次验证：
+  - `https://www.feishu.space/healthz`
+  - `https://www.feishu.space/api/phase1/config-check`
+
+### 13.4 OAuth 注意事项
+
+- OAuth 回调中的 `state` 一次性且有 TTL（默认 10 分钟）。
+- 发生 502 后不要重放旧 callback URL；应重新调用：
+  - `GET /api/feishu/auth/start?userId=<same_user>`
+  - 让用户点击新授权链接完成回调。
+- 从本版本开始，OAuth pending state 会持久化到可写目录（`oauth-pending-states.json`），同一 `userId` 只保留最新一条会话，减少误点旧卡片导致的 `state 无效`。
+- 同时启用文件条目上限淘汰（默认 200 条，配置项 `FEISHU_OAUTH_PENDING_STATE_MAX_ITEMS`），避免长时间联调导致文件膨胀。
