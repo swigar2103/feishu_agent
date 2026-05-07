@@ -3,6 +3,7 @@ import path from "node:path";
 import { Packer, Paragraph, TextRun, Document, HeadingLevel } from "docx";
 import type { TaskPlan, WriterOutput } from "../schemas/index.js";
 import type { TemplateProfile } from "../schemas/templateProfile.js";
+import type { Draft } from "../schemas/agentContracts.js";
 import { sanitizeWriterOutputReport } from "./writerOutputCleanup.js";
 
 /** 段间距（twips；约 20 twips ≈ 1 pt），减轻「整块挤在一起」观感 */
@@ -137,6 +138,21 @@ function linesToNumberedOrPlainParagraphs(
   return out.length > 0 ? out : linesToDocxParagraphs(content);
 }
 
+function normalizeDraftFromReport(report: WriterOutput): Draft {
+  return {
+    format: "doc",
+    title: report.title,
+    summary: report.summary,
+    sections: report.sections,
+    chartSuggestions: report.chartSuggestions,
+    openQuestions: report.openQuestions ?? [],
+    sectionBlocks: [],
+    timelineSlots: [],
+    ganttSlots: [],
+    chartSlots: [],
+  };
+}
+
 export function pickPrimaryTemplateProfile(
   profiles?: Record<string, TemplateProfile> | null,
 ): TemplateProfile | undefined {
@@ -147,6 +163,7 @@ export function pickPrimaryTemplateProfile(
 
 export async function generateReportDocxBuffer(input: {
   report: WriterOutput;
+  draft?: Draft;
   taskPlan?: TaskPlan;
   debugTrace?: string[];
   templateProfile?: TemplateProfile | null;
@@ -155,6 +172,7 @@ export async function generateReportDocxBuffer(input: {
 
   const profile = input.templateProfile ?? undefined;
   const report = sanitizeWriterOutputReport(input.report);
+  const draft = input.draft ?? normalizeDraftFromReport(report);
 
   const sectionParagraphs: Paragraph[] = [
     new Paragraph({
@@ -206,6 +224,86 @@ export async function generateReportDocxBuffer(input: {
       sectionParagraphs.push(
         bulletParagraph(
           `- ${chart.title}（${chart.type}）：${chart.purpose}；数据建议：${chart.dataHint}`,
+        ),
+      );
+    }
+  }
+
+  if (draft.timelineSlots.length > 0) {
+    sectionParagraphs.push(
+      new Paragraph({
+        text: "时间线",
+        heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
+      }),
+    );
+    for (const slot of draft.timelineSlots) {
+      sectionParagraphs.push(
+        bulletParagraph(
+          `- ${slot.title}｜周期：${slot.periodHint}${slot.notes ? `｜说明：${slot.notes}` : ""}`,
+        ),
+      );
+    }
+  }
+
+  if (draft.ganttSlots.length > 0) {
+    sectionParagraphs.push(
+      new Paragraph({
+        text: "甘特任务",
+        heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
+      }),
+    );
+    for (const slot of draft.ganttSlots) {
+      sectionParagraphs.push(
+        bulletParagraph(
+          `- ${slot.task}｜负责人：${slot.ownerHint ?? "待定"}｜开始：${slot.startHint ?? "待定"}｜结束：${slot.endHint ?? "待定"}`,
+        ),
+      );
+    }
+  }
+
+  if (draft.chartSlots.length > 0) {
+    sectionParagraphs.push(
+      new Paragraph({
+        text: "图表槽位",
+        heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
+      }),
+    );
+    for (const slot of draft.chartSlots) {
+      sectionParagraphs.push(
+        bulletParagraph(
+          `- ${slot.title}（${slot.chartType}）｜指标建议：${slot.metricHint}`,
+        ),
+      );
+    }
+  }
+
+  if (draft.sectionBlocks.length > 0) {
+    sectionParagraphs.push(
+      new Paragraph({
+        text: "模板版式块",
+        heading: HeadingLevel.HEADING_1,
+        spacing: {
+          before: SP.blockHeadingBefore,
+          after: SP.blockHeadingAfter,
+        },
+      }),
+    );
+    for (const block of draft.sectionBlocks) {
+      sectionParagraphs.push(
+        bulletParagraph(
+          `- [${block.blockType}] ${block.sectionHeading}：${block.content.slice(0, 180)}`,
         ),
       );
     }

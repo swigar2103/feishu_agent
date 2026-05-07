@@ -20,6 +20,14 @@ const CAPABILITY_ORDER: Partial<Record<GatewayCapability, GatewayAdapterName[]>>
   "whiteboard.update": ["mcp", "lark_cli", "openapi"],
   "message.send": ["mcp", "lark_cli", "openapi"],
   "message.list": ["mcp", "lark_cli", "openapi"],
+  "drive.root.meta": ["openapi", "lark_cli", "mcp"],
+  "drive.folder.meta": ["openapi", "lark_cli", "mcp"],
+  "drive.folder.list": ["openapi", "lark_cli", "mcp"],
+  "drive.folder.create": ["openapi", "lark_cli", "mcp"],
+  "drive.file.move": ["openapi", "lark_cli", "mcp"],
+  "drive.file.copy": ["openapi", "lark_cli", "mcp"],
+  "drive.file.delete": ["openapi", "lark_cli", "mcp"],
+  "drive.task.check": ["openapi", "lark_cli", "mcp"],
 };
 
 export function getAdapterPriority(capability: GatewayCapability): GatewayAdapterName[] {

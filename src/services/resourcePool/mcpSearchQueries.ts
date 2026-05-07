@@ -1,3 +1,5 @@
+import { normalizeDocumentSearchQuery } from "../toolGateway/searchQueryNormalize.js";
+
 /**
  * 飞书 MCP search-doc 更适合「关键词」式查询（官方示例多为短句）。
  * 用户整段任务描述直接搜索时容易 0 条，故拆成若干短查询合并去重。
@@ -5,15 +7,8 @@
 export function deriveMcpDocumentSearchQueries(fullPrompt: string): string[] {
   const t = fullPrompt.trim().replace(/\s+/g, " ");
   const out: string[] = [];
-  const sanitize = (s: string): string =>
-    s
-      .replace(/<[^>]*>/g, " ")
-      .replace(/[^\p{L}\p{N}\s_-]/gu, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 32);
   const add = (s: string) => {
-    const x = sanitize(s);
+    const x = normalizeDocumentSearchQuery(s, 32);
     if (x.length < 2) return;
     if (!out.includes(x)) out.push(x);
   };

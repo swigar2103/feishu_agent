@@ -112,7 +112,7 @@ async function fetchExternalCandidates(query: string, userId?: string): Promise<
   const seenDoc = new Set<string>();
   const docs: Awaited<ReturnType<typeof toolGateway.searchDocuments>> = [];
   for (const q of queries) {
-    const batch = await toolGateway.searchDocuments(q, context);
+    const batch = await toolGateway.searchDocuments(q, context).catch(() => []);
     for (const d of batch) {
       if (d.id && !seenDoc.has(d.id)) {
         seenDoc.add(d.id);
@@ -121,7 +121,7 @@ async function fetchExternalCandidates(query: string, userId?: string): Promise<
     }
   }
   const userQuery = queries[0] ?? query;
-  const users = await toolGateway.searchUsers(userQuery, context);
+  const users = await toolGateway.searchUsers(userQuery, context).catch(() => []);
 
   return [
     ...docs.slice(0, 4).map(mapDocToResourceSummary),

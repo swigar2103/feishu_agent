@@ -4,6 +4,7 @@ import { HmrsIngestService } from "./hmrsIngestService.js";
 import { UserDatabaseBootstrapService } from "./userDatabaseBootstrapService.js";
 import { HmrsRepository } from "./hmrsRepository.js";
 import type { HmrsRefreshStatus } from "./model/memPalaceTree.js";
+import { buildRequiredFolders } from "./hmrsStructureBuilder.js";
 import { createHash } from "node:crypto";
 
 function readManagedFolderTokens(): string[] {
@@ -79,6 +80,17 @@ export class HmrsRefreshService {
       userId: input.userId,
       nickname: input.nickname,
     });
+    const layout = await this.repo.ensureRequiredFolderLayout(
+      input.userId,
+      bootstrap.rootFolderToken,
+      buildRequiredFolders(),
+    );
+    if (layout.repairedPaths.length > 0) {
+      logger.info("hmrs layout repaired", {
+        userId: input.userId,
+        repairedCount: layout.repairedPaths.length,
+      });
+    }
     const previousStatus = await this.repo.readJsonObjectByName<HmrsRefreshStatus>(
       input.userId,
       bootstrap.systemFolderToken,

@@ -65,10 +65,16 @@ export function buildUserOAuthRequiredCard(input: {
   authUrl: string;
   /** 展示在说明里，便于运营对照日志（非敏感） */
   userIdHint?: string;
+  /** 备用授权入口（固定域名中转），用于规避旧卡片残留链接 */
+  fallbackAuthStartUrl?: string;
 }): Record<string, unknown> {
   const who = input.userIdHint?.trim()
     ? `\n\n绑定账号：\`${input.userIdHint.trim()}\``
     : "";
+  const fallbackEntry = input.fallbackAuthStartUrl?.trim()
+    ? `\n\n备用授权入口（固定域名）：[点击重新拉起授权](${input.fallbackAuthStartUrl.trim()})`
+    : "";
+  const primaryAuthEntry = input.fallbackAuthStartUrl?.trim() || input.authUrl;
   return {
     schema: "2.0",
     config: { update_multi: true },
@@ -87,14 +93,14 @@ export function buildUserOAuthRequiredCard(input: {
           behaviors: [
             {
               type: "open_url",
-              default_url: input.authUrl,
-              pc_url: input.authUrl,
+              default_url: primaryAuthEntry,
+              pc_url: primaryAuthEntry,
             },
           ],
         },
         {
           tag: "markdown",
-          content: "若按钮无响应，可将本卡片截图给管理员，或检查飞书客户端是否为最新版本。",
+          content: `若按钮无响应，可将本卡片截图给管理员，或检查飞书客户端是否为最新版本。${fallbackEntry}`,
         },
       ],
     },

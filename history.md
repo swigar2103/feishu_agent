@@ -2,6 +2,28 @@
 
 ## 2026-05-07
 
+### HMRS 中文可读维护（重名覆盖 + 目录说明 + 根目录复用）
+
+- **原因**：
+  - 用户反馈 HMRS 初始化后出现“看起来像两个数据库目录”，且 `imported_docs_room` 下文件名偏技术化、缺少可读说明。
+  - 现有写入策略使用 `upload_all`，同名文件会追加而不是覆盖，长期会形成多份重复记录。
+- **处理**：
+  - `src/services/hmrs/hmrsRepository.ts`：
+    - 新增同名清理逻辑 `removeFilesByName`；
+    - `writeJsonObject/writeMarkdownObject` 改为“同名先删再写”，将写入语义从“追加”改为“覆盖更新”。
+  - `src/services/hmrs/userDatabaseBootstrapService.ts`：
+    - 新增 HMRS 根目录复用策略：除精确名匹配外，按 `_{userId}_mempalace` 后缀复用历史根目录，减少因昵称变化造成的二次建库。
+    - 新增自动目录说明文档写入（根目录、`_system`、`people_wing`、`projects_wing`、`templates_wing`、`resources_wing/imported_docs_room`、`conversations_wing`），便于用户一眼理解各层用途。
+  - `src/services/hmrs/hmrsIngestService.ts`：
+    - 纳管产物改为中文可读文件名与标题字段（如 `文档索引_*.json`、`纳管记录_*.json`）；
+    - 写入 `title/description/sourceFolderName` 等解释性字段，减少仅凭 token 难以辨识的问题。
+    - 增加旧命名兼容清理：刷新时自动删除同来源的 `managed_folder_*.json` 与 `document_index_*.json` 历史技术文件名残留。
+- **验证**：
+  - 通过 `npm run check`（见本次记录后续步骤）确认类型与编译校验通过。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/services/hmrs/hmrsRepository.ts`、`src/services/hmrs/userDatabaseBootstrapService.ts`、`src/services/hmrs/hmrsIngestService.ts`
+  - 文档：`history.md`（本文件追加记录）
+
 ### OAuth callback 最小命中日志（排障用）
 
 - **原因**：
@@ -157,6 +179,44 @@
         - `sheet`：调用 `lark-cli sheets +info/+read` 抽取工作表列表与样例单元格。
         - `bitable`：调用 `lark-cli base +table-list/+field-list/+record-list` 抽取表结构与样例记录。
       - 输出结构支持“模板骨架 + 版式块 + 嵌入对象 + 数据快照”一体化沉淀，便于后续 Skill 化与图表填充。
+  - IM 场景 OAuth 失效体验修复（避免“跳过重新认证”）：
+    - `src/integrations/feishu/imTextPipelineDispatch.ts`：
+      - 在 `phase1/full` 异步链路 catch 中识别 `无有效飞书用户访问令牌（UAT）` 错误。
+      - 发生该错误时主动发授权卡（含 replay 信息，授权后自动续跑）；若处于提醒冷却期，降级发送带授权链接的文本提示，不再静默仅报“生成失败”。
+  - 主流程 API 硬修复（99992402 / 1770032）：
+    - `src/services/toolGateway/searchQueryNormalize.ts`（新增）：
+      - 统一文档检索 query 清洗与压缩策略，供 MCP adapter 与查询拆分共享。
+    - `src/services/toolGateway/feishuMcpAdapter.ts`：
+      - MCP HTTP 400 中命中 `field validation failed / 99992402` 时统一归类为 `VALIDATION`。
+      - `searchDocuments` 改用共享 query 规范化，参数校验失败时稳定回退 `list-docs` 本地筛选。
+    - `src/services/toolGateway/gateway.ts`：
+      - `document.search` 遇到 `VALIDATION` 错误后短路，不再继续下一个 adapter 重复触发同类失败请求。
+    - `src/services/resourcePool/mcpSearchQueries.ts`：
+      - 使用共享 query 规范化函数，避免与 adapter 侧规则不一致。
+    - `src/services/resourcePool/screening.ts`：
+      - 外部文档/用户检索补充路径增加容错，失败不再打断主流程。
+  - 模板 Skill 化接入主流程（按用途+名称命中）：
+    - `src/services/agent/templateSkillStore.ts`（新增）：
+      - 读取 `hmrs-template-skills.json`，基于用户、任务意图、报告类型、prompt 名称命中模板 Skill。
+    - `src/services/agent/skillRouter.ts`：
+      - 在 workflow 之前新增 `user_template` 命中分支，注入模板 sections/style/chart/hints 到 `SkillMatch`。
+    - `src/graph/nodes/skillRouterNode.ts`：
+      - 将 `prompt/userId` 传入 `routeSkill`，实现用户模板优先命中。
+    - `src/schemas/agentContracts.ts`：
+      - `SkillMatch.source` 扩展支持 `user_template`。
+    - `src/services/agent/plannerAgent.ts`：
+      - 命中 `user_template` 时强约束 `targetSections` 为模板章节顺序，减少 LLM 自由改写。
+  - Writer/Word 模板版式链路增强：
+    - `src/services/reportPipeline.ts`：
+      - `runReportPipeline` 返回 `draft`（完整 Draft，含 timeline/gantt/chartSlots/sectionBlocks）供 Word 导出使用。
+    - `src/api/report.ts`：
+      - `/generate-report-docx` 调用 `generateReportDocxBuffer` 时透传 `draft`。
+    - `src/services/wordExport.ts`：
+      - 新增对 `draft.timelineSlots/ganttSlots/chartSlots/sectionBlocks` 的 docx 渲染（不再仅使用 WriterOutput 的纯文本 sections）。
+  - 回归验证（4 模板 + 导出链路）：
+    - 通过 `npx tsx` 直接调用 `routeSkill` 验证 4 份模板均命中 `source=user_template`，章节与模板一致。
+    - 通过 `npx tsx` 调用 `generateReportDocxBuffer` 验证含 `timeline/gantt/chartSlots/sectionBlocks` 的 Draft 可成功导出 docx（bytes>0）。
+    - 通过 `/generate-report` 全链路实测时，由于 `AGENT_STRICT_FACT_MODE=true` 且当前测试请求无事实证据，4 个用例在 Analyst 阶段被严格拦截（属于事实门禁预期行为，不是模板路由回归失败）。
   - `src/graph/nodes/hmrsSummaryNode.ts`：
     - screening 前触发 `refreshManagedFolders`（best effort）；
     - L1 查询改为按 wing 暴露；
@@ -928,3 +988,185 @@ feishu_agent/
 
 - **Git**：解决 `main` 与 `clientB` 在 `env.ts`、`env.example`、`contracts.ts`、`report.ts`、`retrieval/engine.ts`、`history.md` 等处的合并冲突。
 - **检索**：`RetrievalEngine.getContextForReport` 同时保留 **资源池 B2/B3 + 模板蒸馏** 与 **Tool Gateway 补检索**（`fetchGatewayContext`），技能匹配维持 **reference → anchor** 双目录并支持 `taskIntent`（如周报优先）。
+
+## 2026-05-07（Cloudflare 固定域名 OAuth）
+
+- **原因**：
+  - `trycloudflare.com` 临时域名每次重启会变化，导致 `FEISHU_USER_OAUTH_REDIRECT_URI` 与飞书开放平台配置反复失配，OAuth 回调不稳定。
+- **处理**：
+  - 安装并验证 `cloudflared` 可用；
+  - 完成 Cloudflare Tunnel 登录并确认本机证书落盘到 `C:\Users\Swigar\.cloudflared\cert.pem`；
+  - 创建命名隧道：`feishu-oauth`；
+  - 绑定固定子域名：`oauth.zhongshu-sheng.com -> feishu-oauth`；
+  - 启动隧道转发本地服务：`cloudflared tunnel --url http://localhost:3000 run feishu-oauth`；
+  - 更新 `.env`：`FEISHU_USER_OAUTH_REDIRECT_URI=https://oauth.zhongshu-sheng.com/api/feishu/auth/callback`。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`.env`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（报告失败日志增强）
+
+- **原因**：
+  - `generate-report failed` 日志仅保留 `pregelTaskId` 时，无法判断是百炼 API 失败、超时还是 JSON/Schema 解析失败，排障成本高。
+- **处理**：
+  - 新增 `src/shared/errorSummary.ts`：统一提取 `errorMessage` 与结构化错误摘要（含 `type/message/stack/cause/raw`）。
+  - `src/services/agent/analystAgent.ts`：
+    - Analyst 失败时输出 `[analyst] analyzeContext failed` 结构化日志（strictMode、factCount、errorSummary）；
+    - 严格模式报错追加“原始原因”文本，避免只看到笼统报错。
+  - `src/services/reportPipeline.ts`：
+    - 在图执行失败时输出 `report graph 失败`，附 `sessionId/userId/errorSummary`。
+  - `src/api/report.ts`：
+    - `/generate-report` 与 `/generate-report-docx` 失败日志增加 `errorMessage + errorSummary`，便于终端直接定位根因。
+- **当前项目结构（本次变更范围）**：
+  - 新增：`src/shared/errorSummary.ts`
+  - 修改：`src/services/agent/analystAgent.ts`、`src/services/reportPipeline.ts`、`src/api/report.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（Analyst 输出结构容错）
+
+- **原因**：
+  - 线上出现 `Analyst schema 不匹配`：模型把 `normalizedFacts` 输出为对象数组、`keyInsights` 输出为对象、`chartSuggestions` 字段缺失/别名化，严格模式下直接失败。
+- **处理**：
+  - `src/services/agent/analystAgent.ts`：
+    - 改为先以 `z.unknown()` 接收模型原始 JSON，再执行本地归一化；
+    - 新增对象到字符串的容错提取（`fact/text/content/summary/...`）；
+    - 支持 `facts/cleanedFacts`、`insights/keyPoints/highlights`、`charts/chartSlots` 等别名字段映射；
+    - 对缺省图表建议补基础槽位，最后统一走 `AnalysisResultSchema.parse` 强校验。
+  - `src/prompts/agentPrompts.ts`：
+    - 强化 Analyst 输出约束，明确数组元素类型与 `chartSuggestions` 必填字段。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/services/agent/analystAgent.ts`、`src/prompts/agentPrompts.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（办公Agent系统对齐实施：Phase1-Phase5 首轮落地）
+
+- **原因**：
+  - 将系统从“报表生成流水线”对齐为“IM 入口 + HMRS 个人数据库 + 在线编辑协作 + 持续写回学习”的办公 Agent 主链路，并落实 OpenAPI/MCP 在目录治理与文档协作中的职责分层。
+- **处理**：
+  - **主链路契约收敛（Phase 1）**：
+    - `src/graph/state.ts`：`callbackRoute` 语义改为 `to_writer/to_compliance/to_planner/to_analyst/to_publish`，新增 `blueprintPlan` 状态。
+    - `src/graph/reportGraph.ts`：style/compliance 条件路由与新语义一致化。
+    - `src/graph/nodes/plannerAgentNode.ts`：新增 `BlueprintPlan` 生成（sectionBlueprint + visualSlots + templateGuardrails）。
+    - `src/graph/nodes/writerAgentNode.ts`：Writer 优先消费 blueprint 章节骨架与 guardrails。
+    - `src/schemas/agentContracts.ts`：新增 `BlueprintPlanSchema`；`DetailedContext` 增加 `templateDistillation`。
+    - `src/services/retrieval/deepRetriever.ts`、`src/graph/nodes/hmrsExpansionNode.ts`、`src/services/reportPipeline.ts`：修复 `retrievalContext`/`detailedContext` 双轨，`templateDistillation` 由深读上下文稳定回传。
+  - **HMRS 目录治理补全（Phase 2）**：
+    - `src/services/hmrs/hmrsRepository.ts`：新增 `move/copy/delete/task_check` 对应方法，补齐 `getFolderMeta`；新增目录结构巡检与自动补齐（`getMissingFolderPaths`/`ensureRequiredFolderLayout`）。
+    - `src/services/hmrs/userDatabaseBootstrapService.ts`、`src/services/hmrs/hmrsRefreshService.ts`：接入布局巡检与修复，刷新时自动补齐缺失 Wing/Room/Drawer 路径。
+  - **ToolGateway 单入口化（Phase 3）**：
+    - `src/services/toolGateway/types.ts`：新增 drive 领域类型与接口（root/folder/list/create/move/copy/delete/task_check）。
+    - `src/services/toolGateway/capabilities.ts`、`priority.ts`、`gateway.ts`：新增 `drive.*` 能力并纳入统一策略调度。
+    - `src/services/toolGateway/feishuOpenApiAdapter.ts`：实现 drive OpenAPI 适配（用户态 UAT）。
+    - `src/services/toolGateway/feishuMcpAdapter.ts`、`larkCliAdapter.ts`：补齐 drive 接口并明确 NOT_SUPPORTED 回退语义。
+  - **模板记忆与写回增强（Phase 4）**：
+    - `src/services/agent/templateSkillStore.ts`：模板读取由“单文件”升级为“`hmrs-template-skills.json` + `hmrs-catalog/index` 融合”，使模板记忆纳入 HMRS 数据面。
+    - `src/services/hmrs/writeback/memoryWritebackService.ts`：新增写回质量分、信号去重、telemetry 扩展（dedupedSignalCount）。
+  - **在线编辑闭环（Phase 5）**：
+    - `src/services/agent/memoryUpdater.ts`：新增 `updateMemoryFromEditorFeedback`，把工作台编辑信号写入 HMRS。
+    - `src/api/chat.ts`：手动局部编辑与 AI 局部改写改为统一走 `updateMemoryFromEditorFeedback`（不再仅写 runtime 内存）。
+- **验证**：
+  - `npm run check` 通过（TypeScript 全量校验）。
+  - 关键改动文件 `ReadLints` 无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 核心链路：`src/graph/`、`src/services/reportPipeline.ts`
+  - HMRS：`src/services/hmrs/`
+  - ToolGateway：`src/services/toolGateway/`
+  - 模板与记忆：`src/services/agent/templateSkillStore.ts`、`src/services/agent/memoryUpdater.ts`
+  - 在线编辑接口：`src/api/chat.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（HMRS Drive 异步任务收敛增强）
+
+- **原因**：
+  - `move/delete` 在飞书 Drive 侧可能返回异步任务（ticket），若只返回初始状态，会导致上层拿到 `pending` 且缺少最终成功/失败结论，不利于目录治理可靠性。
+- **处理**：
+  - `src/services/hmrs/hmrsRepository.ts`：
+    - 新增 `waitForTaskCompletion` 轮询器；
+    - `moveFile/deleteFile` 在拿到 ticket 后自动执行 `task_check` 轮询（固定间隔与最大轮数），尽量收敛到 `success/failed`；
+    - 对超时与失败增加结构化 warn 日志，包含 `op/ticket/error`，便于排障。
+- **验证**：
+  - `npm run check` 通过。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/services/hmrs/hmrsRepository.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（HMRS Copy 异步任务收敛补齐）
+
+- **原因**：
+  - `copy/copyDocument` 在部分 Drive 场景下可能返回异步 ticket（而非即时 file token），若不收敛状态会导致后续流程拿不到复制结果 token。
+- **处理**：
+  - `src/services/toolGateway/types.ts`：
+    - `GatewayDriveTaskStatus` 新增 `resultFileToken/resultUrl`；
+    - `copyFile` 返回值支持 `task`（异步票据）与 `fileToken` 并存。
+  - `src/services/toolGateway/feishuOpenApiAdapter.ts`：
+    - `copyFile` 兼容同步 token 与异步 ticket 两种返回；
+    - `parseTaskStatus` 解析任务结果中的文件 token/url。
+  - `src/services/hmrs/hmrsRepository.ts`：
+    - `copyFile/copyDocument` 接入任务轮询收敛；
+    - 任务成功但无结果 token 时给出明确错误，避免静默失败。
+  - `src/services/toolGateway/{gateway,feishuMcpAdapter,larkCliAdapter}.ts`：
+    - 同步接口签名，保持统一能力契约。
+- **验证**：
+  - `npm run check` 通过。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/services/toolGateway/`、`src/services/hmrs/hmrsRepository.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（Webhook 授权冷却期静默修复）
+
+- **原因**：
+  - 当 `FEISHU_MCP_IDENTITY=uat` 且用户 OAuth 已失效时，webhook 会进入授权提醒分支；若命中提醒冷却期，原逻辑仅记录日志不发消息，用户侧表现为“发了消息但机器人无任何回复”。
+- **处理**：
+  - `src/api/feishuWebhookDispatch.ts`：
+    - 在“提醒冷却期”分支增加兜底文本提示，明确告知授权已失效并给出授权入口路径，避免静默。
+- **验证**：
+  - `npm run check` 通过。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/api/feishuWebhookDispatch.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（OAuth start 增加浏览器直跳模式）
+
+- **原因**：
+  - `/api/feishu/auth/start` 设计为“返回授权链接 JSON”，用户直接在浏览器打开时会看到 JSON，以为“没有触发认证”。
+- **处理**：
+  - `src/api/feishuAuth.ts`：
+    - `start` 查询参数新增 `redirect`（布尔）；
+    - 当 `redirect=1` 时，接口直接 302 跳转到飞书授权页；
+    - 默认行为保持不变（仍返回 JSON，兼容 API 调用方）。
+- **验证**：
+  - `npm run check` 通过。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/api/feishuAuth.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（授权卡补充固定域名入口，避免旧域名残留）
+
+- **原因**：
+  - 用户可能点击到历史授权卡中的旧链接（如失效的 trycloudflare 域名），导致授权后回跳失败。
+- **处理**：
+  - `src/integrations/feishu/cards.ts`：
+    - `buildUserOAuthRequiredCard` 新增 `fallbackAuthStartUrl` 字段；
+    - 卡片底部增加“备用授权入口（固定域名）”链接。
+  - `src/api/feishuWebhookDispatch.ts`、`src/integrations/feishu/imTextPipelineDispatch.ts`：
+    - 基于 `FEISHU_USER_OAUTH_REDIRECT_URI` 自动推导固定域名入口：
+      - `${origin}/api/feishu/auth/start?userId=...&redirect=1`
+    - 发授权卡时同时写入该备用入口。
+- **验证**：
+  - `npm run check` 通过。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/integrations/feishu/cards.ts`、`src/api/feishuWebhookDispatch.ts`、`src/integrations/feishu/imTextPipelineDispatch.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（授权卡主按钮切换为固定域名中转优先）
+
+- **原因**：
+  - 即便已增加备用入口，用户仍可能优先点击主按钮；主按钮若直接使用历史授权链接，仍有概率命中旧域名回调。
+- **处理**：
+  - `src/integrations/feishu/cards.ts`：
+    - 授权卡主按钮 `open_url` 改为“固定域名中转入口优先”，即优先使用 `fallbackAuthStartUrl`，无该值才回退 `authUrl`。
+- **验证**：
+  - `npm run check` 通过。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/integrations/feishu/cards.ts`
+  - 文档：`history.md`（本文件追加记录）

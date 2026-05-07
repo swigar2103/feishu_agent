@@ -14,6 +14,15 @@ import {
 export class MemoryWritebackService {
   constructor(private readonly repos: HmrsRepositories) {}
 
+  private qualityFromDraft(draft: Draft): number {
+    const sectionCoverage = Math.min(1, draft.sections.length / 6);
+    const visualCoverage = Math.min(
+      1,
+      (draft.chartSlots.length + draft.timelineSlots.length + draft.ganttSlots.length) / 4,
+    );
+    return Number((sectionCoverage * 0.6 + visualCoverage * 0.4).toFixed(3));
+  }
+
   async writeFromDraft(input: {
     request: UserRequest;
     draft: Draft;
@@ -22,6 +31,15 @@ export class MemoryWritebackService {
     const owner = input.request.userId;
     const projectTag = input.request.industry ?? input.request.reportType ?? "default";
 
+    const qualityScore = this.qualityFromDraft(input.draft);
+    const uniqueSignals = Array.from(
+      new Map(
+        input.signals.map((signal) => [
+          `${signal.signalType}:${signal.sectionHeading ?? "unknown"}`,
+          signal,
+        ]),
+      ).values(),
+    );
     const l1Patch: L1CatalogObject = L1CatalogObjectSchema.parse({
       id: `l1_style_${owner}`,
       type: "StyleIdentitySummary",
@@ -33,7 +51,7 @@ export class MemoryWritebackService {
       projectTag,
       timeRange: { end: new Date().toISOString() },
       keywords: input.draft.sections.map((s) => s.heading).slice(0, 12),
-      qualityScore: 0.72,
+      qualityScore,
       sourceRef: { sourceType: "unknown" },
       title: "风格身份摘要",
       summary: input.draft.summary.slice(0, 500),
@@ -52,14 +70,14 @@ export class MemoryWritebackService {
         projectTag,
         timeRange: { end: new Date().toISOString() },
         keywords: [section.heading, ...section.content.split(/[，。,\s]/).filter((t) => t.length >= 2).slice(0, 8)],
-        qualityScore: 0.68,
+        qualityScore,
         sourceRef: { sourceType: "unknown" },
         title: section.heading,
         structureSummary: section.content.slice(0, 600),
       }),
     );
 
-    const l3Patches: L3DetailPointerObject[] = input.signals.slice(0, 8).map((signal, idx) =>
+    const l3Patches: L3DetailPointerObject[] = uniqueSignals.slice(0, 8).map((signal, idx) =>
       L3DetailPointerObjectSchema.parse({
         id: `l3_edit_signal_${owner}_${idx + 1}`,
         type: "ExemplarSnippetPointer",
@@ -72,7 +90,7 @@ export class MemoryWritebackService {
         projectTag,
         timeRange: { end: new Date().toISOString() },
         keywords: [signal.signalType, signal.sectionHeading ?? "unknown"],
-        qualityScore: 0.55,
+        qualityScore,
         sourceRef: { sourceType: "unknown" },
         pointerType: "unknown",
         pointerSummary: `${signal.signalType}:${signal.sectionHeading ?? "未指定章节"}`,
@@ -87,6 +105,7 @@ export class MemoryWritebackService {
       workflowTemplateId: undefined,
       sectionCount: input.draft.sections.length,
       signalCount: input.signals.length,
+      dedupedSignalCount: uniqueSignals.length,
       chartSlotCount: input.draft.chartSlots.length,
       timelineSlotCount: input.draft.timelineSlots.length,
       ganttSlotCount: input.draft.ganttSlots.length,

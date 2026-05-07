@@ -17,6 +17,17 @@ import {
   userOAuthGrantedScopesCoverRequired,
 } from "../storage/userOAuthStore.js";
 
+function buildFallbackAuthStartUrl(userId: string): string | undefined {
+  const redirectUri = env.FEISHU_USER_OAUTH_REDIRECT_URI.trim();
+  if (!redirectUri.startsWith("http://") && !redirectUri.startsWith("https://")) return undefined;
+  try {
+    const origin = new URL(redirectUri).origin;
+    return `${origin}/api/feishu/auth/start?userId=${encodeURIComponent(userId)}&redirect=1`;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * IM 等非 url_verification 事件；仅在被 webhook 命中时动态加载，避免拖慢冷启动。
  */
@@ -82,7 +93,11 @@ export async function continueFeishuWebhookAfterChallenge(
         });
         await sendCardMessage(c, {
           receiveId: imEvent.chatId,
-          card: buildUserOAuthRequiredCard({ authUrl, userIdHint: imEvent.userId }),
+          card: buildUserOAuthRequiredCard({
+            authUrl,
+            userIdHint: imEvent.userId,
+            fallbackAuthStartUrl: buildFallbackAuthStartUrl(imEvent.userId),
+          }),
         });
       } catch (error) {
         logger.error("webhook: UAT 授权卡片发送失败", { error });
@@ -102,6 +117,14 @@ export async function continueFeishuWebhookAfterChallenge(
         userId: imEvent.userId,
         chatId: imEvent.chatId,
       });
+      try {
+        await sendTextMessage(c, {
+          receiveId: imEvent.chatId,
+          text: "当前文档能力授权已失效，且授权提醒处于冷却期。请稍后重试，或主动打开授权链接完成重新授权：/api/feishu/auth/start?userId=你的open_id",
+        });
+      } catch (notifyErr) {
+        logger.error("webhook: UAT 冷却期文本提示发送失败", { error: notifyErr });
+      }
     }
     await reply.status(200).send({ message: "ok", hint: "oauth_required" });
     return;

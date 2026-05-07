@@ -1,8 +1,7 @@
 import { env } from "../../config/env.js";
-import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { ensureUserOAuthReady } from "../../integrations/feishu/userOAuthRefresh.js";
 import { logger } from "../../shared/logger.js";
-import { splitOAuthScopes } from "../../integrations/feishu/userOAuthAuthorizeFlow.js";
+import { feishuHttpFetch } from "../../integrations/feishu/httpFetch.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 import type {
   HmrsManifest,
@@ -20,6 +19,8 @@ type FeishuFolderItem = {
 };
 
 type WriteObjectKind = "json" | "markdown";
+const DRIVE_TASK_POLL_INTERVAL_MS = 1200;
+const DRIVE_TASK_MAX_POLLS = 20;
 
 async function getUserAccessToken(userId: string): Promise<string> {
   const ensured = await ensureUserOAuthReady(userId);
@@ -30,54 +31,11 @@ async function getUserAccessToken(userId: string): Promise<string> {
   return token;
 }
 
-async function feishuUserRequest<T>(
-  userId: string,
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
-  const token = await getUserAccessToken(userId);
-  const resp = await feishuHttpFetch(`${env.FEISHU_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json; charset=utf-8",
-      ...(init?.headers ?? {}),
-    },
-  });
-  const body = (await resp.json()) as {
-    code?: number;
-    msg?: string;
-    data?: T;
+function toGatewayContext(userId: string) {
+  return {
+    userId,
+    preferUserScope: true as const,
   };
-  if (!resp.ok || body.code !== 0 || !body.data) {
-    throw new Error(`Feishu API failed: ${path}, msg=${body.msg ?? resp.status}`);
-  }
-  return body.data;
-}
-
-function parseFolderItems(raw: unknown): FeishuFolderItem[] {
-  if (!raw || typeof raw !== "object") return [];
-  const data = raw as Record<string, unknown>;
-  const files = Array.isArray(data.files) ? data.files : [];
-  return files
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const row = item as Record<string, unknown>;
-      const token = String(row.token ?? row.file_token ?? row.obj_token ?? "");
-      const name = String(row.name ?? row.title ?? "");
-      const type = String(row.type ?? row.file_type ?? row.obj_type ?? "");
-      const url = typeof row.url === "string" ? row.url : undefined;
-      const modifiedRaw = row.modified_time ?? row.edit_time ?? row.create_time;
-      const modifiedTime =
-        typeof modifiedRaw === "number"
-          ? modifiedRaw
-          : typeof modifiedRaw === "string"
-            ? Number(modifiedRaw) || undefined
-            : undefined;
-      if (!token || !name) return null;
-      return { token, name, type, url, modifiedTime };
-    })
-    .filter((item): item is FeishuFolderItem => item !== null);
 }
 
 function toUploadBuffer(content: string): Uint8Array {
@@ -112,24 +70,88 @@ async function uploadObjectToFolder(input: {
 }
 
 export class HmrsRepository {
+  private async removeFilesByName(
+    userId: string,
+    folderToken: string,
+    fileName: string,
+  ): Promise<void> {
+    const items = await this.listFolderItems(userId, folderToken);
+    const sameName = items.filter((item) => item.name === fileName && !item.type.toLowerCase().includes("folder"));
+    for (const item of sameName) {
+      await this.deleteFile(userId, item.token).catch((error) => {
+        logger.warn("hmrs remove same name file failed", {
+          userId,
+          folderToken,
+          fileName,
+          fileToken: item.token,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  }
+
+  private async waitForTaskCompletion(input: {
+    userId: string;
+    task: {
+      ticket: string;
+      status: "pending" | "success" | "failed";
+      errorMessage?: string;
+      resultFileToken?: string;
+      resultUrl?: string;
+    };
+    op: string;
+  }): Promise<{
+    ticket: string;
+    status: "pending" | "success" | "failed";
+    errorMessage?: string;
+    resultFileToken?: string;
+    resultUrl?: string;
+  }> {
+    if (input.task.status !== "pending") return input.task;
+    let last = input.task;
+    for (let i = 0; i < DRIVE_TASK_MAX_POLLS; i++) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, DRIVE_TASK_POLL_INTERVAL_MS);
+      });
+      const checked = await this.checkTask(input.userId, input.task.ticket).catch(() => last);
+      last = checked;
+      if (checked.status !== "pending") {
+        if (checked.status === "failed") {
+          logger.warn("hmrs drive async task failed", {
+            userId: input.userId,
+            op: input.op,
+            ticket: checked.ticket,
+            error: checked.errorMessage,
+          });
+        }
+        return checked;
+      }
+    }
+    logger.warn("hmrs drive async task polling timeout", {
+      userId: input.userId,
+      op: input.op,
+      ticket: input.task.ticket,
+      polls: DRIVE_TASK_MAX_POLLS,
+    });
+    return last;
+  }
+
   async getRootFolderMeta(userId: string): Promise<{ token: string; url?: string; name?: string }> {
-    const data = await feishuUserRequest<{ token?: string; url?: string; name?: string }>(
-      userId,
-      "/open-apis/drive/explorer/v2/root_folder/meta",
-      { method: "GET" },
-    );
+    const data = await toolGateway.getRootFolderMeta(toGatewayContext(userId));
     const token = data.token?.trim();
     if (!token) throw new Error("无法获取用户 root folder token");
     return { token, url: data.url, name: data.name };
   }
 
   async listFolderItems(userId: string, folderToken: string): Promise<FeishuFolderItem[]> {
-    const data = await feishuUserRequest<Record<string, unknown>>(
-      userId,
-      `/open-apis/drive/v1/files?folder_token=${encodeURIComponent(folderToken)}&page_size=200`,
-      { method: "GET" },
-    );
-    return parseFolderItems(data);
+    const items = await toolGateway.listFolderItems(folderToken, toGatewayContext(userId));
+    return items.map((item) => ({
+      token: item.token,
+      name: item.name,
+      type: item.type,
+      url: item.url,
+      modifiedTime: item.modifiedTime,
+    }));
   }
 
   async listChildFolders(
@@ -161,16 +183,12 @@ export class HmrsRepository {
     parentFolderToken: string,
     folderName: string,
   ): Promise<{ token: string; url?: string; name: string }> {
-    const data = await feishuUserRequest<{ token?: string; url?: string; name?: string }>(
-      userId,
-      "/open-apis/drive/v1/files/create_folder",
+    const data = await toolGateway.createFolder(
       {
-        method: "POST",
-        body: JSON.stringify({
-          name: folderName,
-          folder_token: parentFolderToken,
-        }),
+        parentFolderToken,
+        folderName,
       },
+      toGatewayContext(userId),
     );
     const token = data.token?.trim();
     if (!token) throw new Error(`创建文件夹失败: ${folderName}`);
@@ -203,12 +221,51 @@ export class HmrsRepository {
     return { token: parent, path: built.join("/") };
   }
 
+  private async hasFolderPath(userId: string, rootToken: string, path: string): Promise<boolean> {
+    const segs = path.split("/").map((s) => s.trim()).filter(Boolean);
+    let parent = rootToken;
+    for (const seg of segs) {
+      const existed = await this.findChildFolderByName(userId, parent, seg);
+      if (!existed) return false;
+      parent = existed.token;
+    }
+    return true;
+  }
+
+  async getMissingFolderPaths(
+    userId: string,
+    rootToken: string,
+    requiredPaths: string[],
+  ): Promise<string[]> {
+    const missing: string[] = [];
+    for (const requiredPath of requiredPaths) {
+      const ok = await this.hasFolderPath(userId, rootToken, requiredPath);
+      if (!ok) missing.push(requiredPath);
+    }
+    return missing;
+  }
+
+  async ensureRequiredFolderLayout(
+    userId: string,
+    rootToken: string,
+    requiredPaths: string[],
+  ): Promise<{ missingPaths: string[]; repairedPaths: string[] }> {
+    const missingPaths = await this.getMissingFolderPaths(userId, rootToken, requiredPaths);
+    const repairedPaths: string[] = [];
+    for (const requiredPath of missingPaths) {
+      await this.ensureFolderPath(userId, rootToken, requiredPath);
+      repairedPaths.push(requiredPath);
+    }
+    return { missingPaths, repairedPaths };
+  }
+
   async writeJsonObject(
     userId: string,
     folderToken: string,
     fileName: string,
     payload: unknown,
   ): Promise<void> {
+    await this.removeFilesByName(userId, folderToken, fileName);
     const content = JSON.stringify(payload, null, 2);
     await uploadObjectToFolder({
       userId,
@@ -225,6 +282,7 @@ export class HmrsRepository {
     fileName: string,
     content: string,
   ): Promise<void> {
+    await this.removeFilesByName(userId, folderToken, fileName);
     await uploadObjectToFolder({
       userId,
       parentFolderToken: folderToken,
@@ -259,6 +317,141 @@ export class HmrsRepository {
         return t.includes("doc") || t.includes("docx");
       })
       .map((item) => ({ token: item.token, title: item.name, modifiedTime: item.modifiedTime }));
+  }
+
+  async getFolderMeta(
+    userId: string,
+    folderToken: string,
+  ): Promise<{ token: string; url?: string; name?: string }> {
+    return toolGateway.getFolderMeta(folderToken, toGatewayContext(userId));
+  }
+
+  async moveFile(
+    userId: string,
+    fileToken: string,
+    targetFolderToken: string,
+  ): Promise<{ ticket: string; status: "pending" | "success" | "failed" } | null> {
+    const task = await toolGateway.moveFile({ fileToken, targetFolderToken }, toGatewayContext(userId));
+    if (!task) return null;
+    const settled = await this.waitForTaskCompletion({
+      userId,
+      task,
+      op: "moveFile",
+    });
+    return { ticket: settled.ticket, status: settled.status };
+  }
+
+  async copyFile(
+    userId: string,
+    fileToken: string,
+    targetFolderToken: string,
+    fileName?: string,
+  ): Promise<{ fileToken: string; url?: string }> {
+    const copied = await toolGateway.copyFile(
+      {
+        fileToken,
+        targetFolderToken,
+        fileName,
+      },
+      toGatewayContext(userId),
+    );
+    if (copied.fileToken?.trim()) {
+      return {
+        fileToken: copied.fileToken.trim(),
+        url: copied.url,
+      };
+    }
+    if (copied.task?.ticket) {
+      const settled = await this.waitForTaskCompletion({
+        userId,
+        task: copied.task,
+        op: "copyFile",
+      });
+      if (settled.status === "success" && settled.resultFileToken?.trim()) {
+        return {
+          fileToken: settled.resultFileToken.trim(),
+          url: settled.resultUrl ?? copied.url,
+        };
+      }
+      throw new Error(
+        `copyFile 未获得可用 file token（status=${settled.status} ticket=${settled.ticket}${settled.errorMessage ? ` error=${settled.errorMessage}` : ""})`,
+      );
+    }
+    throw new Error("copyFile 未返回 file token 或 task ticket");
+  }
+
+  async copyDocument(
+    userId: string,
+    fileToken: string,
+    targetFolderToken: string,
+    fileName?: string,
+  ): Promise<{ fileToken: string; url?: string }> {
+    const copied = await toolGateway.copyFile(
+      {
+        fileToken,
+        targetFolderToken,
+        fileName,
+        copyAsDocx: true,
+      },
+      toGatewayContext(userId),
+    );
+    if (copied.fileToken?.trim()) {
+      return {
+        fileToken: copied.fileToken.trim(),
+        url: copied.url,
+      };
+    }
+    if (copied.task?.ticket) {
+      const settled = await this.waitForTaskCompletion({
+        userId,
+        task: copied.task,
+        op: "copyDocument",
+      });
+      if (settled.status === "success" && settled.resultFileToken?.trim()) {
+        return {
+          fileToken: settled.resultFileToken.trim(),
+          url: settled.resultUrl ?? copied.url,
+        };
+      }
+      throw new Error(
+        `copyDocument 未获得可用 file token（status=${settled.status} ticket=${settled.ticket}${settled.errorMessage ? ` error=${settled.errorMessage}` : ""})`,
+      );
+    }
+    throw new Error("copyDocument 未返回 file token 或 task ticket");
+  }
+
+  async deleteFile(
+    userId: string,
+    fileToken: string,
+  ): Promise<{ ticket: string; status: "pending" | "success" | "failed" } | null> {
+    const task = await toolGateway.deleteFile({ fileToken }, toGatewayContext(userId));
+    if (!task) return null;
+    const settled = await this.waitForTaskCompletion({
+      userId,
+      task,
+      op: "deleteFile",
+    });
+    return { ticket: settled.ticket, status: settled.status };
+  }
+
+  async checkTask(
+    userId: string,
+    ticket: string,
+  ): Promise<{
+    ticket: string;
+    status: "pending" | "success" | "failed";
+    errorMessage?: string;
+    resultFileToken?: string;
+    resultUrl?: string;
+  }> {
+    const task = await toolGateway.checkTask({ ticket }, toGatewayContext(userId));
+    return {
+      ticket: task.ticket,
+      status: task.status,
+      errorMessage: task.errorMessage,
+      resultFileToken: task.resultFileToken,
+      resultUrl: task.resultUrl,
+    };
   }
 
   async markRefreshError(userId: string, systemFolderToken: string, message: string): Promise<void> {

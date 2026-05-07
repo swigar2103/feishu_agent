@@ -10,6 +10,7 @@ import { getTenantAccessToken } from "../../integrations/feishu/token.js";
 import { ensureUserOAuthReady } from "../../integrations/feishu/userOAuthRefresh.js";
 import { parseJsonFromMd } from "../retrieval/mdParser.js";
 import { ResourcePoolStore } from "../../storage/resourcePoolStore.js";
+import { ToolGatewayError } from "./errors.js";
 import type {
   AddCommentInput,
   CreateDocumentInput,
@@ -17,8 +18,12 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
+  GatewayDriveItem,
+  GatewayDriveTaskStatus,
+  GatewayFolderMeta,
   GatewayMessage,
   GatewayRequestContext,
+  GatewayRootFolderMeta,
   GatewaySlide,
   GatewayUser,
   GatewayWhiteboard,
@@ -67,6 +72,100 @@ type UserRecord = {
 
 export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
   private readonly poolStore = new ResourcePoolStore();
+
+  private async getUserAccessToken(context?: GatewayRequestContext): Promise<string> {
+    const userId = context?.userId?.trim();
+    if (!userId) {
+      throw new ToolGatewayError("VALIDATION", "drive 操作需要 GatewayRequestContext.userId");
+    }
+    const ensured = await ensureUserOAuthReady(userId);
+    const token = ensured.record?.accessToken?.trim();
+    if (!token) {
+      throw new ToolGatewayError("PERMISSION_DENIED", `用户 ${userId} 无有效飞书用户访问令牌`);
+    }
+    return token;
+  }
+
+  private async requestDriveData<T>(
+    path: string,
+    context: GatewayRequestContext | undefined,
+    init?: RequestInit,
+  ): Promise<T> {
+    const token = await this.getUserAccessToken(context);
+    const res = await feishuHttpFetch(`${getFeishuMvpConfig().baseUrl}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=utf-8",
+        ...(init?.headers ?? {}),
+      },
+    });
+    const body = (await res.json()) as {
+      code?: number;
+      msg?: string;
+      data?: T;
+    };
+    if (!res.ok || body.code !== 0 || !body.data) {
+      throw new ToolGatewayError("UPSTREAM_TEMPORARY", `OpenAPI drive 请求失败: ${path}`, {
+        causeText: body.msg ?? String(res.status),
+      });
+    }
+    return body.data;
+  }
+
+  private toDriveItems(raw: unknown): GatewayDriveItem[] {
+    if (!raw || typeof raw !== "object") return [];
+    const data = raw as Record<string, unknown>;
+    const files = Array.isArray(data.files) ? data.files : [];
+    const items: GatewayDriveItem[] = [];
+    for (const item of files) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const token = String(row.token ?? row.file_token ?? row.obj_token ?? "").trim();
+      const name = String(row.name ?? row.title ?? "").trim();
+      if (!token || !name) continue;
+      const type = String(row.type ?? row.file_type ?? row.obj_type ?? "unknown");
+      const modifiedRaw = row.modified_time ?? row.edit_time ?? row.create_time;
+      const modifiedTime =
+        typeof modifiedRaw === "number"
+          ? modifiedRaw
+          : typeof modifiedRaw === "string"
+            ? Number(modifiedRaw) || undefined
+            : undefined;
+      items.push({
+        token,
+        name,
+        type,
+        ...(typeof row.url === "string" ? { url: row.url } : {}),
+        ...(modifiedTime ? { modifiedTime } : {}),
+      });
+    }
+    return items;
+  }
+
+  private parseTaskStatus(ticket: string, data: Record<string, unknown>): GatewayDriveTaskStatus {
+    const statusRaw = String(data.status ?? data.task_status ?? data.state ?? "").toLowerCase();
+    const status: GatewayDriveTaskStatus["status"] = /success|done|completed|succeed/.test(statusRaw)
+      ? "success"
+      : /fail|error|cancel/.test(statusRaw)
+        ? "failed"
+        : "pending";
+    return {
+      ticket,
+      status,
+      progress: typeof data.progress === "number" ? data.progress : undefined,
+      errorMessage: typeof data.error_message === "string" ? data.error_message : undefined,
+      resultFileToken:
+        typeof data.file_token === "string"
+          ? data.file_token
+          : typeof data.token === "string"
+            ? data.token
+            : typeof data.obj_token === "string"
+              ? data.obj_token
+              : undefined,
+      resultUrl: typeof data.url === "string" ? data.url : undefined,
+    };
+  }
 
   private getAssets(): AssetRecord[] {
     try {
@@ -337,6 +436,144 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
 
   async listMessages(_input: ListMessagesInput): Promise<GatewayMessage[]> {
     return [];
+  }
+
+  async getRootFolderMeta(context?: GatewayRequestContext): Promise<GatewayRootFolderMeta> {
+    const data = await this.requestDriveData<{ token?: string; url?: string; name?: string }>(
+      "/open-apis/drive/explorer/v2/root_folder/meta",
+      context,
+      { method: "GET" },
+    );
+    const token = data.token?.trim();
+    if (!token) {
+      throw new ToolGatewayError("INVALID_RESPONSE", "root_folder/meta 未返回 token");
+    }
+    return {
+      token,
+      url: data.url,
+      name: data.name,
+    };
+  }
+
+  async getFolderMeta(folderToken: string, context?: GatewayRequestContext): Promise<GatewayFolderMeta> {
+    const data = await this.requestDriveData<{ token?: string; url?: string; name?: string }>(
+      `/open-apis/drive/explorer/v2/folder/${encodeURIComponent(folderToken)}/meta`,
+      context,
+      { method: "GET" },
+    );
+    const token = data.token?.trim() || folderToken;
+    return {
+      token,
+      url: data.url,
+      name: data.name,
+    };
+  }
+
+  async listFolderItems(folderToken: string, context?: GatewayRequestContext): Promise<GatewayDriveItem[]> {
+    const data = await this.requestDriveData<Record<string, unknown>>(
+      `/open-apis/drive/v1/files?folder_token=${encodeURIComponent(folderToken)}&page_size=200`,
+      context,
+      { method: "GET" },
+    );
+    return this.toDriveItems(data);
+  }
+
+  async createFolder(
+    input: { parentFolderToken: string; folderName: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayFolderMeta> {
+    const data = await this.requestDriveData<{ token?: string; url?: string; name?: string }>(
+      "/open-apis/drive/v1/files/create_folder",
+      context,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: input.folderName,
+          folder_token: input.parentFolderToken,
+        }),
+      },
+    );
+    const token = data.token?.trim();
+    if (!token) {
+      throw new ToolGatewayError("INVALID_RESPONSE", "create_folder 未返回 token");
+    }
+    return {
+      token,
+      url: data.url,
+      name: data.name ?? input.folderName,
+    };
+  }
+
+  async moveFile(
+    input: { fileToken: string; targetFolderToken: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    const data = await this.requestDriveData<Record<string, unknown>>(
+      `/open-apis/drive/v1/files/${encodeURIComponent(input.fileToken)}/move`,
+      context,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          folder_token: input.targetFolderToken,
+          type: "explorer",
+        }),
+      },
+    );
+    const ticket = String(data.ticket ?? data.task_id ?? "").trim();
+    if (!ticket) return null;
+    return this.parseTaskStatus(ticket, data);
+  }
+
+  async copyFile(
+    input: { fileToken: string; targetFolderToken: string; fileName?: string; copyAsDocx?: boolean },
+    context?: GatewayRequestContext,
+  ): Promise<{ fileToken?: string; url?: string; task?: GatewayDriveTaskStatus | null }> {
+    const path = input.copyAsDocx
+      ? `/open-apis/drive/explorer/v2/file/copy/files/${encodeURIComponent(input.fileToken)}`
+      : `/open-apis/drive/v1/files/${encodeURIComponent(input.fileToken)}/copy`;
+    const data = await this.requestDriveData<Record<string, unknown>>(path, context, {
+      method: "POST",
+      body: JSON.stringify({
+        folder_token: input.targetFolderToken,
+        name: input.fileName,
+      }),
+    });
+    const fileToken = String(data.token ?? data.file_token ?? data.obj_token ?? "").trim();
+    const ticket = String(data.ticket ?? data.task_id ?? "").trim();
+    if (!fileToken && !ticket) {
+      throw new ToolGatewayError("INVALID_RESPONSE", "copy file 未返回 file token/task ticket");
+    }
+    return {
+      ...(fileToken ? { fileToken } : {}),
+      ...(typeof data.url === "string" ? { url: data.url } : {}),
+      ...(ticket ? { task: this.parseTaskStatus(ticket, data) } : {}),
+    };
+  }
+
+  async deleteFile(
+    input: { fileToken: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    const data = await this.requestDriveData<Record<string, unknown>>(
+      `/open-apis/drive/v1/files/${encodeURIComponent(input.fileToken)}`,
+      context,
+      { method: "DELETE" },
+    );
+    const ticket = String(data.ticket ?? data.task_id ?? "").trim();
+    if (!ticket) return null;
+    return this.parseTaskStatus(ticket, data);
+  }
+
+  async checkTask(
+    input: { ticket: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus> {
+    const data = await this.requestDriveData<Record<string, unknown>>(
+      `/open-apis/drive/v1/files/task_check?ticket=${encodeURIComponent(input.ticket)}`,
+      context,
+      { method: "GET" },
+    );
+    return this.parseTaskStatus(input.ticket, data);
   }
 }
 

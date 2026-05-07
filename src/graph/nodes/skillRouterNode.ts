@@ -8,7 +8,10 @@ export async function skillRouterNode(
     throw new Error("skill_router 缺少 intentResult");
   }
 
-  const skillMatch = routeSkill(state.intentResult);
+  const skillMatch = routeSkill(state.intentResult, {
+    prompt: state.taskRequest?.userRequest.prompt,
+    userId: state.taskRequest?.userRequest.userId,
+  });
   return {
     skillMatch,
     debugTrace: [

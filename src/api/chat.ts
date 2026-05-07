@@ -13,12 +13,11 @@ import {
   listChatSessionsForUser,
   setLatestReport,
 } from "../services/chat/sessionStore.js";
-import { MemoryStore } from "../storage/memoryStore.js";
+import { updateMemoryFromEditorFeedback } from "../services/agent/memoryUpdater.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
 import { createFeishuUserAuthorizeSession } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
 
 const poolManager = new ResourcePoolManager();
-const memoryStore = new MemoryStore();
 
 function maybeBuildOAuthHint(error: unknown, userId: string): { oauthRequired: true; authUrl: string } | null {
   const msg = error instanceof Error ? error.message : String(error);
@@ -464,10 +463,21 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
       role: "assistant",
       content: "已按工作台局部编辑写回当前报告草稿。",
     });
-    memoryStore.recordEditSignal({
+    await updateMemoryFromEditorFeedback({
       userId: session.userId,
+      sessionId,
+      draft: {
+        ...nextReport,
+        format: "doc",
+        sectionBlocks: [],
+        timelineSlots: [],
+        ganttSlots: [],
+        chartSlots: [],
+      },
+      signalType: "manual_edit",
       sectionHeading: nextReport.sections[idx]?.heading,
-      mode: "manual_edit",
+      industry: session.industry,
+      reportType: session.reportType,
     });
     return reply.send({
       latestReport: nextReport,
@@ -525,10 +535,21 @@ export async function registerChatRoutes(app: FastifyInstance): Promise<void> {
         content: md,
       });
       setLatestReport(sessionId, result.report);
-      memoryStore.recordEditSignal({
+      await updateMemoryFromEditorFeedback({
         userId: session.userId,
+        sessionId,
+        draft: {
+          ...result.report,
+          format: "doc",
+          sectionBlocks: [],
+          timelineSlots: [],
+          ganttSlots: [],
+          chartSlots: [],
+        },
+        signalType: "ai_partial_rewrite",
         sectionHeading: section.heading,
-        mode: "ai_partial_rewrite",
+        industry: session.industry,
+        reportType: session.reportType,
       });
       return reply.send({
         latestReport: result.report,

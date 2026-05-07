@@ -19,7 +19,7 @@ export async function complianceReviewerNode(
   });
 
   const loop = state.complianceLoopCount + 1;
-  let route: "to_planner" | "to_analyst" | "to_output" = "to_output";
+  let route: "to_planner" | "to_analyst" | "to_publish" = "to_publish";
   if (!result.pass && loop <= MAX_COMPLIANCE_RETRY) {
     route = result.issueType === "data_quality" ? "to_analyst" : "to_planner";
   }

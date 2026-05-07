@@ -52,6 +52,35 @@ export type GatewayRequestContext = {
   preferUserScope?: boolean;
 };
 
+export type GatewayDriveItem = {
+  token: string;
+  name: string;
+  type: string;
+  url?: string;
+  modifiedTime?: number;
+};
+
+export type GatewayRootFolderMeta = {
+  token: string;
+  url?: string;
+  name?: string;
+};
+
+export type GatewayFolderMeta = {
+  token: string;
+  url?: string;
+  name?: string;
+};
+
+export type GatewayDriveTaskStatus = {
+  ticket: string;
+  status: "pending" | "success" | "failed";
+  progress?: number;
+  errorMessage?: string;
+  resultFileToken?: string;
+  resultUrl?: string;
+};
+
 export type CreateDocumentInput = {
   title: string;
   content?: string;
@@ -109,4 +138,27 @@ export interface FeishuToolGatewayApi {
   updateWhiteboard(input: UpdateWhiteboardInput): Promise<boolean>;
   sendMessage(input: SendMessageInput): Promise<boolean>;
   listMessages(input: ListMessagesInput): Promise<GatewayMessage[]>;
+  getRootFolderMeta(context?: GatewayRequestContext): Promise<GatewayRootFolderMeta>;
+  getFolderMeta(folderToken: string, context?: GatewayRequestContext): Promise<GatewayFolderMeta>;
+  listFolderItems(folderToken: string, context?: GatewayRequestContext): Promise<GatewayDriveItem[]>;
+  createFolder(
+    input: { parentFolderToken: string; folderName: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayFolderMeta>;
+  moveFile(
+    input: { fileToken: string; targetFolderToken: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null>;
+  copyFile(
+    input: { fileToken: string; targetFolderToken: string; fileName?: string; copyAsDocx?: boolean },
+    context?: GatewayRequestContext,
+  ): Promise<{ fileToken?: string; url?: string; task?: GatewayDriveTaskStatus | null }>;
+  deleteFile(
+    input: { fileToken: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null>;
+  checkTask(
+    input: { ticket: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus>;
 }

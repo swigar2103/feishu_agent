@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SkillSchema, UserRequestSchema, WriterOutputSchema } from "./index.js";
+import { TemplateDistillationSchema } from "./templateProfile.js";
 
 export const TaskRequestSchema = z.object({
   requestId: z.string().min(1),
@@ -113,7 +114,7 @@ export const SkillMatchSchema = z.object({
   selectedSkill: SkillSchema,
   matchReason: z.string().min(1),
   source: z
-    .enum(["reference", "anchor", "fallback", "lark_cli_workflow"])
+    .enum(["reference", "anchor", "fallback", "lark_cli_workflow", "user_template"])
     .default("fallback"),
   larkCliGuidance: LarkCliGuidanceSchema.optional(),
   workflowMeta: WorkflowMetaSchema.optional(),
@@ -149,6 +150,22 @@ export const ExecutionPlanSchema = z.object({
 
 export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;
 
+export const BlueprintPlanSchema = z.object({
+  sectionBlueprint: z.array(z.string()).min(1),
+  visualSlots: z
+    .array(
+      z.object({
+        slotType: z.enum(["timeline", "gantt", "chart", "table"]),
+        sectionHeading: z.string().min(1),
+        intent: z.string().min(1),
+      }),
+    )
+    .default([]),
+  templateGuardrails: z.array(z.string()).default([]),
+});
+
+export type BlueprintPlan = z.infer<typeof BlueprintPlanSchema>;
+
 export const DetailedContextSchema = z.object({
   facts: z.array(
     z.object({
@@ -163,6 +180,7 @@ export const DetailedContextSchema = z.object({
       detail: z.string().min(1),
     }),
   ).default([]),
+  templateDistillation: TemplateDistillationSchema.optional(),
 });
 
 export type DetailedContext = z.infer<typeof DetailedContextSchema>;

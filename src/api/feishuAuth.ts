@@ -18,6 +18,7 @@ import { getUserOAuthRecord, upsertUserOAuthRecord } from "../storage/userOAuthS
 const StartQuerySchema = z.object({
   userId: z.string().min(1),
   returnTo: z.string().optional(),
+  redirect: z.coerce.boolean().optional().default(false),
 });
 
 const CallbackQuerySchema = z.object({
@@ -36,12 +37,15 @@ export async function registerFeishuAuthRoutes(app: FastifyInstance): Promise<vo
       return reply.status(400).send({ message: "invalid query", issues: parsed.error.issues });
     }
     try {
-      const { userId, returnTo } = parsed.data;
+      const { userId, returnTo, redirect } = parsed.data;
       const { authUrl, state, expiresInMs } = createFeishuUserAuthorizeSession({
         userId,
         returnTo,
       });
       const scopes = splitOAuthScopes(env.FEISHU_USER_OAUTH_SCOPES);
+      if (redirect) {
+        return reply.redirect(authUrl);
+      }
       return reply.send({
         ok: true,
         identityMode: env.FEISHU_IDENTITY_MODE,

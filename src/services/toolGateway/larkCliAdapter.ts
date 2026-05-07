@@ -7,9 +7,13 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
+  GatewayDriveItem,
+  GatewayDriveTaskStatus,
+  GatewayFolderMeta,
   GatewayMessage,
-  GatewaySlide,
   GatewayUser,
+  GatewayRootFolderMeta,
+  GatewaySlide,
   GatewayWhiteboard,
   GatewayRequestContext,
   ListMessagesInput,
@@ -348,6 +352,56 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     }
     const payload = await this.runCli(args);
     return parseMessages(payload);
+  }
+
+  async getRootFolderMeta(_context?: GatewayRequestContext): Promise<GatewayRootFolderMeta> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 drive root meta 命令");
+  }
+
+  async getFolderMeta(_folderToken: string, _context?: GatewayRequestContext): Promise<GatewayFolderMeta> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 folder meta 命令");
+  }
+
+  async listFolderItems(
+    _folderToken: string,
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveItem[]> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 folder list 命令");
+  }
+
+  async createFolder(
+    _input: { parentFolderToken: string; folderName: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayFolderMeta> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 create folder 命令");
+  }
+
+  async moveFile(
+    _input: { fileToken: string; targetFolderToken: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 move file 命令");
+  }
+
+  async copyFile(
+    _input: { fileToken: string; targetFolderToken: string; fileName?: string; copyAsDocx?: boolean },
+    _context?: GatewayRequestContext,
+  ): Promise<{ fileToken?: string; url?: string; task?: GatewayDriveTaskStatus | null }> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 copy file 命令");
+  }
+
+  async deleteFile(
+    _input: { fileToken: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 delete file 命令");
+  }
+
+  async checkTask(
+    _input: { ticket: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 task check 命令");
   }
 }
 

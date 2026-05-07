@@ -1,9 +1,58 @@
 import { env } from "../../config/env.js";
 import { assertFeishuMvpConfig, type FeishuMvpConfig } from "./feishuConfig.js";
-import { buildFallbackGeneratedDocCard } from "./cards.js";
+import { buildFallbackGeneratedDocCard, buildUserOAuthRequiredCard } from "./cards.js";
 import { sendCardMessage, sendTextMessage } from "./imMessage.js";
 import type { ParsedFeishuImTextEvent } from "./webhookMessageParse.js";
 import { logger } from "../../shared/logger.js";
+import { createFeishuUserAuthorizeSession } from "./userOAuthAuthorizeFlow.js";
+import { shouldRemindUat } from "./uatReminder.js";
+
+function buildFallbackAuthStartUrl(userId: string): string | undefined {
+  const redirectUri = env.FEISHU_USER_OAUTH_REDIRECT_URI.trim();
+  if (!redirectUri.startsWith("http://") && !redirectUri.startsWith("https://")) return undefined;
+  try {
+    const origin = new URL(redirectUri).origin;
+    return `${origin}/api/feishu/auth/start?userId=${encodeURIComponent(userId)}&redirect=1`;
+  } catch {
+    return undefined;
+  }
+}
+
+function isUatOAuthRequiredError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return msg.includes("无有效飞书用户访问令牌");
+}
+
+async function notifyOAuthRequired(
+  c: FeishuMvpConfig,
+  imEvent: ParsedFeishuImTextEvent,
+  pipeline: "full" | "phase1",
+): Promise<void> {
+  const { authUrl } = createFeishuUserAuthorizeSession({
+    userId: imEvent.userId,
+    replay: {
+      chatId: imEvent.chatId,
+      text: imEvent.text,
+      messageId: imEvent.messageId,
+      pipeline,
+    },
+  });
+  if (shouldRemindUat(imEvent.userId, imEvent.chatId)) {
+    await sendCardMessage(c, {
+      receiveId: imEvent.chatId,
+      card: buildUserOAuthRequiredCard({
+        authUrl,
+        userIdHint: imEvent.userId,
+        fallbackAuthStartUrl: buildFallbackAuthStartUrl(imEvent.userId),
+      }),
+    });
+    return;
+  }
+  await sendTextMessage(c, {
+    receiveId: imEvent.chatId,
+    text: `需要重新授权后才能继续处理。请点击授权：${authUrl}`,
+  });
+}
 
 /**
  * 与 webhook 一致：异步执行 IM 文本链路（phase1 或 full），自带错误通知。
@@ -32,6 +81,14 @@ export function runImTextPipelineFireAndForget(
         });
       } catch (error) {
         logger.error("im pipeline phase1 failed", { error });
+        if (isUatOAuthRequiredError(error)) {
+          try {
+            await notifyOAuthRequired(c, imEvent, "phase1");
+            return;
+          } catch (notifyErr) {
+            logger.error("im pipeline phase1 oauth notify failed", { error: notifyErr });
+          }
+        }
         try {
           await sendTextMessage(c, {
             receiveId: imEvent.chatId,
@@ -57,6 +114,14 @@ export function runImTextPipelineFireAndForget(
       await runFullPipelineAndNotifyChat(c, imEvent);
     } catch (error) {
       logger.error("im pipeline full failed", { error });
+      if (isUatOAuthRequiredError(error)) {
+        try {
+          await notifyOAuthRequired(c, imEvent, "full");
+          return;
+        } catch (notifyErr) {
+          logger.error("im pipeline full oauth notify failed", { error: notifyErr });
+        }
+      }
       try {
         await sendTextMessage(c, {
           receiveId: imEvent.chatId,

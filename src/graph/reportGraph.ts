@@ -16,12 +16,14 @@ import { ReportGraphState, type ReportGraphStateType } from "./state.js";
 
 function routeAfterStyle(state: ReportGraphStateType): string {
   if (state.callbackRoute === "to_writer") return "writer_agent";
+  if (state.callbackRoute === "to_compliance") return "compliance_reviewer";
   return "compliance_reviewer";
 }
 
 function routeAfterCompliance(state: ReportGraphStateType): string {
   if (state.callbackRoute === "to_planner") return "planner_agent";
   if (state.callbackRoute === "to_analyst") return "analyst_agent";
+  if (state.callbackRoute === "to_publish") return "output_generator";
   return "output_generator";
 }
 

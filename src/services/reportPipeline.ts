@@ -1,6 +1,7 @@
 import { reportGraph } from "../graph/reportGraph.js";
 import { env } from "../config/env.js";
 import { logger } from "../shared/logger.js";
+import { summarizeError } from "../shared/errorSummary.js";
 import { publishPipelineProgress } from "./progress/pipelineProgress.js";
 import {
   UserRequestSchema,
@@ -11,6 +12,7 @@ import {
 } from "../schemas/index.js";
 import type {
   ComplianceReviewResult,
+  Draft,
   ExecutionPlan,
   FinalDeliverable,
   IntentResult,
@@ -58,6 +60,7 @@ type ReportPipelineResult = {
   resourcePoolChange?: ResourcePoolChange;
   qualityBaseline?: QualityBaseline;
   outputTargets?: Array<"feishu_doc" | "bitable" | "slides">;
+  draft?: Draft;
   report: WriterOutput;
   debugTrace?: string[];
   templateDistillation?: TemplateDistillation;
@@ -244,10 +247,21 @@ export async function runReportPipeline(
     qualityBaseline,
     outputTargets:
       request.outputTargets.length > 0 ? request.outputTargets : ["feishu_doc"],
+    draft: state.draft ?? undefined,
     report: state.writerOutput,
     debugTrace: state.debugTrace.length > 0 ? state.debugTrace : undefined,
-    templateDistillation: state.retrievalContext?.templateDistillation ?? undefined,
+    templateDistillation:
+      state.detailedContext?.templateDistillation ??
+      state.retrievalContext?.templateDistillation ??
+      undefined,
   };
+  } catch (error) {
+    logger.error("report graph 失败", {
+      sessionId: request.sessionId,
+      userId: request.userId,
+      error: summarizeError(error),
+    });
+    throw error;
   } finally {
     if (!ok) {
       publishPipelineProgress({

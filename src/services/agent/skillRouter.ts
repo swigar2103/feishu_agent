@@ -6,6 +6,7 @@ import { SkillMatchSchema, type IntentResult, type SkillMatch } from "../../sche
 import { parseSkillDocFromMd, type SkillDoc } from "../retrieval/mdParser.js";
 import { loadLarkCliGuidance } from "./larkCliGuidance.js";
 import { matchWorkflowSkill, toWorkflowSkill } from "./workflowSkillRegistry.js";
+import { matchTemplateSkill } from "./templateSkillStore.js";
 
 function collectMdFiles(root: string): string[] {
   if (!fs.existsSync(root)) return [];
@@ -104,7 +105,10 @@ function enrichSkillWithGuidance(skill: Skill): Skill {
   });
 }
 
-export function routeSkill(intent: IntentResult): SkillMatch {
+export function routeSkill(
+  intent: IntentResult,
+  input?: { prompt?: string; userId?: string },
+): SkillMatch {
   const referenceDocs = loadSkillDocs(path.resolve(process.cwd(), "src", "skills"));
   const anchorDocs = loadSkillDocs(path.resolve(process.cwd(), "SKILLS"));
   const larkCliGuidance = loadLarkCliGuidance();
@@ -112,6 +116,35 @@ export function routeSkill(intent: IntentResult): SkillMatch {
     throw new Error(
       "模板层要求 lark-cli guidance，但当前未加载到 cli-main/docs 规范，请检查 cli-main 测试样例与配置。",
     );
+  }
+  const templateMatched = matchTemplateSkill({
+    intent,
+    prompt: input?.prompt,
+    userId: input?.userId,
+  });
+  if (templateMatched) {
+    const templateSkill = enrichSkillWithGuidance(templateMatched.selectedSkill);
+    return SkillMatchSchema.parse({
+      selectedSkill: templateSkill,
+      matchReason: `命中用户模板：${templateMatched.template.templateName}`,
+      source: "user_template",
+      larkCliGuidance: larkCliGuidance.enabled ? larkCliGuidance : undefined,
+      workflowMeta: {
+        workflowSourceId: `hmrs.template.${templateMatched.template.id}`,
+        workflowTemplateId: templateMatched.template.templateName,
+        confidence: templateMatched.confidence,
+        recommendedTools: ["docs +fetch", "docs +update"],
+        outputTargets: ["feishu_doc"],
+        reviewRules: [
+          "章节顺序与模板保持一致",
+          "保留模板中关键版式块与填空位",
+        ],
+        templateHints: templateMatched.template.templateHints ?? [],
+        qualityChecks: (templateMatched.template.layoutBlocks ?? []).map(
+          (b) => `layout:${b.tag}>=${b.count}`,
+        ),
+      },
+    });
   }
   const workflowMatched = matchWorkflowSkill(intent);
   if (workflowMatched.entry) {

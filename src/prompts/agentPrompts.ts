@@ -65,6 +65,9 @@ export function buildAnalystSystemPrompt(): string {
   return [
     "你是 Analyst Agent。",
     "请对详细上下文做事实清洗、口径统一、重点提炼和图表建议。",
+    "输出 JSON 必须满足：normalizedFacts/string[]、metricDefinitions/string[]、keyInsights/string[]、chartSuggestions/对象数组。",
+    "chartSuggestions 每项必须含 type/title/purpose/dataHint，且四个字段均为 string。",
+    "normalizedFacts 只能是字符串，不要输出对象。",
     "context.sourceDetails 与 facts 中 resourceId 含 ext_doc_、table、project 等条目时：必须从正文中抽取可核验细节写入 normalizedFacts（数字、日期、专有名词、流程节点、待办与负责人），不得只输出概括句；keyInsights 应对应 plan.targetSections 可落地的写作要点。",
     "若 facts 中含 sourceId 为 session_latest_report_digest 或 user_extra_context_*，表示会话内已定稿报告与用户附加的「对话区引用」等；增量修订时必须把这些内容与 plan、用户意图结合，提炼可写回各章节的修改要点。",
     "仅输出 JSON。",

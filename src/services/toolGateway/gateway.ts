@@ -1,7 +1,7 @@
 import { env } from "../../config/env.js";
 import { logger } from "../../shared/logger.js";
 import type { GatewayCapability } from "./capabilities.js";
-import { isFallbackableGatewayError } from "./errors.js";
+import { ToolGatewayError, isFallbackableGatewayError } from "./errors.js";
 import { FeishuMcpAdapter } from "./feishuMcpAdapter.js";
 import { LarkCliAdapter } from "./larkCliAdapter.js";
 import { FeishuOpenApiAdapter } from "./feishuOpenApiAdapter.js";
@@ -13,8 +13,12 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
+  GatewayDriveItem,
+  GatewayDriveTaskStatus,
+  GatewayFolderMeta,
   GatewayMessage,
   GatewayRequestContext,
+  GatewayRootFolderMeta,
   GatewaySlide,
   GatewayUser,
   GatewayWhiteboard,
@@ -172,6 +176,14 @@ export class ToolGateway implements FeishuToolGatewayApi {
           error: error instanceof Error ? error.message : String(error),
         });
         if (!fallbackable) {
+          throw error;
+        }
+        if (
+          capability === "document.search" &&
+          error instanceof ToolGatewayError &&
+          error.code === "VALIDATION"
+        ) {
+          // search 参数已判定不合法时，不再切换后续 adapter 重复打同类失败请求
           throw error;
         }
         if (this.shouldDisableFallback(capability) && adapterName === "lark_cli") {
@@ -377,6 +389,93 @@ export class ToolGateway implements FeishuToolGatewayApi {
   listMessages(input: ListMessagesInput): Promise<GatewayMessage[]> {
     return this.executeWithPolicy("message.list", "listMessages", (adapter) =>
       adapter.listMessages(input),
+    );
+  }
+
+  getRootFolderMeta(context?: GatewayRequestContext): Promise<GatewayRootFolderMeta> {
+    return this.executeWithPolicy(
+      "drive.root.meta",
+      "getRootFolderMeta",
+      (adapter) => adapter.getRootFolderMeta(context),
+      context,
+    );
+  }
+
+  getFolderMeta(folderToken: string, context?: GatewayRequestContext): Promise<GatewayFolderMeta> {
+    return this.executeWithPolicy(
+      "drive.folder.meta",
+      "getFolderMeta",
+      (adapter) => adapter.getFolderMeta(folderToken, context),
+      context,
+    );
+  }
+
+  listFolderItems(folderToken: string, context?: GatewayRequestContext): Promise<GatewayDriveItem[]> {
+    return this.executeWithPolicy(
+      "drive.folder.list",
+      "listFolderItems",
+      (adapter) => adapter.listFolderItems(folderToken, context),
+      context,
+    );
+  }
+
+  createFolder(
+    input: { parentFolderToken: string; folderName: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayFolderMeta> {
+    return this.executeWithPolicy(
+      "drive.folder.create",
+      "createFolder",
+      (adapter) => adapter.createFolder(input, context),
+      context,
+    );
+  }
+
+  moveFile(
+    input: { fileToken: string; targetFolderToken: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    return this.executeWithPolicy(
+      "drive.file.move",
+      "moveFile",
+      (adapter) => adapter.moveFile(input, context),
+      context,
+    );
+  }
+
+  copyFile(
+    input: { fileToken: string; targetFolderToken: string; fileName?: string; copyAsDocx?: boolean },
+    context?: GatewayRequestContext,
+  ): Promise<{ fileToken?: string; url?: string; task?: GatewayDriveTaskStatus | null }> {
+    return this.executeWithPolicy(
+      "drive.file.copy",
+      "copyFile",
+      (adapter) => adapter.copyFile(input, context),
+      context,
+    );
+  }
+
+  deleteFile(
+    input: { fileToken: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    return this.executeWithPolicy(
+      "drive.file.delete",
+      "deleteFile",
+      (adapter) => adapter.deleteFile(input, context),
+      context,
+    );
+  }
+
+  checkTask(
+    input: { ticket: string },
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus> {
+    return this.executeWithPolicy(
+      "drive.task.check",
+      "checkTask",
+      (adapter) => adapter.checkTask(input, context),
+      context,
     );
   }
 }

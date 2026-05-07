@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { UserRequestSchema } from "../schemas/index.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
 import { createFeishuUserAuthorizeSession } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
+import { getErrorMessage, summarizeError } from "../shared/errorSummary.js";
 import {
   getPipelineProgressSnapshot,
   subscribePipelineProgress,
@@ -65,7 +66,13 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
           issues: error.issues,
         });
       }
-      request.log.error({ error }, "generate-report failed");
+      request.log.error(
+        {
+          errorMessage: getErrorMessage(error),
+          errorSummary: summarizeError(error),
+        },
+        "generate-report failed",
+      );
       const oauthHint = maybeBuildOAuthHint(error, parsedUserId);
       return reply.status(500).send({
         message: error instanceof Error ? error.message : "内部错误",
@@ -89,6 +96,7 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
       });
       const file = await generateReportDocxBuffer({
         report: result.report,
+        draft: result.draft,
         taskPlan: result.taskPlan,
         debugTrace: result.debugTrace,
         templateProfile: pickPrimaryTemplateProfile(
@@ -109,7 +117,13 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
           issues: error.issues,
         });
       }
-      request.log.error({ error }, "generate-report-docx failed");
+      request.log.error(
+        {
+          errorMessage: getErrorMessage(error),
+          errorSummary: summarizeError(error),
+        },
+        "generate-report-docx failed",
+      );
       const oauthHint = maybeBuildOAuthHint(error, parsedUserId);
       return reply.status(500).send({
         message: error instanceof Error ? error.message : "内部错误",

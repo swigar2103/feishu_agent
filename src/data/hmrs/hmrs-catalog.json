@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-06T20:53:34.820Z",
+  "updatedAt": "2026-05-07T01:11:20.772Z",
   "items": [
     {
       "id": "l1_doc_feishu_001",
@@ -101,31 +101,35 @@
       "roomId": "self_room",
       "drawerId": "style_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
-      "projectTag": "通用",
+      "projectTag": "default",
       "timeRange": {
-        "end": "2026-05-06T20:19:36.556Z"
+        "end": "2026-05-07T00:59:55.688Z"
       },
       "keywords": [
-        "今日完成",
-        "明日计划",
-        "阻塞项与协作",
-        "行动项"
+        "【项目名称】@总负责人",
+        "本周总结",
+        "已完成",
+        "进行中",
+        "下周计划"
       ],
-      "qualityScore": 0.72,
+      "qualityScore": 0.5,
       "sourceRef": {
         "sourceType": "unknown"
       },
       "title": "风格身份摘要",
-      "summary": "本周我们继续推进项目的关键任务，并针对存在的风险制定了相应的应对措施。"
+      "summary": "本周我们团队继续推进项目进展，但由于未能获取到具体的工作文档信息，导致部分关键内容缺失。"
     },
     {
       "id": "l1_ext_doc_Z2QzdBeouobyelxTvQsc7dfBnBd",
       "type": "doc_summary",
       "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-07T01:11:20.770Z"
       },
       "keywords": [
         "周报",
@@ -146,10 +150,13 @@
       "id": "l1_ext_doc_Sr7NwSCc6ieXb0kWW1pcrjSYnEc",
       "type": "doc_summary",
       "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-07T01:11:20.770Z"
       },
       "keywords": [
         "业务经营周报",
@@ -169,10 +176,13 @@
       "id": "l1_ext_doc_U20XdQENzoggJDxedflc5Mrpn0e",
       "type": "doc_summary",
       "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-07T00:55:29.462Z"
       },
       "keywords": [
         "体育类新闻周报",
@@ -193,10 +203,13 @@
       "id": "l1_ext_doc_Of7YdTt2hoNJOKxtgnsci0LKnHb",
       "type": "doc_summary",
       "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-07T00:55:29.462Z"
       },
       "keywords": [
         "体育类新闻周报",
@@ -241,10 +254,13 @@
       "id": "l1_ext_doc_B8shdjmeBoZfGtxdjoEcJRgvnvf",
       "type": "doc_summary",
       "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-07T00:55:29.462Z"
       },
       "keywords": [
         "本周体育类新闻周报",
@@ -365,6 +381,222 @@
       },
       "title": "第17周医疗运营周报（华章义远·滨江院区）",
       "summary": "<b>华章义远医疗集团 · 滨江综合院区（三甲）医疗运营</b><hb>周报</hb><b>（第17周 / 2026-04-21～2026-04-27）</b>"
+    },
+    {
+      "id": "l1_ext_doc_I3PtdB2x6oI3hPxvtO1cmiu0nqe",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.770Z"
+      },
+      "keywords": [
+        "团队工作周报",
+        "<b>团队工作</b><hb>周报</hb>",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "I3PtdB2x6oI3hPxvtO1cmiu0nqe",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/I3PtdB2x6oI3hPxvtO1cmiu0nqe"
+      },
+      "title": "团队工作周报",
+      "summary": "<b>团队工作</b><hb>周报</hb>"
+    },
+    {
+      "id": "l1_ext_doc_Q5UodFXuvo98IuxW69Ecdqcanwh",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.770Z"
+      },
+      "keywords": [
+        "业务经营周报",
+        "文档候选：业务经营周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Q5UodFXuvo98IuxW69Ecdqcanwh",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Q5UodFXuvo98IuxW69Ecdqcanwh"
+      },
+      "title": "业务经营周报",
+      "summary": "文档候选：业务经营周报"
+    },
+    {
+      "id": "l1_ext_doc_O7J7dxZSKo72uGx3MCrcdElinlb",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.770Z"
+      },
+      "keywords": [
+        "团队工作周报",
+        "文档候选：团队工作周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "O7J7dxZSKo72uGx3MCrcdElinlb",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/O7J7dxZSKo72uGx3MCrcdElinlb"
+      },
+      "title": "团队工作周报",
+      "summary": "文档候选：团队工作周报"
+    },
+    {
+      "id": "l1_ext_doc_GXFTdeFPYoh13TxGAGncc15Bnvf",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.770Z"
+      },
+      "keywords": [
+        "业务经营周报",
+        "文档候选：业务经营周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "GXFTdeFPYoh13TxGAGncc15Bnvf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/GXFTdeFPYoh13TxGAGncc15Bnvf"
+      },
+      "title": "业务经营周报",
+      "summary": "文档候选：业务经营周报"
+    },
+    {
+      "id": "l1_ext_doc_VLPqd1U1Oofuz4xOkVec0qm2nBb",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.770Z"
+      },
+      "keywords": [
+        "体育类新闻周报",
+        "<b>体育类新闻</b><hb>周报</hb>",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "VLPqd1U1Oofuz4xOkVec0qm2nBb",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/VLPqd1U1Oofuz4xOkVec0qm2nBb"
+      },
+      "title": "体育类新闻周报",
+      "summary": "<b>体育类新闻</b><hb>周报</hb>"
+    },
+    {
+      "id": "l1_ext_doc_P8MxdwDoMoy3zZxE692cfg1rnUh",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.769Z"
+      },
+      "keywords": [
+        "团队工作周报",
+        "<b>团队工作</b><hb>周报</hb>",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "P8MxdwDoMoy3zZxE692cfg1rnUh",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/P8MxdwDoMoy3zZxE692cfg1rnUh"
+      },
+      "title": "团队工作周报",
+      "summary": "<b>团队工作</b><hb>周报</hb>"
+    },
+    {
+      "id": "l1_ext_doc_U3ktdJmMfofZqvx6AyDcw4aZnze",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.770Z"
+      },
+      "keywords": [
+        "团队工作周报",
+        "<b>团队工作</b><hb>周报</hb>",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "U3ktdJmMfofZqvx6AyDcw4aZnze",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/U3ktdJmMfofZqvx6AyDcw4aZnze"
+      },
+      "title": "团队工作周报",
+      "summary": "<b>团队工作</b><hb>周报</hb>"
+    },
+    {
+      "id": "l1_ext_doc_SJjvdh7Lroaaw3xBX2BcXtFcn2N",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T01:11:20.770Z"
+      },
+      "keywords": [
+        "团队工作周报",
+        "<b>团队工作</b><hb>周报</hb>",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "SJjvdh7Lroaaw3xBX2BcXtFcn2N",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/SJjvdh7Lroaaw3xBX2BcXtFcn2N"
+      },
+      "title": "团队工作周报",
+      "summary": "<b>团队工作</b><hb>周报</hb>"
     }
   ]
 }

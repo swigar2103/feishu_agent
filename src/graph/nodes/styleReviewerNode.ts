@@ -22,10 +22,10 @@ export async function styleReviewerNode(
   return {
     styleReviewResult: result,
     styleReviewLoopCount: loop,
-    callbackRoute: shouldRewrite ? "to_writer" : "to_output",
+    callbackRoute: shouldRewrite ? "to_writer" : "to_compliance",
     styleRewriteHints: shouldRewrite ? result.suggestions : [],
     debugTrace: [
-      `[style_reviewer] pass=${result.pass} loop=${loop} rewrite=${shouldRewrite}`,
+      `[style_reviewer] pass=${result.pass} loop=${loop} rewrite=${shouldRewrite} route=${shouldRewrite ? "to_writer" : "to_compliance"}`,
     ],
   };
 }

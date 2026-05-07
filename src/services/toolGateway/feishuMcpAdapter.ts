@@ -11,8 +11,12 @@ import type {
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
+  GatewayDriveItem,
+  GatewayDriveTaskStatus,
+  GatewayFolderMeta,
   GatewayMessage,
   GatewayRequestContext,
+  GatewayRootFolderMeta,
   GatewaySlide,
   GatewayUser,
   GatewayWhiteboard,
@@ -30,6 +34,7 @@ import {
   mcpSearchDocResponseIndicatesScopeGap,
   parseMcpPayload,
 } from "./mcpResponseParse.js";
+import { compactDocumentSearchQuery } from "./searchQueryNormalize.js";
 
 type McpToolCallResult = {
   content?: Array<{ type?: string; text?: string }>;
@@ -81,15 +86,6 @@ function pickTrimmedString(r: Record<string, unknown>, keys: string[]): string |
   return undefined;
 }
 
-function sanitizeSearchQuery(raw: string): string {
-  return raw
-    .replace(/<[^>]*>/g, " ")
-    .replace(/[^\p{L}\p{N}\s_-]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 48);
-}
-
 /**
  * 飞书远程 MCP 的 update-doc 使用参数名 `docID`；值为 docx 的 file_token。
  * 若 create-doc 返回的是完整云文档 URL，需从路径 `/docx/<token>` 取出 token。
@@ -124,6 +120,14 @@ function requireCreateDocShape(data: unknown, fallbackTitle?: string): { id: str
 }
 
 function classifyHttpStatus(status: number, bodySnippet: string): ToolGatewayError {
+  if (
+    status === 400 &&
+    /field validation failed|99992402|invalid\s+param|invalid\s+request/i.test(bodySnippet)
+  ) {
+    return new ToolGatewayError("VALIDATION", `MCP http=${status} 参数校验失败`, {
+      causeText: bodySnippet,
+    });
+  }
   if (status === 401 || status === 403) {
     return new ToolGatewayError("PERMISSION_DENIED", `MCP http=${status}`, { causeText: bodySnippet });
   }
@@ -308,10 +312,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
   }
 
   async searchDocuments(query: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
-    let normalized = sanitizeSearchQuery(query);
-    if (normalized.length > 16 && normalized.includes(" ")) {
-      normalized = normalized.split(" ")[0] ?? normalized;
-    }
+    const normalized = compactDocumentSearchQuery(query);
     if (normalized.length < 2) return [];
     let data: unknown;
     try {
@@ -602,5 +603,55 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
 
   async listMessages(_input: ListMessagesInput): Promise<GatewayMessage[]> {
     throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 message list 工具");
+  }
+
+  async getRootFolderMeta(_context?: GatewayRequestContext): Promise<GatewayRootFolderMeta> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 drive root meta 工具");
+  }
+
+  async getFolderMeta(_folderToken: string, _context?: GatewayRequestContext): Promise<GatewayFolderMeta> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 folder meta 工具");
+  }
+
+  async listFolderItems(
+    _folderToken: string,
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveItem[]> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 folder list 工具");
+  }
+
+  async createFolder(
+    _input: { parentFolderToken: string; folderName: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayFolderMeta> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 create folder 工具");
+  }
+
+  async moveFile(
+    _input: { fileToken: string; targetFolderToken: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 move file 工具");
+  }
+
+  async copyFile(
+    _input: { fileToken: string; targetFolderToken: string; fileName?: string; copyAsDocx?: boolean },
+    _context?: GatewayRequestContext,
+  ): Promise<{ fileToken?: string; url?: string; task?: GatewayDriveTaskStatus | null }> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 copy file 工具");
+  }
+
+  async deleteFile(
+    _input: { fileToken: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus | null> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 delete file 工具");
+  }
+
+  async checkTask(
+    _input: { ticket: string },
+    _context?: GatewayRequestContext,
+  ): Promise<GatewayDriveTaskStatus> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 task check 工具");
   }
 }

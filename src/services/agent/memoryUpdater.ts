@@ -1,5 +1,5 @@
 import { MemoryUpdateSchema, type Draft, type MemoryUpdate } from "../../schemas/agentContracts.js";
-import type { UserRequest } from "../../schemas/index.js";
+import { UserRequestSchema, type UserRequest } from "../../schemas/index.js";
 import { MemoryStore } from "../../storage/memoryStore.js";
 import { getMemoryFacade } from "../hmrs/facade/memoryFacade.js";
 import { logger } from "../../shared/logger.js";
@@ -57,4 +57,53 @@ export async function updateMemoryFromRun(input: {
     ganttSlotCount: input.draft.ganttSlots.length,
   });
   return parsed;
+}
+
+export async function updateMemoryFromEditorFeedback(input: {
+  userId: string;
+  sessionId: string;
+  draft: Draft;
+  signalType: "manual_edit" | "ai_partial_rewrite";
+  sectionHeading?: string;
+  industry?: string;
+  reportType?: string;
+}): Promise<void> {
+  const memoryStore = new MemoryStore();
+  memoryStore.recordEditSignal({
+    userId: input.userId,
+    sectionHeading: input.sectionHeading,
+    mode: input.signalType,
+  });
+  const request = UserRequestSchema.parse({
+    userId: input.userId,
+    sessionId: input.sessionId,
+    prompt: `editor_feedback:${input.signalType}:${input.sectionHeading ?? "unknown"}`,
+    industry: input.industry ?? "通用",
+    reportType: input.reportType ?? "分析报告",
+    outputTargets: ["feishu_doc"],
+  });
+  const memoryUpdate = MemoryUpdateSchema.parse({
+    updated: true,
+    learnedPreferences: [
+      input.signalType === "manual_edit" ? "偏好人工精修" : "偏好AI局部改写",
+    ],
+    editSignals: [
+      {
+        signalType: input.signalType,
+        sectionHeading: input.sectionHeading,
+      },
+    ],
+  });
+  const facade = getMemoryFacade();
+  await facade.writeback({
+    request,
+    draft: input.draft,
+    memoryUpdate,
+  });
+  logger.info("[memory-update-telemetry] editor feedback writeback completed", {
+    sessionId: input.sessionId,
+    userId: input.userId,
+    signalType: input.signalType,
+    sectionHeading: input.sectionHeading,
+  });
 }

@@ -1,6 +1,7 @@
 import { Annotation } from "@langchain/langgraph";
 import type {
   AnalysisResult,
+  BlueprintPlan,
   CandidateResourceList,
   ComplianceReviewResult,
   DetailedContext,
@@ -88,7 +89,9 @@ export const ReportGraphState = Annotation.Root({
     reducer: (_, right) => right,
     default: () => [],
   }),
-  callbackRoute: Annotation<"to_writer" | "to_planner" | "to_analyst" | "to_output" | null>({
+  callbackRoute: Annotation<
+    "to_writer" | "to_compliance" | "to_planner" | "to_analyst" | "to_publish" | null
+  >({
     reducer: (_, right) => right,
     default: () => null,
   }),
@@ -105,6 +108,10 @@ export const ReportGraphState = Annotation.Root({
     default: () => null,
   }),
   taskPlan: Annotation<TaskPlan | null>({
+    reducer: (_, right) => right,
+    default: () => null,
+  }),
+  blueprintPlan: Annotation<BlueprintPlan | null>({
     reducer: (_, right) => right,
     default: () => null,
   }),

@@ -13,5 +13,13 @@ export type GatewayCapability =
   | "whiteboard.query"
   | "whiteboard.update"
   | "message.send"
-  | "message.list";
+  | "message.list"
+  | "drive.root.meta"
+  | "drive.folder.meta"
+  | "drive.folder.list"
+  | "drive.folder.create"
+  | "drive.file.move"
+  | "drive.file.copy"
+  | "drive.file.delete"
+  | "drive.task.check";
 

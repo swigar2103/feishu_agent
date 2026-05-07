@@ -16,16 +16,17 @@ export async function writerAgentNode(
 
   const sourceEvidence = buildWriterSourceEvidence(state.detailedContext);
   const templateSections = extractTemplateSectionsFromDetailedContext(state.detailedContext);
-  const targetCount = state.executionPlan.targetSections.length;
+  const preferredSections = state.blueprintPlan?.sectionBlueprint ?? state.executionPlan.targetSections;
+  const targetCount = preferredSections.length;
   const templateTargetSections =
     templateSections.length >= 3
       ? [
           ...templateSections.slice(0, targetCount),
-          ...state.executionPlan.targetSections,
+          ...preferredSections,
         ].slice(0, targetCount)
-      : state.executionPlan.targetSections;
+      : preferredSections;
   const planForWriter =
-    templateTargetSections === state.executionPlan.targetSections
+    templateTargetSections === preferredSections
       ? state.executionPlan
       : {
           ...state.executionPlan,
@@ -39,6 +40,7 @@ export async function writerAgentNode(
           "章节标题与顺序需尽量贴近模板，不要改写成通用空泛结构。",
         ]
       : []),
+    ...(state.blueprintPlan?.templateGuardrails ?? []),
   ];
 
   const draft = await writeDraft({

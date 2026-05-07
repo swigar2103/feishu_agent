@@ -35,6 +35,16 @@ function syncFollowUps(plan: ExecutionPlan): ExecutionPlan {
   };
 }
 
+function enforceTemplateSections(plan: ExecutionPlan, skillMatch: SkillMatch): ExecutionPlan {
+  if (skillMatch.source !== "user_template") return plan;
+  if (skillMatch.selectedSkill.sections.length === 0) return plan;
+  return {
+    ...plan,
+    selectedSkillId: skillMatch.selectedSkill.skillId,
+    targetSections: skillMatch.selectedSkill.sections,
+  };
+}
+
 function fallbackPlan(input: {
   userRequest: UserRequest;
   intent: IntentResult;
@@ -157,14 +167,14 @@ export async function generateExecutionPlan(input: {
       relieved.length === parsed.missingFields.length
         ? parsed
         : syncFollowUps({ ...parsed, missingFields: relieved });
-    return attachHmrsExpansion(normalized, {
+    return attachHmrsExpansion(enforceTemplateSections(normalized, input.skillMatch), {
       userRequest: input.userRequest,
       screened: input.screened,
       hmrsL1,
       hmrsL2,
     });
   } catch {
-    const fallback = fallbackPlan(input);
+    const fallback = enforceTemplateSections(fallbackPlan(input), input.skillMatch);
     return attachHmrsExpansion(fallback, {
       userRequest: input.userRequest,
       screened: input.screened,

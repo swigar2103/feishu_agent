@@ -1,4 +1,10 @@
-import { DetailedContextSchema, type CandidateResourceList, type DetailedContext, type ExecutionPlan } from "../../schemas/agentContracts.js";
+import {
+  DetailedContextSchema,
+  type CandidateResourceList,
+  type DetailedContext,
+  type ExecutionPlan,
+} from "../../schemas/agentContracts.js";
+import { TemplateDistillationSchema } from "../../schemas/templateProfile.js";
 import type { UserRequest } from "../../schemas/index.js";
 import { getMemoryFacade } from "../hmrs/facade/memoryFacade.js";
 import { readHmrsTaskType } from "../hmrs/flags/hmrsFeatureFlags.js";
@@ -71,7 +77,38 @@ function mergeWithCommonFacts(base: DetailedContext, request: UserRequest): Deta
   return DetailedContextSchema.parse({
     facts: [...anchored, ...base.facts, ...historyFacts, ...contactFacts],
     sourceDetails: [...anchoredDetails, ...base.sourceDetails, ...personalKnowledgeDetails],
+    templateDistillation: base.templateDistillation,
   });
+}
+
+function buildFallbackTemplateDistillation(input: {
+  plan: ExecutionPlan;
+  screened: CandidateResourceList;
+}) {
+  const docLike = input.screened.candidates
+    .filter((item) => item.resourceType === "doc_summary")
+    .slice(0, 3);
+  if (docLike.length === 0) return undefined;
+  const profilesByResourceId = Object.fromEntries(
+    docLike.map((item) => [
+      item.resourceId,
+      {
+        version: 1,
+        resourceId: item.resourceId,
+        sectionOrder: input.plan.targetSections,
+        fixedLabels: [],
+        listPatterns: [],
+        styleRules: ["优先沿用用户既有模板的章节顺序与命名。"],
+        forbiddenPatterns: [],
+        slotHints: input.plan.targetSections.map((heading, idx) => ({
+          slotId: `slot_${idx + 1}`,
+          sectionHeading: heading,
+          description: `围绕「${heading}」补齐结构化内容与证据引用`,
+        })),
+      },
+    ]),
+  );
+  return TemplateDistillationSchema.parse({ profilesByResourceId });
 }
 
 export async function deepRetrieveContext(input: {
@@ -98,7 +135,15 @@ export async function deepRetrieveContext(input: {
     },
     screened: input.screened,
   });
-  const merged = mergeWithCommonFacts(base, input.request);
+  const templateDistillation =
+    base.templateDistillation ?? buildFallbackTemplateDistillation({ plan: input.plan, screened: input.screened });
+  const merged = mergeWithCommonFacts(
+    DetailedContextSchema.parse({
+      ...base,
+      templateDistillation,
+    }),
+    input.request,
+  );
 
   logHmrsDiff({
     sessionId: input.request.sessionId,
