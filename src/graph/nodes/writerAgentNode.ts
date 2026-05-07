@@ -5,6 +5,7 @@ import {
 } from "../../services/agent/writerAgent.js";
 import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
 import { WriterOutputSchema } from "../../schemas/index.js";
+import { readStyleProfileSoft } from "../../services/hmrs/styleDistillationService.js";
 import type { ReportGraphStateType } from "../state.js";
 
 export async function writerAgentNode(
@@ -32,6 +33,35 @@ export async function writerAgentNode(
           ...state.executionPlan,
           targetSections: templateTargetSections,
         };
+  const styleProfile = await readStyleProfileSoft({ userId: state.taskRequest.userRequest.userId });
+  const styleHints: string[] = [];
+  if (styleProfile) {
+    if (styleProfile.toneTags.length > 0) {
+      styleHints.push(
+        `用户写作语气画像：${styleProfile.toneTags.slice(0, 5).join("、")}；尽量贴合，不要写成空泛套话。`,
+      );
+    }
+    if (styleProfile.sentencePatterns.length > 0) {
+      styleHints.push(
+        `用户句式偏好：${styleProfile.sentencePatterns.slice(0, 5).join("；")}。`,
+      );
+    }
+    if (styleProfile.commonTerms.length > 0) {
+      styleHints.push(
+        `用户常用术语（保留风味，但不要堆叠）：${styleProfile.commonTerms.slice(0, 8).join("、")}。`,
+      );
+    }
+    if (styleProfile.forbiddenWords.length > 0) {
+      styleHints.push(
+        `用户避免使用的措辞：${styleProfile.forbiddenWords.slice(0, 8).join("、")}。`,
+      );
+    }
+    if (styleProfile.anonymizedStyleSample) {
+      styleHints.push(
+        `用户匿名化文风样例（仅参考语感，禁止抄袭）：${styleProfile.anonymizedStyleSample.slice(0, 280)}`,
+      );
+    }
+  }
   const rewriteHints = [
     ...(state.styleRewriteHints ?? []),
     ...(templateSections.length >= 3
@@ -41,6 +71,7 @@ export async function writerAgentNode(
         ]
       : []),
     ...(state.blueprintPlan?.templateGuardrails ?? []),
+    ...styleHints,
   ];
 
   const draft = await writeDraft({
@@ -67,6 +98,7 @@ export async function writerAgentNode(
     writerOutput: WriterOutputSchema.parse(draft),
     debugTrace: [
       `[writer_agent] draft title=${draft.title} templateSections=${templateSections.length}`,
+      `[writer_agent] style_profile applied=${Boolean(styleProfile)} hints=${styleHints.length}`,
     ],
   };
 }

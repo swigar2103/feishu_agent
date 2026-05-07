@@ -21,5 +21,12 @@ export type GatewayCapability =
   | "drive.file.move"
   | "drive.file.copy"
   | "drive.file.delete"
-  | "drive.task.check";
+  | "drive.task.check"
+  | "media.upload.image"
+  | "docx.block.image.insert"
+  | "docx.block.embed.insert"
+  | "sheet.create"
+  | "sheet.write"
+  | "sheet.chart.create"
+  | "whiteboard.create";
 

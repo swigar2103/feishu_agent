@@ -9,6 +9,8 @@ export type ParsedFeishuImTextEvent = {
   text: string;
   /** 优先 open_id，无则 union_id，用于 UserRequest.userId */
   userId: string;
+  /** 飞书消息创建时间（毫秒时间戳） */
+  createTimeMs?: number;
   senderType?: string;
 };
 
@@ -44,6 +46,13 @@ export function parseFeishuImTextEvent(event: Record<string, unknown>): ParsedFe
   const messageType =
     typeof message?.message_type === "string" ? message.message_type : undefined;
   const rawContent = typeof message?.content === "string" ? message.content : "";
+  const createTimeRaw =
+    typeof message?.create_time === "string" || typeof message?.create_time === "number"
+      ? Number(message.create_time)
+      : NaN;
+  const createTimeMs = Number.isFinite(createTimeRaw) && createTimeRaw > 0
+    ? Math.trunc(createTimeRaw)
+    : undefined;
 
   if (!chatId || !messageType || !rawContent) {
     return null;
@@ -74,6 +83,7 @@ export function parseFeishuImTextEvent(event: Record<string, unknown>): ParsedFe
     messageId,
     text,
     userId: uid,
+    createTimeMs,
     senderType,
   };
 }

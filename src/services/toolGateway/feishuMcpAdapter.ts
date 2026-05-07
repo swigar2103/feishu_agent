@@ -8,6 +8,9 @@ import type {
   AddCommentInput,
   CreateDocumentInput,
   CreateSlidesInput,
+  DocxBlockInsertResult,
+  DocxEmbedBlockInsertInput,
+  DocxImageBlockInsertInput,
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
@@ -22,14 +25,24 @@ import type {
   GatewayWhiteboard,
   ListMessagesInput,
   SendMessageInput,
+  SheetChartInput,
+  SheetChartResult,
+  SheetCreateInput,
+  SheetCreateResult,
+  SheetWriteInput,
   UpdateDocumentInput,
   UpdateWhiteboardInput,
+  UploadImageMediaInput,
+  UploadImageMediaResult,
+  WhiteboardCreateInput,
+  WhiteboardCreateResult,
 } from "./types.js";
 import { ToolGatewayError } from "./errors.js";
 import {
   extractCreateDocMetaFromUnknown,
   extractFetchDocBodyFromUnknown,
   extractSearchDocListFromUnknown,
+  hasKnownSearchDocArrayField,
   interpretMcpUpdateDocResult,
   mcpSearchDocResponseIndicatesScopeGap,
   parseMcpPayload,
@@ -345,10 +358,17 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     if (rows.length === 0 && data !== null && data !== undefined) {
       const sample =
         typeof data === "string" ? data.slice(0, 1_200) : JSON.stringify(data).slice(0, 1_200);
-      logger.warn("MCP search-doc 解析后 0 条，请核对返回 JSON 字段是否与 docs/documents 等一致", {
-        queryPreview: normalized.slice(0, 200),
-        sample,
-      });
+      if (hasKnownSearchDocArrayField(data)) {
+        logger.info("MCP search-doc 返回 0 条（结构正常，当前查询无命中）", {
+          queryPreview: normalized.slice(0, 200),
+          sample,
+        });
+      } else {
+        logger.warn("MCP search-doc 解析后 0 条，请核对返回 JSON 字段是否与 docs/documents 等一致", {
+          queryPreview: normalized.slice(0, 200),
+          sample,
+        });
+      }
     }
     return rows.map((doc, idx) => ({
       id: doc.id || `mcp_doc_${idx + 1}`,
@@ -653,5 +673,51 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     _context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus> {
     throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 task check 工具");
+  }
+
+  async uploadImageMedia(
+    _input: UploadImageMediaInput,
+    _context?: GatewayRequestContext,
+  ): Promise<UploadImageMediaResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 media upload 工具");
+  }
+
+  async insertDocxImageBlock(
+    _input: DocxImageBlockInsertInput,
+    _context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 docx image block 工具");
+  }
+
+  async insertDocxEmbedBlock(
+    _input: DocxEmbedBlockInsertInput,
+    _context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 docx embed block 工具");
+  }
+
+  async createSheet(
+    _input: SheetCreateInput,
+    _context?: GatewayRequestContext,
+  ): Promise<SheetCreateResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 sheet create 工具");
+  }
+
+  async writeSheet(_input: SheetWriteInput, _context?: GatewayRequestContext): Promise<boolean> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 sheet write 工具");
+  }
+
+  async createSheetChart(
+    _input: SheetChartInput,
+    _context?: GatewayRequestContext,
+  ): Promise<SheetChartResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 sheet chart 工具");
+  }
+
+  async createWhiteboard(
+    _input: WhiteboardCreateInput,
+    _context?: GatewayRequestContext,
+  ): Promise<WhiteboardCreateResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 whiteboard create 工具");
   }
 }

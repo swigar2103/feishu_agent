@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-07T01:11:20.772Z",
+  "updatedAt": "2026-05-07T03:23:45.192Z",
   "items": [
     {
       "id": "l1_doc_feishu_001",
@@ -103,7 +103,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "default",
       "timeRange": {
-        "end": "2026-05-07T00:59:55.688Z"
+        "end": "2026-05-07T03:23:45.191Z"
       },
       "keywords": [
         "【项目名称】@总负责人",
@@ -112,12 +112,12 @@
         "进行中",
         "下周计划"
       ],
-      "qualityScore": 0.5,
+      "qualityScore": 0.7,
       "sourceRef": {
         "sourceType": "unknown"
       },
       "title": "风格身份摘要",
-      "summary": "本周我们团队继续推进项目进展，但由于未能获取到具体的工作文档信息，导致部分关键内容缺失。"
+      "summary": "本周主要围绕文档ID为空的错误日志进行分析与处理，发现多个资源因缺少有效文档ID导致无法正常读取。针对此问题，已提出补充文档ID、检查输入参数及联系相关负责人确认文档ID正确性的建议。"
     },
     {
       "id": "l1_ext_doc_Z2QzdBeouobyelxTvQsc7dfBnBd",
@@ -129,7 +129,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "周报",
@@ -156,7 +156,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "业务经营周报",
@@ -392,7 +392,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "团队工作周报",
@@ -419,7 +419,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "业务经营周报",
@@ -446,7 +446,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "团队工作周报",
@@ -473,7 +473,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T01:58:26.810Z"
       },
       "keywords": [
         "业务经营周报",
@@ -500,7 +500,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "体育类新闻周报",
@@ -527,7 +527,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.769Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "团队工作周报",
@@ -554,7 +554,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "团队工作周报",
@@ -581,7 +581,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T01:11:20.770Z"
+        "end": "2026-05-07T03:19:19.501Z"
       },
       "keywords": [
         "团队工作周报",
@@ -597,6 +597,35 @@
       },
       "title": "团队工作周报",
       "summary": "<b>团队工作</b><hb>周报</hb>"
+    },
+    {
+      "id": "l1_ext_doc_GioNdaLEjovJT2xATkfcFJScnAe",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T03:19:19.500Z"
+      },
+      "keywords": [
+        "团队工作周报",
+        "本周周报筹备阶段严格遵循用户指定的团队工作周报模板要求",
+        "已完成预设章节框架的搭建",
+        "文风匹配专业清晰的要求",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "GioNdaLEjovJT2xATkfcFJScnAe",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/GioNdaLEjovJT2xATkfcFJScnAe"
+      },
+      "title": "团队工作周报",
+      "summary": "本周周报筹备阶段严格遵循用户指定的团队工作周报模板要求，已完成预设章节框架的搭建，文风匹配专业清晰的要求。"
     }
   ]
 }

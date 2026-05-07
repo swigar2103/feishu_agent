@@ -15,6 +15,10 @@ export function buildWriterSystemPrompt(): string {
     "禁止输出空 title/summary；sections 每一项必须包含非空 heading/content。",
     "sections 数组长度必须与 plan.targetSections 一致；每节 heading 建议与 targetSections 顺序一一对应。",
     "各节 content 需为完整段落叙述，禁止使用「请围绕××补充」式编辑提示语占位。",
+    "【可视化槽位填充硬约束】对每个 chartSlots/ganttSlots/timelineSlots：",
+    "1) 必须输出 dataSemantic（{ kind, dimension, metric, periodHint }）；chartSlots.dataSemantic.kind ∈ [line,bar,pie,table,image]，timelineSlots/ganttSlots 固定为 timeline/gantt。",
+    "2) 必须从 evidence/analysis 抽取真实数据点写入 data 字段：chartSlots.data={ categories, series:[{name,values}] }；timelineSlots.data=[{label,when,note?}]；ganttSlots.data=[{task,owner?,start,end,note?}]。",
+    "3) 若 evidence 中实在无可填数据，置 status=\"needs_data\" 并写出 dataSemantic 提示，但禁止编造任意数字或日期。",
   ].join("\n");
 }
 

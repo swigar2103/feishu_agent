@@ -113,6 +113,16 @@ function collectAnalysisLines(analysis: AnalysisResult): string[] {
   );
 }
 
+type ChartTypeKind = "line" | "bar" | "pie" | "table" | "image";
+function normalizeChartKind(input: string): ChartTypeKind {
+  const lower = input.toLowerCase();
+  if (lower.includes("line") || /折线|趋势/.test(input)) return "line";
+  if (lower.includes("pie") || /饼图|占比/.test(input)) return "pie";
+  if (lower.includes("table") || /表格/.test(input)) return "table";
+  if (lower.includes("image") || /插图/.test(input)) return "image";
+  return "bar";
+}
+
 function buildDraftV2Extensions(input: {
   sections: Array<{ heading: string; content: string }>;
   chartSuggestions: Array<{ type: string; title: string; purpose: string; dataHint: string }>;
@@ -131,6 +141,14 @@ function buildDraftV2Extensions(input: {
       title: s.heading,
       periodHint: "待补充周期",
       notes: s.content.slice(0, 120),
+      dataSemantic: {
+        kind: "timeline" as const,
+        dimension: "事件",
+        metric: "时间",
+        periodHint: "近期",
+      },
+      data: [],
+      status: "needs_data" as const,
     }));
   const ganttSlots = input.sections
     .filter((s) => /甘特|gantt|排期|计划/i.test(`${s.heading}\n${s.content}`))
@@ -141,12 +159,28 @@ function buildDraftV2Extensions(input: {
       ownerHint: "待补充负责人",
       startHint: "待补充开始时间",
       endHint: "待补充结束时间",
+      dataSemantic: {
+        kind: "gantt" as const,
+        dimension: "任务",
+        metric: "起止",
+        periodHint: "本周期",
+      },
+      data: [],
+      status: "needs_data" as const,
     }));
   const chartSlots = input.chartSuggestions.map((c, idx) => ({
     slotId: `chart_${idx + 1}`,
     chartType: c.type,
     title: c.title,
     metricHint: c.dataHint,
+    dataSemantic: {
+      kind: normalizeChartKind(c.type),
+      dimension: c.dataHint,
+      metric: c.title,
+      periodHint: "本期",
+    },
+    data: undefined,
+    status: "needs_data" as const,
   }));
   if (!env.AGENT_STRICT_FACT_MODE && chartSlots.length === 0) {
     chartSlots.push({
@@ -154,6 +188,14 @@ function buildDraftV2Extensions(input: {
       chartType: "bar",
       title: "关键指标对比（占位）",
       metricHint: "建议填充本期与上期的关键指标",
+      dataSemantic: {
+        kind: "bar" as const,
+        dimension: "类目",
+        metric: "数值",
+        periodHint: "本期 vs 上期",
+      },
+      data: undefined,
+      status: "needs_data" as const,
     });
   }
   if (!env.AGENT_STRICT_FACT_MODE && timelineSlots.length === 0) {
@@ -162,6 +204,14 @@ function buildDraftV2Extensions(input: {
       title: "关键里程碑（占位）",
       periodHint: "按周或按阶段填写时间点",
       notes: "用于在编辑工作台补全项目时间线",
+      dataSemantic: {
+        kind: "timeline" as const,
+        dimension: "里程碑",
+        metric: "时间",
+        periodHint: "近期",
+      },
+      data: [],
+      status: "needs_data" as const,
     });
   }
   if (!env.AGENT_STRICT_FACT_MODE && ganttSlots.length === 0) {
@@ -171,6 +221,14 @@ function buildDraftV2Extensions(input: {
       ownerHint: "待补充负责人",
       startHint: "待补充开始时间",
       endHint: "待补充结束时间",
+      dataSemantic: {
+        kind: "gantt" as const,
+        dimension: "任务",
+        metric: "起止",
+        periodHint: "本周期",
+      },
+      data: [],
+      status: "needs_data" as const,
     });
   }
   return {

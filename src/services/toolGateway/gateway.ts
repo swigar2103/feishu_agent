@@ -10,6 +10,9 @@ import type {
   AddCommentInput,
   CreateDocumentInput,
   CreateSlidesInput,
+  DocxBlockInsertResult,
+  DocxEmbedBlockInsertInput,
+  DocxImageBlockInsertInput,
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
@@ -24,8 +27,17 @@ import type {
   GatewayWhiteboard,
   ListMessagesInput,
   SendMessageInput,
+  SheetChartInput,
+  SheetChartResult,
+  SheetCreateInput,
+  SheetCreateResult,
+  SheetWriteInput,
   UpdateDocumentInput,
   UpdateWhiteboardInput,
+  UploadImageMediaInput,
+  UploadImageMediaResult,
+  WhiteboardCreateInput,
+  WhiteboardCreateResult,
 } from "./types.js";
 
 export class ToolGateway implements FeishuToolGatewayApi {
@@ -475,6 +487,87 @@ export class ToolGateway implements FeishuToolGatewayApi {
       "drive.task.check",
       "checkTask",
       (adapter) => adapter.checkTask(input, context),
+      context,
+    );
+  }
+
+  uploadImageMedia(
+    input: UploadImageMediaInput,
+    context?: GatewayRequestContext,
+  ): Promise<UploadImageMediaResult> {
+    return this.executeWithPolicy(
+      "media.upload.image",
+      "uploadImageMedia",
+      (adapter) => adapter.uploadImageMedia(input, context),
+      context,
+    );
+  }
+
+  insertDocxImageBlock(
+    input: DocxImageBlockInsertInput,
+    context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    return this.executeWithPolicy(
+      "docx.block.image.insert",
+      "insertDocxImageBlock",
+      (adapter) => adapter.insertDocxImageBlock(input, context),
+      context,
+    );
+  }
+
+  insertDocxEmbedBlock(
+    input: DocxEmbedBlockInsertInput,
+    context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    return this.executeWithPolicy(
+      "docx.block.embed.insert",
+      "insertDocxEmbedBlock",
+      (adapter) => adapter.insertDocxEmbedBlock(input, context),
+      context,
+    );
+  }
+
+  createSheet(
+    input: SheetCreateInput,
+    context?: GatewayRequestContext,
+  ): Promise<SheetCreateResult> {
+    return this.executeWithPolicy(
+      "sheet.create",
+      "createSheet",
+      (adapter) => adapter.createSheet(input, context),
+      context,
+    );
+  }
+
+  writeSheet(input: SheetWriteInput, context?: GatewayRequestContext): Promise<boolean> {
+    return this.executeWithPolicy(
+      "sheet.write",
+      "writeSheet",
+      (adapter) => adapter.writeSheet(input, context),
+      context,
+    );
+  }
+
+  createSheetChart(
+    input: SheetChartInput,
+    context?: GatewayRequestContext,
+  ): Promise<SheetChartResult> {
+    return this.executeWithPolicy(
+      "sheet.chart.create",
+      "createSheetChart",
+      (adapter) => adapter.createSheetChart(input, context),
+      context,
+    );
+  }
+
+  createWhiteboard(
+    input: WhiteboardCreateInput,
+    context?: GatewayRequestContext,
+  ): Promise<WhiteboardCreateResult> {
+    return this.executeWithPolicy(
+      "whiteboard.create",
+      "createWhiteboard",
+      (adapter) => adapter.createWhiteboard(input, context),
       context,
     );
   }

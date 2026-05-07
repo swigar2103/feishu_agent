@@ -3,7 +3,9 @@ import { env } from "../../config/env.js";
 import { logger } from "../../shared/logger.js";
 import { toolGateway } from "../toolGateway/gateway.js";
 import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
+import { listAllDocumentBlocks } from "../../integrations/feishu/docxBlocks.js";
 import type { GatewayDocument } from "../toolGateway/types.js";
+import type { RenderedArtifact } from "../render/artifactRenderer.js";
 
 export type PublishedArtifact = {
   type: "feishu_doc" | "bitable" | "slides";
@@ -31,6 +33,13 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
   const sections = draft.sections
     .map((section) => `## ${section.heading}\n${section.content}`)
     .join("\n\n");
+  const readyChartSlots = draft.chartSlots.filter((s) => s.status === "ready" && s.data);
+  const needsDataChartSlots = draft.chartSlots.filter((s) => s.status !== "ready" || !s.data);
+  const readyTimelineSlots = draft.timelineSlots.filter((s) => s.status === "ready" && s.data && s.data.length > 0);
+  const needsDataTimelineSlots = draft.timelineSlots.filter((s) => s.status !== "ready" || !s.data || s.data.length === 0);
+  const readyGanttSlots = draft.ganttSlots.filter((s) => s.status === "ready" && s.data && s.data.length > 0);
+  const needsDataGanttSlots = draft.ganttSlots.filter((s) => s.status !== "ready" || !s.data || s.data.length === 0);
+
   const chartBlock = draft.chartSuggestions.length > 0
     ? [
         "## 图表建议",
@@ -39,10 +48,19 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
         ),
       ].join("\n")
     : "";
-  const chartSlotBlock = draft.chartSlots.length > 0
+  const readyChartHintBlock =
+    readyChartSlots.length > 0
+      ? [
+          "## 图表（已渲染为可视化对象）",
+          ...readyChartSlots.map(
+            (slot) => `- ${slot.title}（${slot.chartType}）：实际图形将在文档下方插入`,
+          ),
+        ].join("\n")
+      : "";
+  const chartSlotBlock = needsDataChartSlots.length > 0
     ? [
-        "## 图表槽位（可继续编辑）",
-        ...draft.chartSlots.map(
+        "## 图表槽位（待补充数据）",
+        ...needsDataChartSlots.map(
           (slot) => `- ${slot.title}（${slot.chartType}）｜指标建议：${slot.metricHint}`,
         ),
       ].join("\n")
@@ -50,20 +68,34 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
   const openQuestions = draft.openQuestions.length > 0
     ? ["## 待确认事项", ...draft.openQuestions.map((item) => `- ${item}`)].join("\n")
     : "";
-  const timelineBlock = draft.timelineSlots.length > 0
+  const readyTimelineHintBlock =
+    readyTimelineSlots.length > 0
+      ? [
+          "## 时间线（已渲染为可视化对象）",
+          ...readyTimelineSlots.map((slot) => `- ${slot.title}：实际时间线将在文档下方插入`),
+        ].join("\n")
+      : "";
+  const timelineBlock = needsDataTimelineSlots.length > 0
     ? [
-        "## 时间线（可继续编辑）",
-        ...draft.timelineSlots.map(
+        "## 时间线（待补充数据）",
+        ...needsDataTimelineSlots.map(
           (slot) => `- ${slot.title}｜周期：${slot.periodHint}${slot.notes ? `｜说明：${slot.notes}` : ""}`,
         ),
       ].join("\n")
     : "";
-  const ganttBlock = draft.ganttSlots.length > 0
+  const readyGanttHintBlock =
+    readyGanttSlots.length > 0
+      ? [
+          "## 甘特任务（已渲染为可视化对象）",
+          ...readyGanttSlots.map((slot) => `- ${slot.task}：实际甘特图将在文档下方插入`),
+        ].join("\n")
+      : "";
+  const ganttBlock = needsDataGanttSlots.length > 0
     ? [
-        "## 甘特任务占位（可继续细化）",
+        "## 甘特任务占位（待补充细节）",
         "| 任务 | 负责人 | 开始 | 结束 |",
         "|---|---|---|---|",
-        ...draft.ganttSlots.map(
+        ...needsDataGanttSlots.map(
           (slot) =>
             `| ${slot.task} | ${slot.ownerHint ?? "待定"} | ${slot.startHint ?? "待定"} | ${slot.endHint ?? "待定"} |`,
         ),
@@ -74,9 +106,12 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
     "## 摘要",
     normalizeMultilineToBullets(draft.summary || "待补充摘要"),
     sections,
+    readyTimelineHintBlock,
     timelineBlock,
+    readyGanttHintBlock,
     ganttBlock,
     chartBlock,
+    readyChartHintBlock,
     chartSlotBlock,
     openQuestions,
   ]
@@ -238,12 +273,94 @@ function verifyPublishedDocBody(
   }
 }
 
+async function attachRenderedArtifactsToDocx(input: {
+  documentId: string;
+  artifacts: RenderedArtifact[];
+  userId?: string;
+  preferUserScope?: boolean;
+}): Promise<{ inserted: number; skipped: number; failed: number }> {
+  if (!input.artifacts.length) return { inserted: 0, skipped: 0, failed: 0 };
+  let parentBlockId: string | undefined;
+  try {
+    const blocks = await listAllDocumentBlocks(getFeishuMvpConfig(), input.documentId);
+    const pageBlock = blocks.find((b) => b.block_type === 1);
+    parentBlockId = pageBlock?.block_id;
+  } catch (error) {
+    logger.warn("attach artifacts: list blocks failed", {
+      documentId: input.documentId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  if (!parentBlockId) {
+    return { inserted: 0, skipped: input.artifacts.length, failed: 0 };
+  }
+  const ctx = { userId: input.userId, preferUserScope: input.preferUserScope };
+  let inserted = 0;
+  let failed = 0;
+  for (const artifact of input.artifacts) {
+    try {
+      if (artifact.kind === "image") {
+        const result = await toolGateway.insertDocxImageBlock(
+          {
+            documentId: input.documentId,
+            parentBlockId,
+            mediaToken: artifact.embedToken,
+            caption: artifact.caption,
+          },
+          ctx,
+        );
+        if (result.ok) {
+          inserted += 1;
+        } else {
+          failed += 1;
+          logger.warn("docx image block insert returned warning", {
+            slotId: artifact.slotId,
+            warning: result.warning,
+          });
+        }
+        continue;
+      }
+      if (artifact.kind === "whiteboard" || artifact.kind === "sheet_chart") {
+        const embedKind = artifact.kind === "whiteboard" ? "whiteboard" : "sheet";
+        const result = await toolGateway.insertDocxEmbedBlock(
+          {
+            documentId: input.documentId,
+            parentBlockId,
+            embedKind,
+            refToken: artifact.embedToken,
+            caption: artifact.caption,
+          },
+          ctx,
+        );
+        if (result.ok) {
+          inserted += 1;
+        } else {
+          failed += 1;
+          logger.warn("docx embed block insert returned warning", {
+            slotId: artifact.slotId,
+            warning: result.warning,
+          });
+        }
+      }
+    } catch (error) {
+      failed += 1;
+      logger.warn("attach artifact failed", {
+        slotId: artifact.slotId,
+        kind: artifact.kind,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return { inserted, skipped: 0, failed };
+}
+
 async function publishFeishuDoc(input: {
   draft: Draft;
   sessionId: string;
   index: number;
   userId?: string;
   preferUserScope?: boolean;
+  renderedArtifacts?: RenderedArtifact[];
 }): Promise<PublishedArtifact> {
   const content = renderDraftAsTemplateMarkdown(input.draft);
   const doc = await toolGateway.createDocument({
@@ -290,6 +407,23 @@ async function publishFeishuDoc(input: {
     throw error;
   }
 
+  if (input.renderedArtifacts && input.renderedArtifacts.length > 0) {
+    const attachStat = await attachRenderedArtifactsToDocx({
+      documentId: doc.id,
+      artifacts: input.renderedArtifacts,
+      userId: input.userId,
+      preferUserScope: input.preferUserScope,
+    });
+    logPublishTelemetry({
+      publish_status: "artifact_attach",
+      output_type: "feishu_doc",
+      documentId: doc.id,
+      inserted: attachStat.inserted,
+      skipped: attachStat.skipped,
+      failed: attachStat.failed,
+      total: input.renderedArtifacts.length,
+    });
+  }
   await toolGateway.addComment({
     documentId: doc.id,
     content: "由 Agent 自动生成，可在此处继续批注修改。",
@@ -307,6 +441,7 @@ async function publishFeishuDoc(input: {
     adapter: doc.source ?? viewed?.source,
     documentId: doc.id,
     sessionId: input.sessionId,
+    artifactCount: input.renderedArtifacts?.length ?? 0,
   });
   return {
     type: "feishu_doc",
@@ -376,6 +511,7 @@ export async function publishOutputs(input: {
   sessionId: string;
   userId?: string;
   preferUserScope?: boolean;
+  renderedArtifacts?: RenderedArtifact[];
 }): Promise<PublishedArtifact[]> {
   const artifacts: PublishedArtifact[] = [];
 
@@ -389,6 +525,7 @@ export async function publishOutputs(input: {
             index: idx,
             userId: input.userId,
             preferUserScope: input.preferUserScope,
+            renderedArtifacts: input.renderedArtifacts,
           }),
         );
       } catch (error) {

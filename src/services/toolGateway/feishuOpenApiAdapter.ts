@@ -15,6 +15,9 @@ import type {
   AddCommentInput,
   CreateDocumentInput,
   CreateSlidesInput,
+  DocxBlockInsertResult,
+  DocxEmbedBlockInsertInput,
+  DocxImageBlockInsertInput,
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
@@ -29,8 +32,17 @@ import type {
   GatewayWhiteboard,
   ListMessagesInput,
   SendMessageInput,
+  SheetChartInput,
+  SheetChartResult,
+  SheetCreateInput,
+  SheetCreateResult,
+  SheetWriteInput,
   UpdateDocumentInput,
   UpdateWhiteboardInput,
+  UploadImageMediaInput,
+  UploadImageMediaResult,
+  WhiteboardCreateInput,
+  WhiteboardCreateResult,
 } from "./types.js";
 
 type AssetRecord = {
@@ -574,6 +586,208 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       { method: "GET" },
     );
     return this.parseTaskStatus(input.ticket, data);
+  }
+
+  /**
+   * 上传图片为媒体文件（drive medias upload_all）。
+   * 仅在用户态可用；用于 ArtifactRenderer 的 PNG 回退路径。
+   */
+  async uploadImageMedia(
+    input: UploadImageMediaInput,
+    context?: GatewayRequestContext,
+  ): Promise<UploadImageMediaResult> {
+    const token = await this.getUserAccessToken(context);
+    const c = getFeishuMvpConfig();
+    const form = new FormData();
+    form.append("file_name", input.fileName);
+    if (input.parent?.type === "docx_image") {
+      form.append("parent_type", "docx_image");
+      form.append("parent_node", input.parent.documentId);
+    } else if (input.parent?.type === "drive") {
+      form.append("parent_type", "explorer");
+      if (input.parent.folderToken) {
+        form.append("parent_node", input.parent.folderToken);
+      }
+    } else {
+      form.append("parent_type", "docx_image");
+    }
+    form.append("size", String(input.buffer.byteLength));
+    const mime = input.mimeType ?? "image/png";
+    form.append("file", new Blob([input.buffer], { type: mime }), input.fileName);
+    const res = await feishuHttpFetch(`${c.baseUrl}/open-apis/drive/v1/medias/upload_all`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+    });
+    const body = (await res.json()) as {
+      code?: number;
+      msg?: string;
+      data?: { file_token?: string; url?: string };
+    };
+    if (!res.ok || body.code !== 0 || !body.data?.file_token) {
+      throw new ToolGatewayError(
+        "UPSTREAM_TEMPORARY",
+        `medias/upload_all 失败: ${body.msg ?? res.status}`,
+      );
+    }
+    return {
+      mediaToken: body.data.file_token,
+      url: body.data.url,
+      source: "openapi",
+    };
+  }
+
+  /**
+   * 在 docx 文档父块下插入图片块。
+   * 当前 OpenAPI 文档对图片块创建的字段名仍在演进；本实现以 `block_type=27` + `image.token` 为目标尝试。
+   * 若服务端返回 9499xxxx 之类参数错误，请在 .env 中关闭图片块嵌入并回退 markdown 占位（由 publisher 处理）。
+   */
+  async insertDocxImageBlock(
+    input: DocxImageBlockInsertInput,
+    context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    const c = getFeishuMvpConfig();
+    const accessToken = context?.userId
+      ? await this.getUserAccessToken(context)
+      : await getTenantAccessToken(c);
+    const url = `${c.baseUrl}/open-apis/docx/v1/documents/${encodeURIComponent(input.documentId)}/blocks/${encodeURIComponent(input.parentBlockId)}/children`;
+    const payload: Record<string, unknown> = {
+      children: [
+        {
+          block_type: 27,
+          image: {
+            token: input.mediaToken,
+            ...(input.caption ? { caption: { text: input.caption } } : {}),
+          },
+        },
+      ],
+    };
+    if (typeof input.index === "number") {
+      payload.index = input.index;
+    }
+    const res = await feishuHttpFetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(payload),
+    });
+    const body = (await res.json()) as {
+      code?: number;
+      msg?: string;
+      data?: { children?: Array<{ block_id?: string }> };
+    };
+    if (!res.ok || body.code !== 0) {
+      return {
+        ok: false,
+        warning: `docx image block insert 失败: ${body.msg ?? res.status}`,
+        source: "openapi",
+      };
+    }
+    return {
+      ok: true,
+      blockId: body.data?.children?.[0]?.block_id,
+      source: "openapi",
+    };
+  }
+
+  /**
+   * docx 嵌入块（白板/sheet/bitable 引用）。
+   * 注意：飞书 OpenAPI 中各嵌入块的字段名仍在演进，下面以保守策略统一映射到 block_type=22（embed）+ embed.url。
+   * 落地前请按官方最新文档校对 block_type / payload。
+   */
+  async insertDocxEmbedBlock(
+    input: DocxEmbedBlockInsertInput,
+    context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    const c = getFeishuMvpConfig();
+    const accessToken = context?.userId
+      ? await this.getUserAccessToken(context)
+      : await getTenantAccessToken(c);
+    const url = `${c.baseUrl}/open-apis/docx/v1/documents/${encodeURIComponent(input.documentId)}/blocks/${encodeURIComponent(input.parentBlockId)}/children`;
+    const refUrlByKind: Record<DocxEmbedBlockInsertInput["embedKind"], string> = {
+      whiteboard: `https://www.feishu.cn/whiteboard/board/${input.refToken}`,
+      sheet: `https://www.feishu.cn/sheets/${input.refToken}`,
+      bitable: `https://www.feishu.cn/base/${input.refToken}`,
+    };
+    const payload: Record<string, unknown> = {
+      children: [
+        {
+          block_type: 22,
+          embed: {
+            url: refUrlByKind[input.embedKind],
+          },
+        },
+      ],
+    };
+    if (typeof input.index === "number") {
+      payload.index = input.index;
+    }
+    const res = await feishuHttpFetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(payload),
+    });
+    const body = (await res.json()) as {
+      code?: number;
+      msg?: string;
+      data?: { children?: Array<{ block_id?: string }> };
+    };
+    if (!res.ok || body.code !== 0) {
+      return {
+        ok: false,
+        warning: `docx embed block insert 失败: ${body.msg ?? res.status}`,
+        source: "openapi",
+      };
+    }
+    return {
+      ok: true,
+      blockId: body.data?.children?.[0]?.block_id,
+      source: "openapi",
+    };
+  }
+
+  async createSheet(
+    _input: SheetCreateInput,
+    _context?: GatewayRequestContext,
+  ): Promise<SheetCreateResult> {
+    throw new ToolGatewayError(
+      "NOT_SUPPORTED",
+      "OpenAPI sheet 创建尚未在本仓库封装；请先用 lark-cli 封装或后续接入官方 sheets create 接口",
+    );
+  }
+
+  async writeSheet(_input: SheetWriteInput, _context?: GatewayRequestContext): Promise<boolean> {
+    throw new ToolGatewayError(
+      "NOT_SUPPORTED",
+      "OpenAPI sheet 写入尚未在本仓库封装；请先用 lark-cli 封装",
+    );
+  }
+
+  async createSheetChart(
+    _input: SheetChartInput,
+    _context?: GatewayRequestContext,
+  ): Promise<SheetChartResult> {
+    throw new ToolGatewayError(
+      "NOT_SUPPORTED",
+      "OpenAPI sheet chart 创建尚未在本仓库封装；当前回退为 PNG 图片嵌入即可",
+    );
+  }
+
+  async createWhiteboard(
+    _input: WhiteboardCreateInput,
+    _context?: GatewayRequestContext,
+  ): Promise<WhiteboardCreateResult> {
+    throw new ToolGatewayError(
+      "NOT_SUPPORTED",
+      "OpenAPI whiteboard 创建尚未在本仓库封装；请通过 lark-cli 走白板创建命令",
+    );
   }
 }
 

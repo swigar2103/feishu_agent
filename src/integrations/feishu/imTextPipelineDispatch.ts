@@ -23,6 +23,26 @@ function isUatOAuthRequiredError(error: unknown): boolean {
   return msg.includes("无有效飞书用户访问令牌");
 }
 
+const CHAT_PIPELINE_LOCK_TTL_MS = 15 * 60 * 1000;
+const chatPipelineLocks = new Map<string, { startedAt: number; messageId: string }>();
+
+function tryAcquireChatPipelineLock(chatId: string, messageId: string): boolean {
+  const now = Date.now();
+  const current = chatPipelineLocks.get(chatId);
+  if (current && now - current.startedAt < CHAT_PIPELINE_LOCK_TTL_MS) {
+    return false;
+  }
+  chatPipelineLocks.set(chatId, { startedAt: now, messageId });
+  return true;
+}
+
+function releaseChatPipelineLock(chatId: string, messageId: string): void {
+  const current = chatPipelineLocks.get(chatId);
+  if (!current) return;
+  if (current.messageId !== messageId) return;
+  chatPipelineLocks.delete(chatId);
+}
+
 async function notifyOAuthRequired(
   c: FeishuMvpConfig,
   imEvent: ParsedFeishuImTextEvent,
@@ -108,6 +128,20 @@ export function runImTextPipelineFireAndForget(
     messageId: imEvent.messageId,
     identityMode: env.FEISHU_IDENTITY_MODE,
   });
+  if (!tryAcquireChatPipelineLock(imEvent.chatId, imEvent.messageId)) {
+    logger.info("webhook full pipeline skipped: chat pipeline is busy", {
+      chatId: imEvent.chatId,
+      userId: imEvent.userId,
+      messageId: imEvent.messageId,
+    });
+    void sendTextMessage(c, {
+      receiveId: imEvent.chatId,
+      text: "上一条任务仍在处理中，为避免重复受理，本条已暂不启动。请等待上一条完成后再发新需求。",
+    }).catch((notifyErr) => {
+      logger.error("im pipeline busy notify failed", { error: notifyErr });
+    });
+    return;
+  }
   void (async () => {
     try {
       const { runFullPipelineAndNotifyChat } = await import("./reportImDelivery.js");
@@ -130,6 +164,8 @@ export function runImTextPipelineFireAndForget(
       } catch (notifyErr) {
         logger.error("im pipeline full error notify failed", { error: notifyErr });
       }
+    } finally {
+      releaseChatPipelineLock(imEvent.chatId, imEvent.messageId);
     }
   })();
 }

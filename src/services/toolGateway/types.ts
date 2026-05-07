@@ -122,6 +122,92 @@ export type ListMessagesInput = {
   limit?: number;
 };
 
+export type UploadImageMediaInput = {
+  buffer: Uint8Array;
+  fileName: string;
+  parent?: { type: "docx_image"; documentId: string } | { type: "drive"; folderToken?: string };
+  mimeType?: string;
+};
+
+export type UploadImageMediaResult = {
+  mediaToken: string;
+  url?: string;
+  source?: "mcp" | "lark_cli" | "openapi";
+};
+
+export type DocxImageBlockInsertInput = {
+  documentId: string;
+  parentBlockId: string;
+  /** 在父块 children 中的插入位置；缺省 = 末尾 */
+  index?: number;
+  mediaToken: string;
+  caption?: string;
+};
+
+export type DocxEmbedBlockInsertInput = {
+  documentId: string;
+  parentBlockId: string;
+  index?: number;
+  embedKind: "whiteboard" | "sheet" | "bitable";
+  /** 被引用对象的 file token */
+  refToken: string;
+  caption?: string;
+};
+
+export type DocxBlockInsertResult = {
+  blockId?: string;
+  source?: "mcp" | "lark_cli" | "openapi";
+  ok: boolean;
+  warning?: string;
+};
+
+export type SheetCreateInput = {
+  title: string;
+  parentFolderToken?: string;
+};
+
+export type SheetCreateResult = {
+  spreadsheetToken: string;
+  sheetId?: string;
+  url?: string;
+  source?: "mcp" | "lark_cli" | "openapi";
+};
+
+export type SheetWriteInput = {
+  spreadsheetToken: string;
+  sheetId: string;
+  /** 形如 A1:F20，必须含 sheetId 引用，由 adapter 内部组合 */
+  range: string;
+  values: Array<Array<string | number | boolean | null>>;
+};
+
+export type SheetChartInput = {
+  spreadsheetToken: string;
+  sheetId: string;
+  range: string;
+  chartType: "line" | "bar" | "pie" | "table";
+  title?: string;
+};
+
+export type SheetChartResult = {
+  chartToken: string;
+  source?: "mcp" | "lark_cli" | "openapi";
+};
+
+export type WhiteboardCreateInput = {
+  title: string;
+  /** 仅支持 plantuml/mermaid 字符串，由 adapter 决定如何渲染 */
+  syntax: "plantuml" | "mermaid";
+  body: string;
+  parentFolderToken?: string;
+};
+
+export type WhiteboardCreateResult = {
+  whiteboardToken: string;
+  url?: string;
+  source?: "mcp" | "lark_cli" | "openapi";
+};
+
 export interface FeishuToolGatewayApi {
   searchDocuments(query: string, context?: GatewayRequestContext): Promise<GatewayDocument[]>;
   listDocuments(query?: string, context?: GatewayRequestContext): Promise<GatewayDocument[]>;
@@ -161,4 +247,29 @@ export interface FeishuToolGatewayApi {
     input: { ticket: string },
     context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus>;
+  uploadImageMedia(
+    input: UploadImageMediaInput,
+    context?: GatewayRequestContext,
+  ): Promise<UploadImageMediaResult>;
+  insertDocxImageBlock(
+    input: DocxImageBlockInsertInput,
+    context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult>;
+  insertDocxEmbedBlock(
+    input: DocxEmbedBlockInsertInput,
+    context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult>;
+  createSheet(
+    input: SheetCreateInput,
+    context?: GatewayRequestContext,
+  ): Promise<SheetCreateResult>;
+  writeSheet(input: SheetWriteInput, context?: GatewayRequestContext): Promise<boolean>;
+  createSheetChart(
+    input: SheetChartInput,
+    context?: GatewayRequestContext,
+  ): Promise<SheetChartResult>;
+  createWhiteboard(
+    input: WhiteboardCreateInput,
+    context?: GatewayRequestContext,
+  ): Promise<WhiteboardCreateResult>;
 }

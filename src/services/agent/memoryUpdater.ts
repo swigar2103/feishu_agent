@@ -2,7 +2,22 @@ import { MemoryUpdateSchema, type Draft, type MemoryUpdate } from "../../schemas
 import { UserRequestSchema, type UserRequest } from "../../schemas/index.js";
 import { MemoryStore } from "../../storage/memoryStore.js";
 import { getMemoryFacade } from "../hmrs/facade/memoryFacade.js";
+import { HmrsRefreshService } from "../hmrs/hmrsRefreshService.js";
+import { getStyleDistillationService } from "../hmrs/styleDistillationService.js";
 import { logger } from "../../shared/logger.js";
+
+const STYLE_DISTILL_EVERY_N_EDITS = 5;
+const editSignalCounter = new Map<string, number>();
+
+function incrementAndCheckEditCounter(userId: string): boolean {
+  const current = (editSignalCounter.get(userId) ?? 0) + 1;
+  editSignalCounter.set(userId, current);
+  if (current >= STYLE_DISTILL_EVERY_N_EDITS) {
+    editSignalCounter.set(userId, 0);
+    return true;
+  }
+  return false;
+}
 
 export async function updateMemoryFromRun(input: {
   request: UserRequest;
@@ -106,4 +121,24 @@ export async function updateMemoryFromEditorFeedback(input: {
     signalType: input.signalType,
     sectionHeading: input.sectionHeading,
   });
+
+  if (incrementAndCheckEditCounter(input.userId)) {
+    void (async () => {
+      try {
+        const refresh = new HmrsRefreshService();
+        const status = await refresh.getRefreshStatus({ userId: input.userId });
+        if (!status.rootFolderToken) return;
+        await getStyleDistillationService().distillAndPersist({
+          userId: input.userId,
+          hmrsRootToken: status.rootFolderToken,
+          trigger: "edit_feedback",
+        });
+      } catch (error) {
+        logger.warn("style distill after edit feedback failed", {
+          userId: input.userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+  }
 }

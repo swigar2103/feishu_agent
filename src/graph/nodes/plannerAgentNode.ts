@@ -2,6 +2,7 @@ import { generateExecutionPlan } from "../../services/agent/plannerAgent.js";
 import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
 import { BlueprintPlanSchema } from "../../schemas/agentContracts.js";
 import { TaskPlanSchema } from "../../schemas/index.js";
+import { readStyleProfileSoft } from "../../services/hmrs/styleDistillationService.js";
 import type { ReportGraphStateType } from "../state.js";
 
 export async function plannerAgentNode(
@@ -11,6 +12,7 @@ export async function plannerAgentNode(
     throw new Error("planner_agent 缺少前置状态");
   }
 
+  const styleProfile = await readStyleProfileSoft({ userId: state.taskRequest.userRequest.userId });
   const executionPlan = await generateExecutionPlan({
     userRequest: state.taskRequest.userRequest,
     intent: state.intentResult,
@@ -26,6 +28,25 @@ export async function plannerAgentNode(
       expansionCount: executionPlan.expansionDecision?.finalResourceIds.length ?? 0,
     },
   });
+  const styleGuardrails: string[] = [];
+  if (styleProfile) {
+    if (styleProfile.preferredSectionOrder.length > 0) {
+      styleGuardrails.push(
+        `用户偏好的章节顺序：${styleProfile.preferredSectionOrder.slice(0, 6).join(" -> ")}；如与模板不冲突请优先采用。`,
+      );
+    }
+    if (styleProfile.preferredVisualKinds.length > 0) {
+      styleGuardrails.push(
+        `用户偏好的可视化形式：${styleProfile.preferredVisualKinds.join("、")}；规划 visualSlots 时优先选择这些类型。`,
+      );
+    }
+    if (styleProfile.toneTags.length > 0) {
+      styleGuardrails.push(
+        `targetTone 调整方向：${styleProfile.toneTags.slice(0, 4).join("、")}。`,
+      );
+    }
+  }
+
   const blueprintPlan = BlueprintPlanSchema.parse({
     sectionBlueprint: executionPlan.targetSections,
     visualSlots: executionPlan.targetSections
@@ -45,6 +66,7 @@ export async function plannerAgentNode(
       "优先按 sectionBlueprint 的顺序和命名生成。",
       "若缺事实，保留结构化占位，不得编造数据。",
       "图表/时间线/甘特相关章节需产出可编辑槽位提示。",
+      ...styleGuardrails,
     ],
   });
 
@@ -64,6 +86,7 @@ export async function plannerAgentNode(
       `[planner_agent] plan ready sections=${executionPlan.targetSections.length} missing=${executionPlan.missingFields.length}`,
       `[planner_agent] expansion=${executionPlan.expansionDecision?.finalResourceIds.length ?? 0} budget_items=${executionPlan.recallBudgetHint?.maxItems ?? 0}`,
       `[planner_agent] blueprint sections=${blueprintPlan.sectionBlueprint.length} visual_slots=${blueprintPlan.visualSlots.length}`,
+      `[planner_agent] style_profile loaded=${Boolean(styleProfile)} sample_count=${styleProfile?.observedSampleCount ?? 0}`,
     ],
   };
 }

@@ -2,6 +2,7 @@ import { env } from "../config/env.js";
 import { logger } from "../shared/logger.js";
 
 let warnedLlmZeroTimeout = false;
+const jsonResponseFormatUnsupportedModels = new Set<string>();
 
 export type LlmInvokeOptions = {
   model: string;
@@ -59,6 +60,14 @@ function isRetryableBailianError(status: number, bodyText: string): boolean {
     /* ignore */
   }
   return false;
+}
+
+function isUnsupportedJsonResponseFormat(status: number, bodyText: string): boolean {
+  if (status !== 400) return false;
+  const lower = bodyText.toLowerCase();
+  return lower.includes("response_format.type")
+    && lower.includes("json_object")
+    && (lower.includes("not supported by this model") || lower.includes("not valid"));
 }
 
 function normalizeContent(content: unknown): string {
@@ -128,8 +137,10 @@ export async function invokeBailianModel(
 
   const maxAttempts = 1 + env.LLM_HTTP_RETRIES;
   let lastError: Error = new Error("LLM 调用失败");
+  let preferJsonResponseFormat =
+    Boolean(options.jsonMode) && !jsonResponseFormatUnsupportedModels.has(options.model);
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts;) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -143,7 +154,7 @@ export async function invokeBailianModel(
         temperature: 0.2,
       };
 
-      if (options.jsonMode) {
+      if (preferJsonResponseFormat) {
         payload.response_format = { type: "json_object" };
       }
 
@@ -168,6 +179,15 @@ export async function invokeBailianModel(
         });
         lastError = new Error(`LLM 调用失败: ${response.status}`);
 
+        if (preferJsonResponseFormat && isUnsupportedJsonResponseFormat(response.status, bodyText)) {
+          jsonResponseFormatUnsupportedModels.add(options.model);
+          logger.warn("当前模型不支持 response_format=json_object，自动回退为提示词约束 JSON 模式", {
+            model: options.model,
+          });
+          preferJsonResponseFormat = false;
+          continue;
+        }
+
         const retryable =
           attempt < maxAttempts && isRetryableBailianError(response.status, bodyText);
         if (retryable) {
@@ -179,6 +199,7 @@ export async function invokeBailianModel(
             status: response.status,
           });
           if (wait > 0) await sleep(wait);
+          attempt += 1;
           continue;
         }
 
@@ -204,6 +225,7 @@ export async function invokeBailianModel(
             timeoutMs,
           });
           if (wait > 0) await sleep(wait);
+          attempt += 1;
           continue;
         }
         throw lastError;

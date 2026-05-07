@@ -1,11 +1,19 @@
 import { env } from "../../config/env.js";
 import { logger } from "../../shared/logger.js";
-import { HmrsIngestService } from "./hmrsIngestService.js";
+import { HmrsIngestService, type IngestBucketRole } from "./hmrsIngestService.js";
 import { UserDatabaseBootstrapService } from "./userDatabaseBootstrapService.js";
 import { HmrsRepository } from "./hmrsRepository.js";
 import type { HmrsRefreshStatus } from "./model/memPalaceTree.js";
-import { buildRequiredFolders } from "./hmrsStructureBuilder.js";
+import { buildRequiredFolders, HMRS_FOLDER_NAMES } from "./hmrsStructureBuilder.js";
+import { getStyleDistillationService } from "./styleDistillationService.js";
 import { createHash } from "node:crypto";
+
+type DiscoveredBucketSource = {
+  folderToken: string;
+  bucketRole: IngestBucketRole;
+  bucketLabel: string;
+  parentPath: string;
+};
 
 function readManagedFolderTokens(): string[] {
   return env.HMRS_MANAGED_FOLDER_TOKENS
@@ -14,22 +22,58 @@ function readManagedFolderTokens(): string[] {
     .filter(Boolean);
 }
 
-async function discoverManagedFolderTokens(input: {
+/**
+ * 从个人数据库内部的纳管房间发现来源文件夹，作为唯一索引面。
+ * 不再扫描用户云盘根目录中的兄弟文件夹，避免污染私域。
+ */
+async function discoverHmrsBucketSources(input: {
   userId: string;
-  hmrsRootName: string;
+  rootFolderToken: string;
   repo: HmrsRepository;
-}): Promise<string[]> {
-  const root = await input.repo.getRootFolderMeta(input.userId);
-  const children = await input.repo.listChildFolders(input.userId, root.token);
-  const candidates = children.filter((item) => item.name !== input.hmrsRootName).slice(0, 30);
-  const discovered: string[] = [];
-  for (const folder of candidates) {
-    const docs = await input.repo.listDocsInFolder(input.userId, folder.token).catch(() => []);
-    if (docs.length <= 0) continue;
-    discovered.push(folder.token);
-    if (discovered.length >= 6) break;
+}): Promise<DiscoveredBucketSource[]> {
+  const buckets: Array<{ path: string; role: IngestBucketRole; label: string }> = [
+    {
+      path: `${HMRS_FOLDER_NAMES.resourcesWing}/${HMRS_FOLDER_NAMES.importedDocsRoom}`,
+      role: "work_material",
+      label: HMRS_FOLDER_NAMES.importedDocsRoom,
+    },
+    {
+      path: `${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.weeklyReportRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}`,
+      role: "template_example",
+      label: `${HMRS_FOLDER_NAMES.weeklyReportRoom}-${HMRS_FOLDER_NAMES.examplesDrawer}`,
+    },
+    {
+      path: `${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.meetingSummaryRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}`,
+      role: "template_example",
+      label: `${HMRS_FOLDER_NAMES.meetingSummaryRoom}-${HMRS_FOLDER_NAMES.examplesDrawer}`,
+    },
+    {
+      path: `${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.proposalRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}`,
+      role: "template_example",
+      label: `${HMRS_FOLDER_NAMES.proposalRoom}-${HMRS_FOLDER_NAMES.examplesDrawer}`,
+    },
+  ];
+  const sources: DiscoveredBucketSource[] = [];
+  for (const bucket of buckets) {
+    try {
+      const ensured = await input.repo.ensureFolderPath(input.userId, input.rootFolderToken, bucket.path);
+      const docs = await input.repo.listDocsInFolder(input.userId, ensured.token).catch(() => []);
+      if (docs.length <= 0) continue;
+      sources.push({
+        folderToken: ensured.token,
+        bucketRole: bucket.role,
+        bucketLabel: bucket.label,
+        parentPath: bucket.path,
+      });
+    } catch (error) {
+      logger.warn("hmrs bucket discover failed", {
+        userId: input.userId,
+        path: bucket.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
-  return discovered;
+  return sources;
 }
 
 export class HmrsRefreshService {
@@ -97,19 +141,26 @@ export class HmrsRefreshService {
       "refresh_status.json",
     );
     const configuredTokens = readManagedFolderTokens();
-    const managedFolderTokens =
+    const bucketSources =
       configuredTokens.length > 0
-        ? configuredTokens
-        : await discoverManagedFolderTokens({
+        ? configuredTokens.map((folderToken) => ({
+            folderToken,
+            bucketRole: "work_material" as IngestBucketRole,
+            bucketLabel: "configured",
+            parentPath: "(env-configured)",
+          }))
+        : await discoverHmrsBucketSources({
             userId: input.userId,
-            hmrsRootName: bootstrap.rootFolderName,
+            rootFolderToken: bootstrap.rootFolderToken,
             repo: this.repo,
           });
+    const managedFolderTokens = bucketSources.map((source) => source.folderToken);
     let ingestedDocCount = 0;
     let firstError: string | undefined;
     const folderSignatures: Record<string, string> = {};
 
-    for (const folderToken of managedFolderTokens) {
+    for (const source of bucketSources) {
+      const folderToken = source.folderToken;
       try {
         const docs = await this.repo.listDocsInFolder(input.userId, folderToken);
         const nextSignature = this.buildFolderSignature(docs);
@@ -122,7 +173,9 @@ export class HmrsRefreshService {
           userId: input.userId,
           hmrsRootToken: bootstrap.rootFolderToken,
           sourceFolderToken: folderToken,
-          projectName: "managed_folder_ingest",
+          projectName: source.bucketLabel || "managed_folder_ingest",
+          bucketRole: source.bucketRole,
+          bucketParentPath: source.parentPath,
         });
         ingestedDocCount += result.ingestedDocs;
       } catch (error) {
@@ -131,6 +184,7 @@ export class HmrsRefreshService {
         logger.warn("hmrs refresh ingest skipped for folder", {
           userId: input.userId,
           folderToken,
+          bucketRole: source.bucketRole,
           error: message,
         });
       }
@@ -160,6 +214,25 @@ export class HmrsRefreshService {
       ingestedDocCount,
     };
     HmrsRefreshService.lastResultByUser.set(input.userId, result);
+
+    /**
+     * 异步触发写作风格蒸馏：不阻塞 refresh 主链路。
+     * 仅当本轮有新增 ingest 时启动，避免无意义重算。
+     */
+    if (ingestedDocCount > 0) {
+      void getStyleDistillationService()
+        .distillAndPersist({
+          userId: input.userId,
+          hmrsRootToken: bootstrap.rootFolderToken,
+          trigger: "refresh",
+        })
+        .catch((error) => {
+          logger.warn("style distill after refresh failed", {
+            userId: input.userId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+    }
 
     return result;
   }

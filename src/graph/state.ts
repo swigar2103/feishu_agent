@@ -23,6 +23,7 @@ import type {
   WriterInput,
   WriterOutput,
 } from "../schemas/index.js";
+import type { RenderedArtifact } from "../services/render/artifactRenderer.js";
 
 export const ReportGraphState = Annotation.Root({
   userRequest: Annotation<UserRequest | null>({
@@ -114,6 +115,10 @@ export const ReportGraphState = Annotation.Root({
   blueprintPlan: Annotation<BlueprintPlan | null>({
     reducer: (_, right) => right,
     default: () => null,
+  }),
+  renderedArtifacts: Annotation<RenderedArtifact[]>({
+    reducer: (_, right) => right,
+    default: () => [],
   }),
   writerInput: Annotation<WriterInput | null>({
     reducer: (_, right) => right,

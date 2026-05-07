@@ -1,5 +1,6 @@
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { analystAgentNode } from "./nodes/analystAgentNode.js";
+import { artifactRendererNode } from "./nodes/artifactRendererNode.js";
 import { complianceReviewerNode } from "./nodes/complianceReviewerNode.js";
 import { intentAgentNode } from "./nodes/intentAgentNode.js";
 import { memoryUpdateNode } from "./nodes/memoryUpdateNode.js";
@@ -23,8 +24,8 @@ function routeAfterStyle(state: ReportGraphStateType): string {
 function routeAfterCompliance(state: ReportGraphStateType): string {
   if (state.callbackRoute === "to_planner") return "planner_agent";
   if (state.callbackRoute === "to_analyst") return "analyst_agent";
-  if (state.callbackRoute === "to_publish") return "output_generator";
-  return "output_generator";
+  if (state.callbackRoute === "to_publish") return "artifact_renderer";
+  return "artifact_renderer";
 }
 
 export const reportGraph = new StateGraph(ReportGraphState)
@@ -38,6 +39,7 @@ export const reportGraph = new StateGraph(ReportGraphState)
   .addNode("writer_agent", writerAgentNode)
   .addNode("style_reviewer", styleReviewerNode)
   .addNode("compliance_reviewer", complianceReviewerNode)
+  .addNode("artifact_renderer", artifactRendererNode)
   .addNode("output_generator", outputGeneratorNode)
   .addNode("memory_update", memoryUpdateNode)
   .addNode("resource_pool_enricher", resourcePoolEnricherNode)
@@ -57,8 +59,9 @@ export const reportGraph = new StateGraph(ReportGraphState)
   .addConditionalEdges("compliance_reviewer", routeAfterCompliance, {
     planner_agent: "planner_agent",
     analyst_agent: "analyst_agent",
-    output_generator: "output_generator",
+    artifact_renderer: "artifact_renderer",
   })
+  .addEdge("artifact_renderer", "output_generator")
   .addEdge("output_generator", "memory_update")
   .addEdge("memory_update", "resource_pool_enricher")
   .addEdge("resource_pool_enricher", END)

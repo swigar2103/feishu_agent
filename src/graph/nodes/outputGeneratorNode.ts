@@ -13,6 +13,7 @@ export async function outputGeneratorNode(
     request: state.taskRequest.userRequest,
     intent: state.intentResult,
     draft: state.draft,
+    renderedArtifacts: state.renderedArtifacts,
   });
   publishPipelineProgress({
     sessionId: state.taskRequest.userRequest.sessionId,

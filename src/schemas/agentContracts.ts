@@ -217,6 +217,24 @@ export const DraftSchema = WriterOutputSchema.extend({
         title: z.string().min(1),
         periodHint: z.string().min(1),
         notes: z.string().optional(),
+        dataSemantic: z
+          .object({
+            kind: z.literal("timeline"),
+            dimension: z.string().optional(),
+            metric: z.string().optional(),
+            periodHint: z.string().optional(),
+          })
+          .optional(),
+        data: z
+          .array(
+            z.object({
+              label: z.string().min(1),
+              when: z.string().min(1),
+              note: z.string().optional(),
+            }),
+          )
+          .default([]),
+        status: z.enum(["ready", "needs_data"]).default("ready"),
       }),
     )
     .default([]),
@@ -228,6 +246,26 @@ export const DraftSchema = WriterOutputSchema.extend({
         ownerHint: z.string().optional(),
         startHint: z.string().optional(),
         endHint: z.string().optional(),
+        dataSemantic: z
+          .object({
+            kind: z.literal("gantt"),
+            dimension: z.string().optional(),
+            metric: z.string().optional(),
+            periodHint: z.string().optional(),
+          })
+          .optional(),
+        data: z
+          .array(
+            z.object({
+              task: z.string().min(1),
+              owner: z.string().optional(),
+              start: z.string().min(1),
+              end: z.string().min(1),
+              note: z.string().optional(),
+            }),
+          )
+          .default([]),
+        status: z.enum(["ready", "needs_data"]).default("ready"),
       }),
     )
     .default([]),
@@ -238,6 +276,28 @@ export const DraftSchema = WriterOutputSchema.extend({
         chartType: z.string().min(1),
         title: z.string().min(1),
         metricHint: z.string().min(1),
+        dataSemantic: z
+          .object({
+            kind: z.enum(["line", "bar", "pie", "table", "image"]),
+            dimension: z.string().optional(),
+            metric: z.string().optional(),
+            periodHint: z.string().optional(),
+          })
+          .optional(),
+        data: z
+          .object({
+            categories: z.array(z.string()).default([]),
+            series: z
+              .array(
+                z.object({
+                  name: z.string().min(1),
+                  values: z.array(z.number()).default([]),
+                }),
+              )
+              .default([]),
+          })
+          .optional(),
+        status: z.enum(["ready", "needs_data"]).default("ready"),
       }),
     )
     .default([]),

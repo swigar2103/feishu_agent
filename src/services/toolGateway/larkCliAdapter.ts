@@ -4,6 +4,9 @@ import type {
   AddCommentInput,
   CreateDocumentInput,
   CreateSlidesInput,
+  DocxBlockInsertResult,
+  DocxEmbedBlockInsertInput,
+  DocxImageBlockInsertInput,
   FeishuToolGatewayApi,
   GatewayComment,
   GatewayDocument,
@@ -18,8 +21,17 @@ import type {
   GatewayRequestContext,
   ListMessagesInput,
   SendMessageInput,
+  SheetChartInput,
+  SheetChartResult,
+  SheetCreateInput,
+  SheetCreateResult,
+  SheetWriteInput,
   UpdateDocumentInput,
   UpdateWhiteboardInput,
+  UploadImageMediaInput,
+  UploadImageMediaResult,
+  WhiteboardCreateInput,
+  WhiteboardCreateResult,
 } from "./types.js";
 import { ToolGatewayError } from "./errors.js";
 import { execLarkCli } from "./larkCliExecutor.js";
@@ -402,6 +414,106 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
     _context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus> {
     throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 task check 命令");
+  }
+
+  async uploadImageMedia(
+    _input: UploadImageMediaInput,
+    _context?: GatewayRequestContext,
+  ): Promise<UploadImageMediaResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 media upload 命令");
+  }
+
+  async insertDocxImageBlock(
+    _input: DocxImageBlockInsertInput,
+    _context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 docx image block 命令");
+  }
+
+  async insertDocxEmbedBlock(
+    _input: DocxEmbedBlockInsertInput,
+    _context?: GatewayRequestContext,
+  ): Promise<DocxBlockInsertResult> {
+    throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 docx embed block 命令");
+  }
+
+  async createSheet(
+    input: SheetCreateInput,
+    _context?: GatewayRequestContext,
+  ): Promise<SheetCreateResult> {
+    const args = ["sheets", "+create", "--title", input.title];
+    if (input.parentFolderToken) {
+      args.push("--folder-token", input.parentFolderToken);
+    }
+    const payload = (await this.runCli(args)) as
+      | { spreadsheet_token?: string; sheet_id?: string; url?: string }
+      | null;
+    if (!payload?.spreadsheet_token) {
+      throw new ToolGatewayError("INVALID_RESPONSE", "lark-cli sheets +create 未返回 spreadsheet_token");
+    }
+    return {
+      spreadsheetToken: payload.spreadsheet_token,
+      sheetId: payload.sheet_id,
+      url: payload.url,
+      source: "lark_cli",
+    };
+  }
+
+  async writeSheet(input: SheetWriteInput, _context?: GatewayRequestContext): Promise<boolean> {
+    await this.runCli([
+      "sheets",
+      "+write",
+      "--spreadsheet-token",
+      input.spreadsheetToken,
+      "--sheet-id",
+      input.sheetId,
+      "--range",
+      input.range,
+      "--values",
+      JSON.stringify(input.values),
+    ]);
+    return true;
+  }
+
+  async createSheetChart(
+    _input: SheetChartInput,
+    _context?: GatewayRequestContext,
+  ): Promise<SheetChartResult> {
+    throw new ToolGatewayError(
+      "NOT_SUPPORTED",
+      "lark-cli 当前未封装电子表格图表创建命令；请改用 OpenAPI 或上传图片回退",
+    );
+  }
+
+  async createWhiteboard(
+    input: WhiteboardCreateInput,
+    _context?: GatewayRequestContext,
+  ): Promise<WhiteboardCreateResult> {
+    const args = [
+      "whiteboard",
+      "+create",
+      "--title",
+      input.title,
+      "--syntax",
+      input.syntax,
+      "--content",
+      input.body,
+    ];
+    if (input.parentFolderToken) {
+      args.push("--parent-token", input.parentFolderToken);
+    }
+    const payload = (await this.runCli(args)) as { token?: string; url?: string } | null;
+    if (!payload?.token) {
+      throw new ToolGatewayError(
+        "INVALID_RESPONSE",
+        "lark-cli whiteboard +create 未返回 token；请检查 lark-whiteboard skill 安装",
+      );
+    }
+    return {
+      whiteboardToken: payload.token,
+      url: payload.url,
+      source: "lark_cli",
+    };
   }
 }
 

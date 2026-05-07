@@ -105,6 +105,8 @@ const EnvSchema = z.object({
    * - phase1：复制云文档模板并按锚点填小节，回交互卡片链
    */
   FEISHU_BOT_PIPELINE: z.enum(["full", "phase1"]).default("full"),
+  /** webhook 事件最大可接受延迟（秒）；超出视为历史重投事件并忽略 */
+  FEISHU_WEBHOOK_MAX_EVENT_AGE_SECONDS: z.coerce.number().int().positive().default(180),
   /**
    * 双层身份策略：
    * - bot_default：主流程走应用身份，用户授权仅作增强能力

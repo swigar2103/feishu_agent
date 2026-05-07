@@ -6,7 +6,12 @@ import type {
   HmrsRecallBudget,
   HmrsRefreshStatus,
 } from "./model/memPalaceTree.js";
-import { buildBaseWingNames, buildRequiredFolders, buildUserHmrsRootName } from "./hmrsStructureBuilder.js";
+import {
+  buildBaseWingNames,
+  buildRequiredFolders,
+  buildUserHmrsRootName,
+  HMRS_FOLDER_NAMES,
+} from "./hmrsStructureBuilder.js";
 import { HmrsRepository } from "./hmrsRepository.js";
 
 export type BootstrapResult = {
@@ -27,8 +32,15 @@ export class UserDatabaseBootstrapService {
     const exact = await this.repo.findChildFolderByName(input.userId, input.rootToken, input.exactName);
     if (exact) return { token: exact.token, name: exact.name };
     const children = await this.repo.listChildFolders(input.userId, input.rootToken);
-    const suffix = `_${input.userId}_mempalace`;
-    const loose = children.find((item) => item.name.endsWith(suffix) || item.name === `${input.userId}_mempalace`);
+    const oldSuffix = `_${input.userId}_mempalace`;
+    const newSuffix = `_${input.userId}_个人数据库`;
+    const loose = children.find(
+      (item) =>
+        item.name.endsWith(oldSuffix) ||
+        item.name === `${input.userId}_mempalace` ||
+        item.name.endsWith(newSuffix) ||
+        item.name === `${input.userId}_个人数据库`,
+    );
     if (!loose) return null;
     return { token: loose.token, name: loose.name };
   }
@@ -39,41 +51,48 @@ export class UserDatabaseBootstrapService {
         path: "",
         fileName: "README_个人数据库说明.md",
         content: [
-          "# 个人数据库说明",
+          "# 个人数据库（HMRS）使用说明",
           "",
-          "这是办公 Agent 为你维护的长期记忆目录（HMRS）。",
+          "这是办公 Agent 为你维护的长期记忆目录。",
+          "上传文件时，请按用途选择对应的子文件夹，**不要再让 Agent 去你的私人云盘根目录扫描**：",
           "",
-          "- `people_wing`：个人偏好、写作风格、样例偏好",
-          "- `projects_wing`：项目级总结与索引",
-          "- `templates_wing`：模板结构、样例与版式槽位",
-          "- `resources_wing`：外部纳管资料（文档/文件/会话）",
-          "- `conversations_wing`：会话沉淀",
+          "## 你需要主动上传的目录",
+          `- \`${HMRS_FOLDER_NAMES.resourcesWing}/${HMRS_FOLDER_NAMES.importedDocsRoom}/\`：过往工作资料、项目素材、案例文档（作为事实证据库）`,
+          `- \`${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.weeklyReportRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}/\`：周报模板样例`,
+          `- \`${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.meetingSummaryRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}/\`：会议纪要模板样例`,
+          `- \`${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.proposalRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}/\`：方案/汇报模板样例`,
           "",
-          "你可以把历史资料放到相关目录，系统会自动刷新索引并用于后续写作。",
+          "## 由系统自动维护、请不要手工编辑的目录",
+          `- \`${HMRS_FOLDER_NAMES.peopleWing}/${HMRS_FOLDER_NAMES.selfRoom}/${HMRS_FOLDER_NAMES.styleDrawer}/\`：写作风格画像（由 LLM 蒸馏，越用越准）`,
+          `- \`${HMRS_FOLDER_NAMES.peopleWing}/${HMRS_FOLDER_NAMES.selfRoom}/${HMRS_FOLDER_NAMES.writingThoughtDrawer}/\`：写作思路画像（同上）`,
+          `- \`${HMRS_FOLDER_NAMES.projectsWing}/\`：按项目沉淀的摘要/索引（由系统纳管时生成）`,
+          `- \`${HMRS_FOLDER_NAMES.system}/\`：manifest/状态/预算/权限`,
+          "",
+          "刷新规则：你上传到上面「主动上传目录」后，下一次刷新会自动把它纳管成可被检索/写作引用的索引；不再扫描你云盘根目录的兄弟文件夹。",
         ].join("\n"),
       },
       {
-        path: "_system",
+        path: HMRS_FOLDER_NAMES.system,
         fileName: "说明_系统文件夹.md",
         content: "# 系统文件夹说明\n\n该目录保存 manifest、刷新状态、预算与权限元数据，请勿手工删除。",
       },
       {
-        path: "people_wing",
+        path: HMRS_FOLDER_NAMES.peopleWing,
         fileName: "说明_个人偏好库.md",
         content: "# 个人偏好库\n\n保存你的风格偏好、写作思路、常用表达和高质量样例。",
       },
       {
-        path: "projects_wing",
+        path: HMRS_FOLDER_NAMES.projectsWing,
         fileName: "说明_项目知识库.md",
         content: "# 项目知识库\n\n保存项目摘要、文档索引、行动项与风险沉淀。",
       },
       {
-        path: "templates_wing",
+        path: HMRS_FOLDER_NAMES.templatesWing,
         fileName: "说明_模板知识库.md",
         content: "# 模板知识库\n\n保存周报/会议纪要/汇报模板结构、示例和图表槽位。",
       },
       {
-        path: "resources_wing/imported_docs_room",
+        path: `${HMRS_FOLDER_NAMES.resourcesWing}/${HMRS_FOLDER_NAMES.importedDocsRoom}`,
         fileName: "说明_纳管文档索引.md",
         content: [
           "# 纳管文档索引说明",
@@ -86,7 +105,7 @@ export class UserDatabaseBootstrapService {
         ].join("\n"),
       },
       {
-        path: "conversations_wing",
+        path: HMRS_FOLDER_NAMES.conversationsWing,
         fileName: "说明_会话沉淀库.md",
         content: "# 会话沉淀库\n\n保存对话摘要、任务上下文与可复用经验。",
       },
@@ -117,7 +136,11 @@ export class UserDatabaseBootstrapService {
       rootFolderToken,
       buildRequiredFolders(),
     );
-    const systemFolder = await this.repo.ensureFolderPath(input.userId, rootFolderToken, "_system");
+    const systemFolder = await this.repo.ensureFolderPath(
+      input.userId,
+      rootFolderToken,
+      HMRS_FOLDER_NAMES.system,
+    );
 
     const manifest: HmrsManifest = {
       version: "hmrs_v1",
@@ -159,12 +182,12 @@ export class UserDatabaseBootstrapService {
     const styleFolder = await this.repo.ensureFolderPath(
       input.userId,
       rootFolderToken,
-      "people_wing/self_room/style_drawer",
+      `${HMRS_FOLDER_NAMES.peopleWing}/${HMRS_FOLDER_NAMES.selfRoom}/${HMRS_FOLDER_NAMES.styleDrawer}`,
     );
     const thoughtFolder = await this.repo.ensureFolderPath(
       input.userId,
       rootFolderToken,
-      "people_wing/self_room/writing_thought_drawer",
+      `${HMRS_FOLDER_NAMES.peopleWing}/${HMRS_FOLDER_NAMES.selfRoom}/${HMRS_FOLDER_NAMES.writingThoughtDrawer}`,
     );
     await this.repo.writeMarkdownObject(
       input.userId,

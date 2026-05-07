@@ -28,6 +28,13 @@ const CAPABILITY_ORDER: Partial<Record<GatewayCapability, GatewayAdapterName[]>>
   "drive.file.copy": ["openapi", "lark_cli", "mcp"],
   "drive.file.delete": ["openapi", "lark_cli", "mcp"],
   "drive.task.check": ["openapi", "lark_cli", "mcp"],
+  "media.upload.image": ["openapi", "lark_cli", "mcp"],
+  "docx.block.image.insert": ["openapi", "lark_cli", "mcp"],
+  "docx.block.embed.insert": ["openapi", "lark_cli", "mcp"],
+  "sheet.create": ["lark_cli", "openapi", "mcp"],
+  "sheet.write": ["lark_cli", "openapi", "mcp"],
+  "sheet.chart.create": ["lark_cli", "openapi", "mcp"],
+  "whiteboard.create": ["lark_cli", "openapi", "mcp"],
 };
 
 export function getAdapterPriority(capability: GatewayCapability): GatewayAdapterName[] {

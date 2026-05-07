@@ -17,6 +17,56 @@ import {
   userOAuthGrantedScopesCoverRequired,
 } from "../storage/userOAuthStore.js";
 
+const WEBHOOK_DEDUP_WINDOW_MS = 25_000;
+const recentWebhookSeen = new Map<string, number>();
+const latestMessageWatermarkByChat = new Map<string, number>();
+
+function gcRecentWebhookSeen(now: number): void {
+  for (const [key, expiresAt] of recentWebhookSeen.entries()) {
+    if (expiresAt <= now) recentWebhookSeen.delete(key);
+  }
+}
+
+function normalizeWebhookText(input: string): string {
+  return input.trim().replace(/\s+/g, " ").slice(0, 200);
+}
+
+function markAndCheckDedup(keys: string[]): boolean {
+  const now = Date.now();
+  gcRecentWebhookSeen(now);
+  const hit = keys.some((key) => {
+    const expiresAt = recentWebhookSeen.get(key);
+    return typeof expiresAt === "number" && expiresAt > now;
+  });
+  if (hit) return true;
+  const expiresAt = now + WEBHOOK_DEDUP_WINDOW_MS;
+  for (const key of keys) {
+    recentWebhookSeen.set(key, expiresAt);
+  }
+  return false;
+}
+
+function isStaleWebhookEvent(input: {
+  chatId: string;
+  createTimeMs?: number;
+}): { stale: boolean; reason?: string } {
+  const now = Date.now();
+  const msgTs = input.createTimeMs;
+  if (!msgTs || !Number.isFinite(msgTs)) return { stale: false };
+  const maxAgeMs = env.FEISHU_WEBHOOK_MAX_EVENT_AGE_SECONDS * 1000;
+  if (now - msgTs > maxAgeMs) {
+    return { stale: true, reason: "expired_by_age" };
+  }
+  const watermark = latestMessageWatermarkByChat.get(input.chatId) ?? 0;
+  if (msgTs < watermark) {
+    return { stale: true, reason: "older_than_chat_watermark" };
+  }
+  if (msgTs > watermark) {
+    latestMessageWatermarkByChat.set(input.chatId, msgTs);
+  }
+  return { stale: false };
+}
+
 function buildFallbackAuthStartUrl(userId: string): string | undefined {
   const redirectUri = env.FEISHU_USER_OAUTH_REDIRECT_URI.trim();
   if (!redirectUri.startsWith("http://") && !redirectUri.startsWith("https://")) return undefined;
@@ -61,6 +111,41 @@ export async function continueFeishuWebhookAfterChallenge(
   if (!c.appId || !c.appSecret) {
     logger.error("webhook: 缺少 FEISHU_APP_ID / FEISHU_APP_SECRET");
     await reply.status(200).send({ message: "ok" });
+    return;
+  }
+
+  const eventId = typeof (body.header as Record<string, unknown> | undefined)?.event_id === "string"
+    ? ((body.header as Record<string, unknown>).event_id as string).trim()
+    : "";
+  const normalizedText = normalizeWebhookText(imEvent.text);
+  const dedupKeys = [
+    eventId ? `event:${eventId}` : "",
+    imEvent.messageId ? `message:${imEvent.messageId}` : "",
+    `fingerprint:${imEvent.userId}:${imEvent.chatId}:${normalizedText}`,
+  ].filter(Boolean);
+  if (markAndCheckDedup(dedupKeys)) {
+    logger.info("webhook: duplicate event dropped", {
+      chatId: imEvent.chatId,
+      userId: imEvent.userId,
+      messageId: imEvent.messageId,
+      eventId,
+    });
+    await reply.status(200).send({ message: "ok", hint: "duplicate_dropped" });
+    return;
+  }
+  const staleCheck = isStaleWebhookEvent({
+    chatId: imEvent.chatId,
+    createTimeMs: imEvent.createTimeMs,
+  });
+  if (staleCheck.stale) {
+    logger.info("webhook: stale event dropped", {
+      chatId: imEvent.chatId,
+      userId: imEvent.userId,
+      messageId: imEvent.messageId,
+      createTimeMs: imEvent.createTimeMs,
+      reason: staleCheck.reason,
+    });
+    await reply.status(200).send({ message: "ok", hint: "stale_dropped" });
     return;
   }
 

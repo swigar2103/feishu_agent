@@ -69,6 +69,25 @@ function firstDocArrayInRecord(r: Record<string, unknown>): unknown[] | null {
   return null;
 }
 
+function hasKnownDocArrayInUnknown(v: unknown, depth: number): boolean {
+  if (depth > 10 || v === null || v === undefined) return false;
+  if (Array.isArray(v)) {
+    for (const item of v) {
+      if (hasKnownDocArrayInUnknown(item, depth + 1)) return true;
+    }
+    return false;
+  }
+  const rec = asRecord(v);
+  if (!rec) return false;
+  for (const k of MCP_SEARCH_DOC_ARRAY_KEYS) {
+    if (Array.isArray(rec[k])) return true;
+  }
+  for (const k of ["data", "result", "payload", "response"]) {
+    if (hasKnownDocArrayInUnknown(rec[k], depth + 1)) return true;
+  }
+  return false;
+}
+
 export type McpSearchDocRow = {
   id: string;
   title: string;
@@ -117,6 +136,12 @@ export function extractSearchDocListFromUnknown(data: unknown): McpSearchDocRow[
 
   if (Array.isArray(root)) return collect(root, 0);
   return collect(root, 0);
+}
+
+export function hasKnownSearchDocArrayField(data: unknown): boolean {
+  const root = data === null || data === undefined ? null : (parseMcpPayload<unknown>(data) ?? data);
+  if (root === null || root === undefined) return false;
+  return hasKnownDocArrayInUnknown(root, 0);
 }
 
 /**

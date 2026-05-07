@@ -2,6 +2,201 @@
 
 ## 2026-05-07
 
+### 高质量产物升级（Phase 1-5 一次落地）
+
+- **目标**：
+  - 把"用户给云盘 folder token + 文本化文档生成"升级为"上传到个人数据库分桶 + 自动写作风格蒸馏 + 模板槽位语义化 + 真实图表/甘特原生渲染"。
+- **Phase 1：HMRS 上传分桶改造**：
+  - `src/services/hmrs/hmrsRefreshService.ts`：移除"扫描云盘根目录兄弟文件夹"，改为 `discoverHmrsBucketSources` 直接从个人数据库内部三类纳管房间发现来源（`资源纳管库/已纳管文档房间`、`模板知识库/{周报|会议纪要|方案}模板房间/示例抽屉`）。
+  - `src/services/hmrs/hmrsIngestService.ts`：新增 `IngestBucketRole`（work_material / template_example）；template 桶产物写入对应模板房间的结构抽屉，不再污染 `已纳管文档房间`；产物文件名加桶标签便于识别。
+  - `src/services/hmrs/userDatabaseBootstrapService.ts`：根目录 README 改为"主动上传目录 vs 自动维护目录"显式分组，明确告诉用户在哪上传。
+- **Phase 2：写作风格自动蒸馏（Hermes-like）**：
+  - 新增 `src/services/hmrs/styleDistillationService.ts`：从 `已纳管文档房间`最近文档 + 编辑信号统计蒸馏 `StyleProfile`（toneTags/sentencePatterns/preferredSectionOrder/preferredVisualKinds/forbiddenWords/anonymizedStyleSample），写入 `个人画像库/我的偏好房间/风格抽屉/style_profile.json`。
+  - 触发：HMRS refresh 完成后异步触发；`updateMemoryFromEditorFeedback` 累计 5 次编辑信号后增量触发。
+  - 注入：`src/graph/nodes/plannerAgentNode.ts` 把 preferredSectionOrder/preferredVisualKinds/toneTags 注入 `BlueprintPlan.templateGuardrails`；`src/graph/nodes/writerAgentNode.ts` 把 toneTags/sentencePatterns/commonTerms/forbiddenWords/anonymizedStyleSample 注入 `rewriteHints`。
+  - 缓存：`readStyleProfileSoft` 提供 5 分钟内存缓存，主链路读取失败也不阻塞。
+- **Phase 3：模板槽位语义化**：
+  - `src/schemas/agentContracts.ts`：`chartSlots/timelineSlots/ganttSlots` 增加 `dataSemantic`（kind/dimension/metric/periodHint）、`data`（实际数据点）、`status`（ready/needs_data）。
+  - `src/services/agent/writerAgent.ts`：`buildDraftV2Extensions` 默认填 `dataSemantic` + `status=needs_data`。
+  - `src/prompts/reviewPrompts.ts`：Writer System Prompt 增加"对每个槽位输出 dataSemantic + 抽取真实 data 数据点；缺数据则置 needs_data，禁止编造"硬约束。
+- **Phase 4：ArtifactRenderer 节点 + ToolGateway 渲染能力**：
+  - 新增 `src/services/render/artifactRenderer.ts`：按 hybrid 策略渲染——甘特优先飞书白板（PlantUML），失败回退 Mermaid PNG 上传图片；时间线/折线/柱状/饼用 Mermaid 渲染 PNG 后通过 `drive/v1/medias/upload_all` 上传。
+  - 新增 `src/graph/nodes/artifactRendererNode.ts`：在 `compliance_reviewer` 与 `output_generator` 之间执行；输出 `renderedArtifacts: RenderedArtifact[]` 挂到 state。
+  - `src/graph/state.ts`：新增 `renderedArtifacts` 字段。
+  - `src/graph/reportGraph.ts`：插入 `artifact_renderer` 节点，并把 compliance 路由的 `to_publish` 改为 `artifact_renderer`，再走 `output_generator`。
+  - ToolGateway 新增能力（`src/services/toolGateway/types.ts`、`capabilities.ts`、`priority.ts`、`gateway.ts`）：
+    - `media.upload.image`：OpenAPI 真实实现 `drive/v1/medias/upload_all`。
+    - `docx.block.image.insert`：OpenAPI 实现，按 `block_type=27` 创建 image block。
+    - `docx.block.embed.insert`：OpenAPI 实现，按 `block_type=22` 用 url 引用白板/sheet/bitable。
+    - `sheet.create / sheet.write`：先 `lark-cli` 实现，OpenAPI 暂留 NOT_SUPPORTED。
+    - `sheet.chart.create`：lark-cli 与 OpenAPI 都暂留 NOT_SUPPORTED（待开放平台接口确认后接入）。
+    - `whiteboard.create`：lark-cli 实现，OpenAPI 留 NOT_SUPPORTED。
+- **Phase 5：Publisher 嵌入图片/引用块**：
+  - `src/services/output/publisher.ts`：
+    - `attachRenderedArtifactsToDocx`：发布飞书 docx 主体后，按 artifact 类型调用 `insertDocxImageBlock` / `insertDocxEmbedBlock`，统计 inserted/skipped/failed 写入 `[publish-telemetry]`。
+    - `renderDraftAsTemplateMarkdown`：根据 slot.status 区分"已渲染为可视化对象"与"待补充数据"两种渲染策略，避免 markdown 占位与真实图形冲突。
+  - `src/services/agent/outputGenerator.ts` + `src/graph/nodes/outputGeneratorNode.ts`：把 `renderedArtifacts` 透传到 publisher。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对所有改动文件无新增问题。
+- **依赖外部能力**：
+  - 真实图片块/引用块插入需要飞书开放平台开通：
+    - `drive/v1/medias/upload_all`（权限：drive:drive）
+    - `docx/v1/documents/{document_id}/blocks/{block_id}/children`（创建块；如果服务端实际 block_type 与本仓库假设不一致，请按官方 API 文档调整 `feishuOpenApiAdapter.ts` 内的 payload）
+  - Mermaid PNG 回退依赖 `npx mmdc`（mermaid-cli），未安装时该回退会自动跳过并记录 warning。
+  - 白板/电子表格创建当前依赖 lark-cli 安装且具备相关命令；缺失时自动回落到 PNG 嵌入。
+- **当前项目结构（本次变更范围）**：
+  - 新增：`src/services/hmrs/styleDistillationService.ts`、`src/services/render/artifactRenderer.ts`、`src/graph/nodes/artifactRendererNode.ts`
+  - 修改：`src/services/hmrs/{hmrsRefreshService,hmrsIngestService,userDatabaseBootstrapService}.ts`、`src/services/agent/{memoryUpdater,writerAgent,outputGenerator}.ts`、`src/services/output/publisher.ts`、`src/services/toolGateway/{types,capabilities,priority,gateway,feishuOpenApiAdapter,larkCliAdapter,feishuMcpAdapter}.ts`、`src/graph/{state,reportGraph}.ts`、`src/graph/nodes/{plannerAgentNode,writerAgentNode,outputGeneratorNode}.ts`、`src/schemas/agentContracts.ts`、`src/prompts/reviewPrompts.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+### 模型回切百炼（替换豆包）与超时参数收敛
+
+- **原因**：
+  - 用户反馈豆包 2.0 Pro 在当前链路下请求时延高、频繁触发 `LLM_TIMEOUT_MS=60000` 超时重试，体感明显慢于百炼 Qwen。
+- **处理**：
+  - `.env`：
+    - 回切百炼兼容端点：
+      - `BAILIAN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1`
+      - `BAILIAN_API_KEY=sk-***`
+    - 模型调整为高吞吐优先：
+      - `BAILIAN_MODEL_ORCHESTRATOR=qwen-turbo`
+      - `BAILIAN_MODEL_WRITER=qwen-turbo`
+    - 超时与重试收敛：
+      - `LLM_TIMEOUT_MS` 从 `60000` 调整为 `45000`
+      - `LLM_HTTP_RETRIES` 从 `2` 调整为 `1`
+    - `BAILIAN_MODEL_EMBEDDING=text-embedding-v3` 保持可用配置。
+- **验证**：
+  - 使用 `chat/completions` 做端点烟雾测试，返回 `status 200`，模型回包正常（`model=qwen-turbo`）。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`.env`
+  - 文档：`history.md`（本文件追加记录）
+
+### LLM 模型能力记忆（避免每次先报 400 再回退）
+
+- **原因**：
+  - 豆包共享 endpoint 不支持 `response_format=json_object`，此前每次 JSON 模式调用都会先触发一次 400，再回退到提示词约束 JSON；
+  - 日志噪声大且额外消耗一次失败请求时延，用户体感为“卡住”。
+- **处理**：
+  - `src/llm/client.ts`：
+    - 新增进程内能力缓存 `jsonResponseFormatUnsupportedModels`；
+    - 模型一旦确认不支持 `response_format=json_object`，后续调用直接跳过该参数，直接走提示词约束 JSON；
+    - 保留首次自动探测与回退逻辑，兼容不同模型能力。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/llm/client.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+### MCP 0 条日志降噪 + 检索噪声词过滤
+
+- **原因**：
+  - 用户反馈日志中出现 `_user_1` 查询与“解析后 0 条”告警，误导为 MCP 解析故障；
+  - 实际存在两类情况：一类是查询词噪声（如 `_user_1`）导致无命中；另一类才是返回结构不兼容。
+- **处理**：
+  - `src/services/toolGateway/searchQueryNormalize.ts`：
+    - 新增噪声 token 识别（`_user_1`、`ou_*/im_*/om_*/oc_*` 等 ID 样式）；
+    - `compactDocumentSearchQuery` 从长查询中优先选“非噪声词”，避免退化到 `_user_1` 这类无意义检索词。
+  - `src/services/toolGateway/mcpResponseParse.ts`：
+    - 新增 `hasKnownSearchDocArrayField`，用于判断响应是否包含已知文档列表字段（即使为空数组）。
+  - `src/services/toolGateway/feishuMcpAdapter.ts`：
+    - 当 `rows=0` 且响应结构正常时，改记为 info（“当前查询无命中”）；
+    - 仅在结构不识别时保留 warn（“字段可能不兼容”）。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/services/toolGateway/searchQueryNormalize.ts`、`src/services/toolGateway/mcpResponseParse.ts`、`src/services/toolGateway/feishuMcpAdapter.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+### Webhook 历史消息忽略（防旧任务补跑）
+
+- **原因**：
+  - 用户反馈“最新任务完成后，历史未回应消息又继续触发受理”，希望忽略旧记录，避免补跑风暴。
+- **处理**：
+  - `src/integrations/feishu/webhookMessageParse.ts`：
+    - 解析并透传 `message.create_time`（`createTimeMs`）。
+  - `src/config/env.ts`、`env.example`：
+    - 新增 `FEISHU_WEBHOOK_MAX_EVENT_AGE_SECONDS`（默认 180 秒）。
+  - `src/api/feishuWebhookDispatch.ts`：
+    - 增加历史事件过滤：消息时间超过最大可接受延迟直接忽略；
+    - 增加同 chat 时间水位：晚于水位才处理，低于水位的旧重投直接忽略。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/integrations/feishu/webhookMessageParse.ts`、`src/api/feishuWebhookDispatch.ts`、`src/config/env.ts`、`env.example`
+  - 文档：`history.md`（本文件追加记录）
+
+### IM 受理风暴抑制（同 chat 串行锁）
+
+- **原因**：
+  - 用户反馈同一会话连续出现多条“报告任务已受理”卡片；
+  - 仅靠 webhook 去重不足以覆盖“不同 message_id 但短时间并发到达”的场景。
+- **处理**：
+  - `src/integrations/feishu/imTextPipelineDispatch.ts`：
+    - 新增按 `chatId` 的 full pipeline 串行锁（TTL 15 分钟）；
+    - 同一 chat 在任务进行中收到新消息时，不再重复受理与启动新 pipeline；
+    - 改为发送“上一条任务仍在处理中，本条暂不启动”的提示；
+    - 在 full pipeline 结束（成功/失败）后释放锁。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/integrations/feishu/imTextPipelineDispatch.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+### 豆包 endpoint JSON 模式兼容（修复 Analyst 400）
+
+- **原因**：
+  - 切换到豆包共享 endpoint 后，日志出现 400：
+    - `response_format.type=json_object is not supported by this model`
+  - 在严格真实模式下，Analyst 节点不允许回退规则分析，因此链路报错中断。
+- **处理**：
+  - `src/llm/client.ts`：
+    - 新增 `isUnsupportedJsonResponseFormat` 检测；
+    - 当模型不支持 `response_format=json_object` 时，自动降级为“仅提示词约束 JSON”并立即重试同一请求；
+    - 保留原有超时与可重试错误机制，避免强依赖某家模型对 `response_format` 的支持。
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/llm/client.ts`
+  - 文档：`history.md`（本文件追加记录）
+
+### Webhook 防重 + HMRS 中文目录名 + 模型切换（豆包 2.0 Pro）
+
+- **原因**：
+  - 用户反馈同一条 IM 触发多个“报告任务已受理”卡片，说明 webhook 存在重复投递未去重问题。
+  - 用户反馈 HMRS 云盘目录仍为英文，不利于维护与理解。
+  - 原编排模型配额耗尽，需要切换到可用模型端点。
+- **处理**：
+  - `src/api/feishuWebhookDispatch.ts`：
+    - 新增 webhook 去重窗口（25s），基于 `event_id`、`message_id` 与 `user+chat+text` 指纹三重判定；
+    - 命中重复时直接返回 `ok`，不再重复发“受理中”卡片与重复跑流水线。
+  - `src/services/hmrs/hmrsStructureBuilder.ts`：
+    - 新增 `HMRS_FOLDER_NAMES`，将 HMRS 目录显示名切换为中文（如“个人画像库/项目知识库/模板知识库/资源纳管库/会话沉淀库”）；
+    - `buildRequiredFolders` 改为中文路径；
+    - HMRS 根目录命名由 `*_mempalace` 改为 `*_个人数据库`（仅新建生效）。
+  - `src/services/hmrs/userDatabaseBootstrapService.ts`：
+    - 接入中文目录常量，bootstrap 与说明文档写入路径同步中文化；
+    - 兼容复用旧根目录命名（同时识别 `*_mempalace` 与 `*_个人数据库`）。
+  - `src/services/hmrs/hmrsIngestService.ts`：
+    - 项目 room 与纳管 room 路径改为中文目录体系，保持纳管产物命名可读。
+  - `.env`：
+    - 模型参数切换为用户提供的豆包共享端点（OpenAI 兼容）：
+      - `BAILIAN_BASE_URL=https://ark.cn-beijing.volces.com/api/v3`
+      - `BAILIAN_API_KEY=ark-***`
+      - `BAILIAN_MODEL_ORCHESTRATOR=ep-20260423223203-k4sbx`
+      - `BAILIAN_MODEL_WRITER=ep-20260423223203-k4sbx`
+- **验证**：
+  - `npm run check` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/api/feishuWebhookDispatch.ts`、`src/services/hmrs/hmrsStructureBuilder.ts`、`src/services/hmrs/userDatabaseBootstrapService.ts`、`src/services/hmrs/hmrsIngestService.ts`、`.env`
+  - 文档：`history.md`（本文件追加记录）
+
 ### HMRS 中文可读维护（重名覆盖 + 目录说明 + 根目录复用）
 
 - **原因**：
