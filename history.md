@@ -1365,3 +1365,325 @@ feishu_agent/
 - **当前项目结构（本次变更范围）**：
   - 修改：`src/integrations/feishu/cards.ts`
   - 文档：`history.md`（本文件追加记录）
+
+## 2026-05-07（v0.5 质量回退修复：HMRS 反污染 + 真出图链路）
+
+- **本轮聚焦的现象**：
+  - 用户实测「团队工作周报」内容简陋、无任何甘特/图表，且出现重复的「文档ID为空」占位话术；
+  - 根因为三层耦合：HMRS 自污染 → MCP search 只塞 snippet → 渲染链全断。
+- **根因 1：HMRS 被 Writer 失败稿污染**
+  - `MemoryWritebackService.writeFromDraft` 之前无门槛地把每次 Draft 写回 `templates_wing/structure_drawer` 与 `style_drawer`；
+  - 下一轮 Planner / `templateSkillStore` 把这些污染条目当模板召回，Writer 只能复印「文档ID为空」雪球越滚越大。
+- **根因 2：MCP search-doc 仅 snippet，没有正文**
+  - `feishuMcpAdapter.searchDocuments` 把命中行直接 map 成 `GatewayDocument`，正文实际是 `周报 <hb>周报</hb>` 这种带 HTML 高亮的命中片段；这些壳被原样写到 `imported_docs_room` 的 `structureSummary`。
+- **根因 3：图表/甘特/时间线渲染全部失败**
+  - `package.json` 缺 `@mermaid-js/mermaid-cli`，`npx mmdc` 永远失败 → mermaid 路径全断；
+  - `feishuMcpAdapter` 把 `uploadImageMedia / createWhiteboard / insertDocxImageBlock / insertDocxEmbedBlock` 全部 NOT_SUPPORTED，但 MCP create-doc 已经声明同源 `docs:document.media:upload` 与 `board:whiteboard:node:create` scope；
+  - `writerAgent.buildDraftV2Extensions` 默认所有 chart/timeline/gantt 槽位 `status=needs_data`，ArtifactRenderer 完全不进入 ready 分支；
+  - `publisher.renderDraftAsTemplateMarkdown` 用 chartSlot.status 误判，输出「图表（已渲染为可视化对象）」占位行，给用户造成「明明没图却写已渲染」的错觉。
+- **修复（按 Step 1 → 2 → 5 → 4 → 3 → 6 → 7 实施）**：
+  - **Step 1：清洗污染数据**
+    - 写入一次性脚本 `src/scripts/purgeOwnerPollutedMemory.ts`（按 user rule 跑完即删）：
+      - 删除 `src/data/hmrs/hmrs-catalog.json` / `hmrs-index.json` 中 owner 命中且 type ∈ {TemplateStructureIndex, StyleIdentitySummary, ExemplarSnippetPointer} 的条目；
+      - 重置 `src/data/runtime-memories.json` 该 owner 的 `commonTerms / styleNotes / preferredStructure`；
+      - 清空 `src/data/hmrs/hmrs-writeback.jsonl` 该 owner 的全部行；
+      - 通过 `toolGateway.getRootFolderMeta` 直接定位 `{userId}_个人数据库` 根目录，避免 bootstrap 重写 system 对象造成 upload_all params error；遍历 `templates_wing/weekly_report_room/structure_drawer` 与 `people_wing/self_room/style_drawer` 删除残留文件。
+    - 实测：本地清掉 1 个 catalog 条目、5 个 index 条目、9 行 writeback；云盘对应 drawer 已是空目录（写回门槛之前的写入实际只落本地索引，没真正在云盘留文件）。
+  - **Step 2：阻断错误内容自动写回**
+    - `src/services/hmrs/writeback/memoryWritebackService.ts`：新增 `evaluateDraftQuality(draft)` 与 `writeFromDraft` 准入门槛：
+      - 命中 `/(文档|document)\s*ID|缺失|为空|无法获取|无法加载|无法访问|占位|todo|fallback|VALIDATION:1002/i` → reject；
+      - `summary.length < 80` 或 sections 数 < 期望 60% → reject；
+      - 任意 section 内容 < 30 字 / 命中污染语 → reject；
+      - `openQuestions` 含 `Writer JSON 生成未通过校验` → reject；
+      - reject 时 `logger.warn` 跳过写回，不再污染 HMRS。
+  - **Step 5：补上 mermaid-cli 兜底**
+    - `package.json`：`@mermaid-js/mermaid-cli@^11.14.0` 加入 `devDependencies`。
+    - `src/services/render/artifactRenderer.ts`：
+      - `resolveMermaidCliCommand` 优先用 `node_modules/.bin/mmdc(.cmd)` 二进制，避免 `npx` 联网下载卡住主链；
+      - `renderMermaidToPng` 改返回 `{ ok, png?, stderr? }`；
+      - `tryImageFallback` 改返回 `{ artifact, warning? }`；
+      - chart/timeline/gantt 三处调用按新形态消费，渲染失败时把 `mmdc:` 与 `upload:` 原因写进 `RenderOutput.warnings`，便于上层定位失败原因。
+  - **Step 4：接通 MCP 出图三件套**
+    - `src/services/toolGateway/priority.ts`：把 `media.upload.image / docx.block.image.insert / docx.block.embed.insert / whiteboard.create` 优先级调整为 MCP-first（用户选择 `hybrid_mcp_first`），失败回退 OpenAPI / lark-cli。
+    - `src/services/toolGateway/feishuMcpAdapter.ts`：
+      - 新增 `MCP_RENDER_CANDIDATES`，列出 `upload-media / docx.media.upload / media-upload / drive.media.upload`、`create-whiteboard / whiteboard.node.create / board.whiteboard.node.create / create-board`、`insert-docx-image-block / docx.block.image.insert / update-doc.image.insert`、`insert-docx-embed-block / docx.block.embed.insert / update-doc.embed.insert` 等候选 tool 名；
+      - 新增 `tryMcpToolByCandidates`：依次试调每个候选名，命中即用；远程未暴露时统一抛 `NOT_SUPPORTED`，让 ToolGateway 自动 fallback；命中 `PERMISSION_DENIED / VALIDATION` 直接抛出避免无意义重试。
+      - 把 `uploadImageMedia / createWhiteboard / insertDocxImageBlock / insertDocxEmbedBlock` 从 NOT_SUPPORTED 改为真实实现（透传 base64 / parent_node / docID 等多种字段名兼容服务端实现）。
+  - **Step 3：search-doc 接 fetch-doc 深读 + 清洗 `<hb>` 标签**
+    - `src/services/toolGateway/feishuMcpAdapter.ts`：
+      - 新增 `stripHighlightTags`：剥离 `<hb> / <em> / <mark> / <b> / <strong> / <font> / <span>` 与常见 HTML 实体，避免高亮 HTML 被原样塞进 HMRS；
+      - `searchDocuments` 命中后调用新增 `deepFetchSearchHits`：对前 6 篇逐一走 `fetch-doc` 拉正文（截断 8K 字符），写入 `GatewayDocument.content`，`summary` 取正文前 480 字；
+      - `listDocuments` 同步清洗 snippet。
+    - `src/services/resourcePool/screening.ts.mapDocToResourceSummary`：优先消费 `doc.content`（深读正文）作为 `summary`；命中深读时分数从 0.32 提到 0.55，并打 `tags=["deep_fetched"]`，让 Writer 拿到第一手原文 evidence。
+  - **Step 6：Writer 真的能产出 status=ready；Publisher 严格依据 renderedArtifacts**
+    - `src/services/agent/writerAgent.ts.buildDraftV2Extensions`：
+      - 新增 `extractGanttDataFromSections / extractTimelineDataFromSections / extractChartDataFromSections` 启发式正则，从 section 内容抽取「日期+任务+负责人」三元组、时间线 `{label, when, note}` 与图表 `{categories, series}`；
+      - evidence 充分时把对应槽位 `status` 升到 `ready` 并填充 `data`，让 ArtifactRenderer 真正进入渲染分支；
+      - 抽取结果严格对齐 `agentContracts` schema（gantt/timeline 字段名、chart 的 categories+series 形态）。
+    - `src/services/output/publisher.ts.renderDraftAsTemplateMarkdown`：
+      - 新增 `renderedArtifacts` 入参；
+      - 「已渲染为可视化对象」hint 区块改为以 `renderedArtifacts.slotId` 集合为开关：实际渲染成功的槽位才输出已渲染提示，否则回退到「待补充数据」清单；
+      - 杜绝「明明没图却写已渲染」的错觉占位。
+  - **Step 7：本节追加到 history.md**（按 project rule，仅更新唯一 .md 文件，不新建）。
+- **数据流影响**：
+  - IM → Planner → MCP search-doc → MCP fetch-doc 全文（清洗 `<hb>`）→ Writer evidence 含真实正文；
+  - Writer 抽取真实数据点 → chart/gantt/timeline status=ready + data；
+  - ArtifactRenderer 优先调 MCP `upload-media + whiteboard:node:create`，失败回 OpenAPI/lark-cli，再回本地 `mmdc` PNG；
+  - publisher 仅在 renderedArtifacts 中真正包含 slotId 时输出「已渲染」提示；
+  - Compliance 通过且未命中污染语料的稿子，才写回 HMRS templates_wing / style_drawer。
+- **验证**：
+  - 运行 purge 脚本：本地条目按预期下线（catalog -1 / index -5 / writeback -9 / runtime-memories owner 重置），随后删除脚本与空 `src/scripts/` 目录；
+  - `npx tsc --noEmit -p tsconfig.json` 通过；
+  - `ReadLints` 对所有改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 写回质量门控：`src/services/hmrs/writeback/memoryWritebackService.ts`
+  - MCP / OpenAPI / 调度策略：`src/services/toolGateway/feishuMcpAdapter.ts`、`src/services/toolGateway/priority.ts`
+  - 检索深读消费：`src/services/resourcePool/screening.ts`
+  - Writer 与渲染：`src/services/agent/writerAgent.ts`、`src/services/render/artifactRenderer.ts`、`src/services/output/publisher.ts`
+  - 依赖：`package.json`（`@mermaid-js/mermaid-cli` devDep）
+  - 文档：`history.md`（本文件追加 v0.5 章节）
+  - 一次性资产已清理：`src/scripts/purgeOwnerPollutedMemory.ts`、空目录 `src/scripts/` 已按 user rule 删除
+
+## 2026-05-07（v0.5.1 Writer slot 缺字段守护）
+
+- **现象**：
+  - v0.5 上线后第一轮跑团队工作周报，Writer LLM 返回 chartSlots 但缺 `metricHint`，DraftSchema 直接挂掉，触发 `严格真实模式：Writer 失败且不允许兜底占位稿。chartSlots[0..2].metricHint Required`。
+- **根因**：
+  - LLM 偶发会输出缺必填字段的 chart/timeline/gantt 槽位（`metricHint / slotId / periodHint / task`）；
+  - 之前 `repairDraftPayload` 直接把 `record.chartSlots` 透传，没补全必填字段；retry 也只是请求模型再来一次，未做结构归一化。
+- **处理**：
+  - `src/services/agent/writerAgent.ts`：
+    - 新增 `normalizeChartSlotsArray / normalizeTimelineSlotsArray / normalizeGanttSlotsArray`：对 LLM 返回的每个 slot 元素，按 `slotId / chartType / title / metricHint / periodHint / task` 等必填字段补默认值（仅补结构，不编造业务数据）。
+    - 新增 `preNormalizeDraftPayload`：在 `DraftSchema.safeParse` 之前先做轻量结构归一化。
+    - `writeDraft` 主链：first-pass 与 retry 之前都先调用 `preNormalizeDraftPayload`，retry 仍失败时再走 `repairDraftPayload`，保证「LLM 缺字段」场景下不会一路抛到上层；retry prompt 文案显式提示「每个 chartSlots/timelineSlots/ganttSlots 元素必须含 slotId 与各自必填字段」。
+    - `repairDraftPayload`：`record.{chart,timeline,gantt}Slots` 也改为先经 normalize，再回退到 `v2.*` 兜底骨架。
+- **验证**：
+  - `npx tsc --noEmit -p tsconfig.json` 通过；
+  - `ReadLints` 对本次改动文件无新增问题。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/services/agent/writerAgent.ts`
+  - 文档：`history.md`（本文件追加 v0.5.1 章节）
+
+## 2026-05-07（v0.5.2 evidence 反污染 + 槽位 data 智能注入 + 发布前质量门控）
+
+- **现象**：
+  - v0.5/v0.5.1 上线后再跑「团队工作周报」，云端文档仍是「围绕 docID 为空错误日志」的纯文字稿，没有甘特/时间线/图表，且生成出"图表槽位（待补充数据）"占位段。
+  - 终端日志关键证据：
+    - `[hmrs-writeback] draft quality gate rejected ... reasons: ["summary_too_short(67)","summary_contains_polluted_phrase","section_polluted:..."]`：v0.5 的写回门控正确拒绝了垃圾稿（说明 HMRS 自身已不会再被污染），但污染仍来自上游；
+    - `chartHits:0, timelineHits:0, ganttHits:0, artifactCount:0`：ArtifactRenderer 完全没出图；
+    - 模型 evidence 显示有 6 篇外部文档共 1529 字符，但全是请求 trace 哈希 `2026050712174519F83A96235AD1763BF6` 这类系统失败痕迹。
+- **根因（三连问）**：
+  1. **evidence 来源被污染**：用户云盘里残留的"过往失败日志/占位文档"被 `search-doc` 命中，`fetch-doc` 深读出来的就是错误日志正文 → Analyst/Writer 把它当真实素材"分析与撰写" → 整篇都在描述 docID 为空。
+  2. **chartSlots 即使被 LLM 输出，data 也是空**：`preNormalizeDraftPayload` 只补必填结构，不会主动注入 data；`buildDraftV2Extensions` 的 evidence 抽取仅在 `record.chartSlots` 缺失时才走，LLM 返了空槽就被原样 schema 通过 → ArtifactRenderer 的 `status === "ready" && data 非空` 双条件不满足，整链不出图。
+  3. **publisher 没做发布前门控**：MemoryWritebackService 的门控只防 HMRS 污染，云端飞书文档照发，用户看到的仍是污染正文。
+- **处理**：
+  - **A. evidence 反污染（双层）**：
+    - 新增 `src/shared/evidenceQuality.ts`：`detectDocumentPollution({title, content})` 综合判定 `VALIDATION:\d+` 编码、连续 ≥2 个失败哈希、结构化失败关键词（`文档ID为空/参数校验失败/兜底占位稿/Writer 失败` 等），软提示（`无法获取/缺失/占位`）累计 ≥3 才算污染，避免误伤正常业务文档。
+    - `src/services/toolGateway/feishuMcpAdapter.ts.deepFetchSearchHits`：每篇 fetch-doc 拉到正文后立即跑 `detectDocumentPollution`，命中即丢弃整篇，并 `WARN` 记录 `droppedByPollution / keptCount` 便于追踪。
+    - `src/services/resourcePool/screening.ts.fetchExternalCandidates`：在 docs → resourceSummary 之前再跑一次同样过滤（兼容 listDocuments 路径与未来 adapter 升级），双保险。
+  - **B. 槽位 data 智能注入**（v0.5 抽取逻辑的二次接入）：
+    - `src/services/agent/writerAgent.ts` 新增 `enrichDraftSlotsWithSectionEvidence(draft)`：DraftSchema 校验通过后扫一遍 chart/timeline/gantt 槽位；任意槽位 `status !== ready` 或 `data` 为空时，用 `extractGanttDataFromSections / extractTimelineDataFromSections / extractChartDataFromSections` 从已写好的 sections 里启发式抽真实数据回填，并升级 `status=ready`；抽不到就保持 `needs_data`，让模板层走「待补充」清单（不再编造数据）。
+    - 在 `writeDraft` 主链 first-pass / repair / retry / retry+repair 四条路径成功后都接入 enrich，并在 telemetry 增 `readyChartSlots / readyGanttSlots / readyTimelineSlots` 字段，定位"为什么没出图"问题更直接。
+  - **C. publisher 发布前质量门控**：
+    - `src/services/output/publisher.ts.publishFeishuDoc`：发布前先调 `evaluateDraftQuality(draft)`，命中时：
+      1. 用 `renderQualityRejectMarkdown` 把云端正文换成「自检稿」（说明命中原因 + 建议补素材的下一步），保留原 title；
+      2. 跳过 artifact 附加，避免在污染稿上插入图表造成误导；
+      3. IM 通知文案改为「报告生成已暂缓，已发布自检稿到云端，请补素材后重试」；
+      4. `publish-telemetry` 增 `publish_status: quality_reject_note / quality_reject_published` 与 `reasons` 字段，返回 `PublishedArtifact.status = "fallback"`。
+    - 复用 `MemoryWritebackService.evaluateDraftQuality`，避免 publisher 与 writeback 双轨判定漂移。
+- **验证**：
+  - `npx tsc --noEmit -p tsconfig.json` 通过；`ReadLints` 对所有改动文件无问题。
+  - 期望端到端：
+    - 用户云盘里残留的失败日志/占位文档不再进 evidence；
+    - 真实素材命中时，Writer 输出 chart/timeline/gantt 槽位经 enrich 升到 `ready` → ArtifactRenderer 真出图（MCP 优先 / OpenAPI / mmdc PNG 三层回退）；
+    - 即使 Writer 输出退化成污染稿，publisher 发到云端的也是自检说明稿，不会再让用户看到「整篇 docID 为空」的正文。
+- **当前项目结构（本次变更范围）**：
+  - 新增：`src/shared/evidenceQuality.ts`（共享文档污染判定）
+  - 修改：`src/services/toolGateway/feishuMcpAdapter.ts`（deepFetch 污染过滤）
+  - 修改：`src/services/resourcePool/screening.ts`（外部候选二次过滤）
+  - 修改：`src/services/agent/writerAgent.ts`（`enrichDraftSlotsWithSectionEvidence` 接入 4 条成功路径）
+  - 修改：`src/services/output/publisher.ts`（发布前 evaluateDraftQuality 门控 + 自检稿 + 通知改写）
+  - 文档：`history.md`（本文件追加 v0.5.2 章节）
+
+## 2026-05-07（v0.5.3 Writer 槽位 data 字符串胁迫；模板蒸馏断链根因诊断）
+
+### 1. Writer 紧急 schema bug（已修）
+
+- **现象**：`严格真实模式：Writer 失败 ... chartSlots[0].data.series[0].values[0..2] Expected number, received string`。
+- **根因**：LLM 偶发把 `chartSlots[0].data.series[0].values` 输出为字符串数组（如 `["12","8","3"]` 或带单位 `"12%"`），DraftSchema 要求 `number[]`，校验直接挂掉。v0.5.1 的 `preNormalizeDraftPayload` 只补必填字段，不做类型胁迫；v0.5.2 的 `enrichDraftSlotsWithSectionEvidence` 在 schema 校验之后才跑——此路径无法救。
+- **处理（`src/services/agent/writerAgent.ts`）**：
+  - 新增 `coerceNumber(v)`：`"12" / "12%" / "1,234" / "12人"` → 12，剥离 `%, , 元万项个次人份天小时`，非有限值返 `null`。
+  - 新增 `coerceString(v)`：number/boolean → string，去空白。
+  - 新增 `coerceChartSlotData(rawData, fallbackChartType)`：
+    - `categories` 强制 string 数组（丢空串）；
+    - `series[].values` 用 `coerceNumber` 转换并过滤 NaN；
+    - `series[].name` 缺失时填 `数值N`；
+    - 胁迫后空数据则丢弃 `data` 字段，让 enrich 接管。
+  - 新增 `coerceChartDataSemantic(raw, chartType)`：`kind` 不在 `line/bar/pie/table/image` 时按 `chartType` 推导兜底。
+  - 新增 `coerceTimelineData / coerceGanttData`：兼容 LLM 用 `title/date/from/to/responsible` 等异名字段；任一关键字段（label+when 或 task+start+end）缺失即丢弃该条。
+  - `normalizeChartSlotsArray / normalizeTimelineSlotsArray / normalizeGanttSlotsArray` 全部接入对应的 `coerce*` 函数；preNormalize 阶段就把 LLM 输出的脏类型清理干净。
+- **验证**：`npx tsc --noEmit` 通过；`ReadLints` 全绿。
+
+### 2. 模板蒸馏断链根因（已诊断，v0.6 修复，本版本仅文档化）
+
+- **用户期望工作流**：与用户对话 → 回顾历史偏好 → 阅读用户上传的素材与模板 → 自主完成结构规划/资料整理/内容撰写。
+- **当前实测发现**（在排查"为什么生成的内容跟模板完全不像"时挖出来的）：
+  - 用户已经把 5 篇模板（团队工作周报 / 业务经营周报 / 个人工作日报 / 会议记录简洁版 / 长期方案与执行）放进飞书云盘的 `templates_wing/<room>/structure_drawer` 子目录。
+  - **但**：
+    1. `.env` 中 `FEISHU_RESOURCE_FOLDER_TOKEN` 为空，`HMRS_MANAGED_FOLDER_TOKENS` 为空 —— `buildHybridResourcePoolFromFeishuFolder` 不会自动扫这些子目录；
+    2. `hmrs-catalog.json` 里 **没有** `wingId === "templates_wing"` 的条目（用户手动放进云盘的文件，HMRS 自身并没有触发 `HmrsIngestService.ingestManagedFolder({bucketRole:"template_example"})` 把它们登记进 catalog/index）；
+    3. `hmrs-index.json` 里少数 `TemplateStructureIndex` 条目的 `structureSummary` 实际是 search-doc 命中后的 snippet（如 "团队工作周报 文档候选：团队工作周报"），不是真正的章节骨架；
+    4. `deepRetrieveContext` 中 `fetchDetailByExpansion` 不返回 `templateDistillation`，`buildFallbackTemplateDistillation` 仅按 `plan.targetSections` 反向回填空壳 profile（既无 listPatterns 也无 styleRules）；
+    5. `useStrictTemplatePipeline` 因此恒为 false → `WriterPrompt.templateBlock` 不启用 → Writer 完全看不到用户那 5 篇模板的章节顺序、字段标签、列表语法、文风样本。
+- **结果**：Writer 只能按 `selectedSkill.sections`（`["执行摘要","关键进展","下一步计划"]` 这种默认）写，自然"和模板完全不像"。
+- **v0.6 待办闭环**（已在本次会话明确，下一阶段实施，不在本次提交范围）：
+  1. **模板自动纳管**：当 user 把 docx 放进 `templates_wing/<report_room>/structure_drawer` 后，HMRS 应自动 / 半自动调用 `HmrsIngestService.ingestManagedFolder({bucketRole:"template_example"})` 触发结构提取；推荐路径是给前端"模板抽屉"加个"立即扫描"按钮，触发 `MemoryFacade.refreshManagedFolders` 时把 `templates_wing` 子目录也一起 list/ingest。
+  2. **真正的模板结构提取**：扩展 `summaryBuilder.buildDocumentIndexes`，对模板 docx 调用 `toolGateway.viewDocument` 拉正文，按 `## 标题` / 中文小标题行抽取章节骨架，把 `structureSummary` 从"标题摘要"升级为 JSON 化的 `{sectionOrder, listPatterns, styleSample}`；同时把 LLM 蒸馏 (`distillOneDocument`) 扩展一个 `distillFromHmrsDetails` 入口，从 raw text 直接蒸馏 `TemplateProfile`。
+  3. **模板蒸馏注入 HMRS 通道**：在 `deepRetrieveContext` / `fetchDetailByExpansion` 加一步：当 `selectedSkillId` 形如 `user-template-*` 或 `hmrs_tpl_*`、或 `expansion.finalResourceIds` 含 `templates_wing` 来源时，把对应 `sourceDetail.detail` 跑一遍 `distillFromHmrsDetails`，结果合并进 `templateDistillation.profilesByResourceId`，让 `useStrictTemplatePipeline` 真正生效。
+  4. **WriterPrompt 兜底文风**：在 `templateBlock` 启用时，强制把 `anonymizedStyleSample`、`listPatterns`、`forbiddenPatterns` 拼到 user prompt（当前仅在 `pool_template_profile` JSON 序列化片段里出现，模型不一定能吃透）。
+  5. **诊断 telemetry**：在 `hmrsExpansionNode` 输出 `template_profiles=N` 之外，加 `pool_doc_count / strict_pipeline_enabled / template_skill_match` 字段，便于下次 5 分钟内定位"为什么没走严格模板"。
+- **当前用户的临时绕行办法**（不改代码也能用）：
+  1. 在 `.env` 设 `HMRS_MANAGED_FOLDER_TOKENS=<5 个 docx 所在的文件夹 token>`，重启 server，让现有的 HMRS 纳管逻辑把它们扫进 catalog；
+  2. 或者在飞书 IM 发消息时在 prompt 里**显式带上"以这个文档为模板：<5 个链接之一>"** —— 触发 `userWantsPoolDocumentTemplate`（关键词"作为模板/这个文档"），让 `shouldHonorPoolDocumentStructure` 返回 true，绕过 `templateDistillation` 走 `pool_doc` 旁路。
+- **当前项目结构（本次变更范围）**：
+  - 修改：`src/services/agent/writerAgent.ts`（新增 `coerceNumber / coerceString / coerceChartSlotData / coerceChartDataSemantic / coerceTimelineData / coerceGanttData`，三个 `normalize*SlotsArray` 全部接入）
+  - 文档：`history.md`（追加 v0.5.3 章节，含 v0.6 模板蒸馏接入蓝图）
+
+---
+
+## v0.6 — 模板蒸馏接入全链路修复（2026-05-07）
+
+### 根因回顾（三处断链）
+
+| 断链编号 | 位置 | 症状 |
+|---|---|---|
+| Gap 1 | `ingestManagedFolder` 写云盘 JSON，`fetchDetailByExpansion` 从不回读 | 云盘 structureDrawer 里的模板 JSON 永远不进入检索链路 |
+| Gap 2 | `bucketParentPath` 传 `examplesDrawer` 完整路径 | 写入路径变成嵌套的 `示例抽屉/结构抽屉` 而非正确的 `周报模板房间/结构抽屉` |
+| Gap 3 | 本地 `hmrs-catalog.json` / `hmrs-index.json` 无 `templates_wing` 条目 | `templateSkillStore.loadTemplates()` 找不到模板，`useStrictTemplatePipeline` 恒为 false |
+
+### 修复内容（4 个模块）
+
+#### 模块 A：修复 bucketParentPath + 动态 room 发现（消除 Gap 2）
+
+- **`src/services/hmrs/hmrsStructureBuilder.ts`**
+  - `HMRS_FOLDER_NAMES` 新增 `dailyReportRoom: "日报模板房间"` 和 `bizWeeklyRoom: "业务周报模板房间"` 两个键
+  - `buildRequiredFolders()` 同步追加这两个 room 的 structureDrawer / examplesDrawer 路径，自动确保云盘文件夹存在
+
+- **`src/services/hmrs/hmrsRefreshService.ts`**
+  - `discoverHmrsBucketSources` 重写为**动态枚举** `templates_wing` 下所有 room 子目录：`listChildFolders(userId, templatesWingToken)` 枚举所有 room，对每个 room 扫描 `示例抽屉`；有文档即加入 sources
+  - `parentPath` 传 **room 路径**（不含 `/示例抽屉` 最后一段），根本修复 Gap 2 的错误写入路径问题
+  - 新增 room 或用户自建额外模板房间，无需修改代码自动兼容
+
+#### 模块 B：lark-cli outline 提取 + JSON structureSummary（为 Gap 1/3 提供数据源）
+
+- **`src/services/toolGateway/capabilities.ts`** — 新增 `"document.outline"` capability
+
+- **`src/services/toolGateway/types.ts`** — `FeishuToolGatewayApi` 接口新增 `fetchDocumentOutline(documentId, context?): Promise<string[]>`
+
+- **`src/services/toolGateway/priority.ts`** — `document.outline` 优先级 `["lark_cli", "mcp", "openapi"]`（lark-cli 是唯一支持该操作的 adapter）
+
+- **`src/services/toolGateway/larkCliAdapter.ts`**
+  - 新增 `extractOutlineSections(raw)` 辅助函数：兼容多种返回形态（outline 字符串/items 数组/sections 数组/包装层）
+  - 实现 `fetchDocumentOutline`：调用 `docs +fetch --api-version v2 --scope outline --doc <id>`，失败时静默返回 `[]`
+
+- **`src/services/toolGateway/feishuMcpAdapter.ts`** — 新增 `fetchDocumentOutline` stub，抛 `NOT_SUPPORTED`，让 ToolGateway 自动 fallback 到 lark-cli
+
+- **`src/services/toolGateway/feishuOpenApiAdapter.ts`** — 同上，stub 抛 `NOT_SUPPORTED`
+
+- **`src/services/toolGateway/gateway.ts`** — 新增 `fetchDocumentOutline` 路由，使用 `executeWithPolicy("document.outline", ...)` + 捕获所有异常返回 `[]`（永不抛出，不阻塞主链路）
+
+- **`src/services/hmrs/summaryBuilder.ts`** — `DocumentIndexEntry` 新增可选字段 `structureSummary?: string`；`buildDocumentIndexes` 接收 `GatewayDocument & { structureSummary?: string }[]` 并透传 `structureSummary`
+
+- **`src/services/hmrs/hmrsIngestService.ts`**
+  - 新增辅助函数 `inferReportType(title)` 和 `extractHeadingsFromContent(content)` 用于 fallback 时从正文提取章节标题
+  - 对 `template_example` 桶中每篇文档：调用 `toolGateway.fetchDocumentOutline(doc.token)`，成功则组装 `{"sectionOrder":[...],"reportType":"..."}` JSON 字符串
+  - fallback：从正文中提取 `## 标题` 行，同样组装 structureSummary
+  - 写入的 `docIndexes` 条目携带 `structureSummary`，存入云盘 JSON artifacts
+
+#### 模块 C：syncTemplateArtifactsToLocalCatalog（消除 Gap 1 + Gap 3）
+
+- **`src/services/hmrs/hmrsRefreshService.ts`**
+  - 新增 `syncTemplateArtifactsToLocalCatalog(userId, rootFolderToken, repo)` 函数
+  - 流程：枚举 `templates_wing` 下所有 room → 扫描每个 room 的 `结构抽屉` → 读取所有 `.json` 文件 → 解析 `items[].{docToken, title, structureSummary}` → 构造 `L1CatalogObject`（type=`TemplateStructureIndex`，wingId=`templates_wing`） 和 `L2IndexObject`（structureSummary=JSON字符串） → 调用 `FileCatalogRepository.upsert` / `FileIndexRepository.upsert` 写入本地
+  - 在 `refreshForUser` 主循环结束后异步（void + catch）调用，不阻塞刷新主链路
+
+#### 模块 D：fetchDetailByExpansion 自动注入 TemplateProfile（消除 Gap 3 后半段）
+
+- **`src/services/hmrs/expand/detailRetrievalService.ts`**
+  - 新增 `buildTemplateProfileFromL2StructureSummary(resourceId, title, jsonStr)` — 解析 `structureSummary` JSON，构建完整 `TemplateProfile`（sectionOrder/styleRules/slotHints）
+  - 新增 `buildTemplateDistillationFromExpanded({expandedL2Ids, userId})` — 查询本地 `FileIndexRepository`，过滤 `type === "TemplateStructureIndex"` 的 L2 条目，批量构建 `profilesByResourceId`，返回 `TemplateDistillation`
+  - `fetchDetailByExpansion` 在返回前调用 `buildTemplateDistillationFromExpanded`，结果合并到 `DetailedContext.templateDistillation`
+  - `useStrictTemplatePipeline`（在 `src/prompts/templateIntent.ts`）检测到 `profilesByResourceId` 非空后自动激活，Writer 将按模板真实 sectionOrder 写作
+
+### 数据流变化（修复后）
+
+```
+用户将模板 docx 放入 "模板知识库/<room>/示例抽屉"
+↓ hmrsSummaryNode 刷新时
+discoverHmrsBucketSources（动态枚举所有 room）
+↓
+ingestManagedFolder（bucketParentPath = roomPath）
+↓
+fetchDocumentOutline（lark-cli docs +fetch --scope outline）
+↓ → structureSummary = '{"sectionOrder":[...],"reportType":"..."}'
+写入云盘 结构抽屉/*.json
+↓ syncTemplateArtifactsToLocalCatalog
+L1(type=TemplateStructureIndex) + L2(structureSummary) 写入本地 catalog/index
+↓ hmrsExpansionNode → fetchDetailByExpansion
+buildTemplateDistillationFromExpanded 检测 TemplateStructureIndex → 构建 TemplateProfile
+↓
+DetailedContext.templateDistillation.profilesByResourceId 非空
+↓
+useStrictTemplatePipeline = true → WriterPrompt.templateBlock 启用
+↓
+Writer 按真实 sectionOrder 写作 ✓
+```
+
+### 关键文件变更汇总
+
+| 文件 | 变更类型 | 说明 |
+|---|---|---|
+| `src/services/hmrs/hmrsStructureBuilder.ts` | 修改 | 新增 dailyReportRoom/bizWeeklyRoom，buildRequiredFolders 追加路径 |
+| `src/services/hmrs/hmrsRefreshService.ts` | 修改 | 动态 room 发现、bucketParentPath 修复、syncTemplateArtifactsToLocalCatalog |
+| `src/services/hmrs/hmrsIngestService.ts` | 修改 | inferReportType/extractHeadingsFromContent、outline 提取、structureSummary JSON |
+| `src/services/hmrs/summaryBuilder.ts` | 修改 | DocumentIndexEntry 新增 structureSummary 字段，buildDocumentIndexes 透传 |
+| `src/services/toolGateway/capabilities.ts` | 修改 | 新增 `document.outline` |
+| `src/services/toolGateway/types.ts` | 修改 | FeishuToolGatewayApi 新增 fetchDocumentOutline 声明 |
+| `src/services/toolGateway/priority.ts` | 修改 | `document.outline` 优先级 `lark_cli > mcp > openapi` |
+| `src/services/toolGateway/larkCliAdapter.ts` | 修改 | extractOutlineSections、fetchDocumentOutline 实现 |
+| `src/services/toolGateway/feishuMcpAdapter.ts` | 修改 | fetchDocumentOutline stub（NOT_SUPPORTED） |
+| `src/services/toolGateway/feishuOpenApiAdapter.ts` | 修改 | fetchDocumentOutline stub（NOT_SUPPORTED） |
+| `src/services/toolGateway/gateway.ts` | 修改 | fetchDocumentOutline 路由（永不抛出） |
+| `src/services/hmrs/expand/detailRetrievalService.ts` | 修改 | buildTemplateDistillationFromExpanded、自动注入 TemplateProfile |
+| `history.md` | 修改 | 追加 v0.6 章节 |
+
+### 验证
+
+- `npx tsc --noEmit` 通过（全部 4 个模块完成后验证）
+
+### 当前项目整体结构
+
+```
+d:\飞书办公Agent\
+├── src/
+│   ├── config/          env 配置
+│   ├── graph/           LangGraph 节点（hmrsSummaryNode, hmrsExpansionNode, etc.）
+│   ├── integrations/    飞书 IM/OAuth 集成
+│   ├── prompts/         LLM prompt 构建（含 templateIntent.ts）
+│   ├── schemas/         Zod schema（agentContracts, templateProfile, layerSchemas）
+│   ├── services/
+│   │   ├── agent/       Writer/Planner/Analyst/SkillRouter agents
+│   │   ├── hmrs/        HMRS 核心（Ingest/Refresh/Expand/Writeback/Facade）
+│   │   │   ├── expand/  detailRetrievalService（v0.6 新增 TemplateProfile 注入）
+│   │   │   ├── model/   layerSchemas
+│   │   │   └── repo/    FileCatalogRepository / FileIndexRepository
+│   │   ├── output/      publisher（含 quality gate）
+│   │   ├── render/      artifactRenderer（mermaid-cli + MCP）
+│   │   ├── retrieval/   deepRetriever / engine
+│   │   ├── resourcePool/ screening / evidence pollution filter
+│   │   └── toolGateway/ ToolGateway（MCP / lark-cli / OpenAPI 三适配器）
+│   ├── shared/          logger, evidenceQuality（污染检测）
+│   └── data/hmrs/       hmrs-catalog.json, hmrs-index.json（本地 L1/L2 存储）
+├── history.md           变更日志（本文件）
+└── package.json
+```

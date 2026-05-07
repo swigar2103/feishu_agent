@@ -99,48 +99,86 @@ function buildChartMermaid(slot: Draft["chartSlots"][number]): string | null {
   return null;
 }
 
-function ensureMermaidCliAvailable(): boolean {
-  try {
-    const result = spawnSync(process.platform === "win32" ? "npx.cmd" : "npx", ["mmdc", "--version"], {
-      encoding: "utf8",
-      shell: false,
-      timeout: 8_000,
-    });
-    return result.status === 0;
-  } catch {
-    return false;
+type MermaidExecResult = { ok: boolean; png?: Uint8Array; stderr?: string };
+
+/**
+ * 优先使用项目本地 node_modules/.bin/mmdc，避免 npx 触发联网下载、卡住主链路。
+ * 找不到本地二进制再回退 npx mmdc。
+ */
+function resolveMermaidCliCommand(): { cmd: string; args: string[] } | null {
+  const localBin = path.resolve(
+    process.cwd(),
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "mmdc.cmd" : "mmdc",
+  );
+  if (fs.existsSync(localBin)) {
+    return { cmd: localBin, args: [] };
   }
+  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
+  return { cmd: npx, args: ["mmdc"] };
 }
 
 let mermaidCliAvailable: boolean | null = null;
 function isMermaidCliAvailable(): boolean {
   if (mermaidCliAvailable !== null) return mermaidCliAvailable;
-  mermaidCliAvailable = ensureMermaidCliAvailable();
-  return mermaidCliAvailable;
+  const cli = resolveMermaidCliCommand();
+  if (!cli) {
+    mermaidCliAvailable = false;
+    return false;
+  }
+  try {
+    const result = spawnSync(cli.cmd, [...cli.args, "--version"], {
+      encoding: "utf8",
+      shell: false,
+      timeout: 10_000,
+    });
+    mermaidCliAvailable = result.status === 0;
+    if (!mermaidCliAvailable) {
+      logger.warn("mermaid cli probe failed", {
+        cmd: cli.cmd,
+        stderr: result.stderr?.slice(0, 200),
+      });
+    }
+    return mermaidCliAvailable;
+  } catch (error) {
+    mermaidCliAvailable = false;
+    logger.warn("mermaid cli probe threw", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
 }
 
-function renderMermaidToPng(diagram: string): Uint8Array | null {
-  if (!isMermaidCliAvailable()) return null;
+function renderMermaidToPng(diagram: string): MermaidExecResult {
+  if (!isMermaidCliAvailable()) {
+    return { ok: false, stderr: "mmdc unavailable (install @mermaid-js/mermaid-cli)" };
+  }
+  const cli = resolveMermaidCliCommand();
+  if (!cli) return { ok: false, stderr: "mmdc resolver returned null" };
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-mermaid-"));
   const inputPath = path.join(tmpDir, "diagram.mmd");
   const outputPath = path.join(tmpDir, "diagram.png");
   try {
     fs.writeFileSync(inputPath, diagram, "utf-8");
     const result = spawnSync(
-      process.platform === "win32" ? "npx.cmd" : "npx",
-      ["mmdc", "-i", inputPath, "-o", outputPath, "-b", "white"],
+      cli.cmd,
+      [...cli.args, "-i", inputPath, "-o", outputPath, "-b", "white"],
       {
         encoding: "utf8",
         shell: false,
-        timeout: 30_000,
+        timeout: 45_000,
       },
     );
     if (result.status !== 0) {
-      logger.warn("mermaid render failed", { stderr: result.stderr?.slice(0, 400) });
-      return null;
+      const stderr = (result.stderr ?? "").slice(0, 600) || (result.stdout ?? "").slice(0, 600);
+      logger.warn("mermaid render failed", { stderr });
+      return { ok: false, stderr };
     }
-    if (!fs.existsSync(outputPath)) return null;
-    return new Uint8Array(fs.readFileSync(outputPath));
+    if (!fs.existsSync(outputPath)) {
+      return { ok: false, stderr: "mmdc exit=0 but output png missing" };
+    }
+    return { ok: true, png: new Uint8Array(fs.readFileSync(outputPath)) };
   } finally {
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -189,13 +227,15 @@ async function tryImageFallback(input: {
   sectionHeading: string;
   diagram: string;
   caption?: string;
-}): Promise<RenderedArtifact | null> {
-  const png = renderMermaidToPng(input.diagram);
-  if (!png) return null;
+}): Promise<{ artifact: RenderedArtifact | null; warning?: string }> {
+  const rendered = renderMermaidToPng(input.diagram);
+  if (!rendered.ok || !rendered.png) {
+    return { artifact: null, warning: `mermaid:${rendered.stderr ?? "unknown"}` };
+  }
   try {
     const upload = await toolGateway.uploadImageMedia(
       {
-        buffer: png,
+        buffer: rendered.png,
         fileName: `${input.slotId}.png`,
         parent: input.documentId
           ? { type: "docx_image", documentId: input.documentId }
@@ -205,20 +245,23 @@ async function tryImageFallback(input: {
       { userId: input.userId, preferUserScope: true },
     );
     return {
-      slotId: input.slotId,
-      sectionHeading: input.sectionHeading,
-      kind: "image",
-      embedToken: upload.mediaToken,
-      url: upload.url,
-      caption: input.caption,
-      source: upload.source ?? "openapi",
+      artifact: {
+        slotId: input.slotId,
+        sectionHeading: input.sectionHeading,
+        kind: "image",
+        embedToken: upload.mediaToken,
+        url: upload.url,
+        caption: input.caption,
+        source: upload.source ?? "openapi",
+      },
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     logger.warn("image upload failed for slot", {
       slotId: input.slotId,
-      error: error instanceof Error ? error.message : String(error),
+      error: message,
     });
-    return null;
+    return { artifact: null, warning: `upload:${message}` };
   }
 }
 
@@ -243,10 +286,11 @@ export async function renderDraftArtifacts(input: RenderInput): Promise<RenderOu
         diagram: mermaid,
         caption: slot.task,
       });
-      if (img) {
-        out.push(img);
+      if (img.artifact) {
+        out.push(img.artifact);
         continue;
       }
+      if (img.warning) warnings.push(`gantt:${slot.slotId}:${img.warning}`);
     }
     warnings.push(`gantt slot ${slot.slotId} fallback to markdown`);
   }
@@ -263,10 +307,11 @@ export async function renderDraftArtifacts(input: RenderInput): Promise<RenderOu
       diagram: mermaid,
       caption: slot.title,
     });
-    if (img) {
-      out.push(img);
+    if (img.artifact) {
+      out.push(img.artifact);
       continue;
     }
+    if (img.warning) warnings.push(`timeline:${slot.slotId}:${img.warning}`);
     warnings.push(`timeline slot ${slot.slotId} fallback to markdown`);
   }
 
@@ -282,10 +327,11 @@ export async function renderDraftArtifacts(input: RenderInput): Promise<RenderOu
       diagram: mermaid,
       caption: slot.title,
     });
-    if (img) {
-      out.push(img);
+    if (img.artifact) {
+      out.push(img.artifact);
       continue;
     }
+    if (img.warning) warnings.push(`chart:${slot.slotId}:${img.warning}`);
     warnings.push(`chart slot ${slot.slotId} fallback to markdown`);
   }
 

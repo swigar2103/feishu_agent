@@ -213,6 +213,11 @@ export interface FeishuToolGatewayApi {
   listDocuments(query?: string, context?: GatewayRequestContext): Promise<GatewayDocument[]>;
   viewDocument(documentId: string, context?: GatewayRequestContext): Promise<GatewayDocument | null>;
   getFileContent(fileToken: string, context?: GatewayRequestContext): Promise<string>;
+  /**
+   * 获取文档大纲（章节标题列表）。
+   * 优先使用 lark-cli `docs +fetch --scope outline`，失败时返回空数组。
+   */
+  fetchDocumentOutline(documentId: string, context?: GatewayRequestContext): Promise<string[]>;
   createDocument(input: CreateDocumentInput, context?: GatewayRequestContext): Promise<GatewayDocument>;
   updateDocument(input: UpdateDocumentInput, context?: GatewayRequestContext): Promise<boolean>;
   getComments(documentId: string, context?: GatewayRequestContext): Promise<GatewayComment[]>;

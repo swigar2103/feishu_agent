@@ -48,6 +48,7 @@ import {
   parseMcpPayload,
 } from "./mcpResponseParse.js";
 import { compactDocumentSearchQuery } from "./searchQueryNormalize.js";
+import { detectDocumentPollution } from "../../shared/evidenceQuality.js";
 
 type McpToolCallResult = {
   content?: Array<{ type?: string; text?: string }>;
@@ -71,6 +72,30 @@ const MCP_TOOLS = {
   addComments: "add-comments",
   searchUser: "search-user",
   getUser: "get-user",
+} as const;
+
+/**
+ * 远程 MCP 没有为渲染相关能力暴露稳定 tool；尝试以下候选工具名，命中即用，
+ * 全部失败时抛 NOT_SUPPORTED，让 ToolGateway 走 OpenAPI/lark-cli 兜底。
+ */
+const MCP_RENDER_CANDIDATES = {
+  uploadMedia: ["upload-media", "docx.media.upload", "media-upload", "drive.media.upload"],
+  whiteboardCreate: [
+    "create-whiteboard",
+    "whiteboard.node.create",
+    "board.whiteboard.node.create",
+    "create-board",
+  ],
+  docxImageInsert: [
+    "insert-docx-image-block",
+    "docx.block.image.insert",
+    "update-doc.image.insert",
+  ],
+  docxEmbedInsert: [
+    "insert-docx-embed-block",
+    "docx.block.embed.insert",
+    "update-doc.embed.insert",
+  ],
 } as const;
 
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -97,6 +122,20 @@ function pickTrimmedString(r: Record<string, unknown>, keys: string[]): string |
     if (typeof v === "string" && v.trim()) return v.trim();
   }
   return undefined;
+}
+
+/**
+ * 清洗 search-doc 命中片段中的 <hb> / <em> / <mark> 等高亮 HTML 标签，
+ * 避免 snippet 原样塞入 HMRS 的 structureSummary 导致 Writer evidence 含 HTML 噪声。
+ */
+function stripHighlightTags(input: string | undefined | null): string {
+  if (!input) return "";
+  return String(input)
+    .replace(/<\/?(?:hb|em|mark|b|strong|font|span)[^>]*>/gi, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
 
 /**
@@ -370,13 +409,94 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
         });
       }
     }
-    return rows.map((doc, idx) => ({
+    const baseDocs: GatewayDocument[] = rows.map((doc, idx) => ({
       id: doc.id || `mcp_doc_${idx + 1}`,
-      title: doc.title || `MCP文档${idx + 1}`,
-      summary: (doc.summary ?? "").trim() || `文档候选：${doc.title || doc.id || `MCP文档${idx + 1}`}`,
+      title: stripHighlightTags(doc.title) || `MCP文档${idx + 1}`,
+      summary:
+        stripHighlightTags(doc.summary).trim() ||
+        `文档候选：${stripHighlightTags(doc.title) || doc.id || `MCP文档${idx + 1}`}`,
       url: doc.url,
       source: "mcp",
     }));
+
+    /**
+     * 深读前 N 篇：search-doc 命中片段会带 <hb> HTML 高亮，且只是 snippet 不是正文。
+     * 让 Writer 真正拿到原文，避免只把 snippet 写回 HMRS 的 structureSummary 形成幻觉。
+     */
+    return await this.deepFetchSearchHits(baseDocs, context);
+  }
+
+  /**
+   * 把 search-doc 命中前 N 篇调用 fetch-doc 拉正文，正文截断后写到 content/summary。
+   * 命中污染语（系统失败痕迹/占位语/失败哈希）的整篇直接丢弃，避免反喂 Writer 形成回路。
+   */
+  private async deepFetchSearchHits(
+    docs: GatewayDocument[],
+    context?: GatewayRequestContext,
+  ): Promise<GatewayDocument[]> {
+    const N = 6;
+    const MAX_CHARS = 8_000;
+    const limit = Math.min(N, docs.length);
+    const enriched: GatewayDocument[] = [];
+    let droppedByPollution = 0;
+    for (let i = 0; i < docs.length; i += 1) {
+      const doc = docs[i];
+      if (!doc) continue;
+      if (i >= limit) {
+        const verdict = detectDocumentPollution({ title: doc.title, content: doc.summary });
+        if (verdict.polluted) {
+          droppedByPollution += 1;
+          continue;
+        }
+        enriched.push(doc);
+        continue;
+      }
+      try {
+        const view = await this.viewDocument(doc.id, context);
+        const rawContent = stripHighlightTags(view?.content ?? view?.summary ?? "").trim();
+        if (!rawContent) {
+          const verdict = detectDocumentPollution({ title: doc.title, content: doc.summary });
+          if (verdict.polluted) {
+            droppedByPollution += 1;
+            continue;
+          }
+          enriched.push(doc);
+          continue;
+        }
+        const trimmed = rawContent.length > MAX_CHARS ? rawContent.slice(0, MAX_CHARS) : rawContent;
+        const finalTitle = stripHighlightTags(view?.title || doc.title);
+        const verdict = detectDocumentPollution({ title: finalTitle, content: trimmed });
+        if (verdict.polluted) {
+          droppedByPollution += 1;
+          logger.warn("MCP deep fetch dropped polluted document", {
+            docId: doc.id,
+            titlePreview: finalTitle.slice(0, 80),
+            reasons: verdict.reasons,
+          });
+          continue;
+        }
+        enriched.push({
+          ...doc,
+          title: finalTitle,
+          url: view?.url ?? doc.url,
+          content: trimmed,
+          summary: trimmed.slice(0, 480),
+        });
+      } catch (error) {
+        logger.warn("MCP deep fetch failed, keep snippet", {
+          docId: doc.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        enriched.push(doc);
+      }
+    }
+    if (droppedByPollution > 0) {
+      logger.warn("MCP deep fetch evidence pollution filter active", {
+        droppedByPollution,
+        keptCount: enriched.length,
+      });
+    }
+    return enriched;
   }
 
   async listDocuments(query?: string, context?: GatewayRequestContext): Promise<GatewayDocument[]> {
@@ -384,8 +504,8 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     const rows = extractSearchDocListFromUnknown(data);
     return rows.map((doc, idx) => ({
       id: doc.id || `mcp_list_doc_${idx + 1}`,
-      title: doc.title || `MCP文档${idx + 1}`,
-      summary: doc.summary ?? "",
+      title: stripHighlightTags(doc.title) || `MCP文档${idx + 1}`,
+      summary: stripHighlightTags(doc.summary ?? ""),
       url: doc.url,
       source: "mcp",
     }));
@@ -675,25 +795,170 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
     throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 task check 工具");
   }
 
+  /**
+   * 按候选工具名依次试调；命中一个即返回原始 result。
+   * 全部失败抛 NOT_SUPPORTED，让 ToolGateway 走 OpenAPI/lark-cli 兜底。
+   */
+  private async tryMcpToolByCandidates(input: {
+    candidates: readonly string[];
+    args: Record<string, unknown>;
+    context?: GatewayRequestContext;
+    label: string;
+  }): Promise<unknown> {
+    let lastError: unknown;
+    for (const toolName of input.candidates) {
+      try {
+        const result = await this.callTool(toolName, input.args, input.context);
+        if (result === null || result === undefined) {
+          // 部分服务端会返回空结果；视为未命中继续下一个候选
+          lastError = new ToolGatewayError("NOT_SUPPORTED", `MCP ${toolName} returned empty result`);
+          continue;
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (
+          error instanceof ToolGatewayError &&
+          (error.code === "PERMISSION_DENIED" || error.code === "VALIDATION")
+        ) {
+          // 工具存在但拒绝/参数不对，直接抛出，不再尝试其他名字
+          throw error;
+        }
+        // 否则视为该候选不可用，尝试下一个
+      }
+    }
+    throw new ToolGatewayError(
+      "NOT_SUPPORTED",
+      `MCP 侧未暴露 ${input.label} 工具（试过 ${input.candidates.join(", ")}）`,
+      {
+        causeText: lastError instanceof Error ? lastError.message : undefined,
+      },
+    );
+  }
+
   async uploadImageMedia(
-    _input: UploadImageMediaInput,
-    _context?: GatewayRequestContext,
+    input: UploadImageMediaInput,
+    context?: GatewayRequestContext,
   ): Promise<UploadImageMediaResult> {
-    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 media upload 工具");
+    const base64 = Buffer.from(input.buffer).toString("base64");
+    const args: Record<string, unknown> = {
+      file_name: input.fileName,
+      mime_type: input.mimeType ?? "image/png",
+      content_base64: base64,
+      data: base64,
+      size: input.buffer.byteLength,
+    };
+    if (input.parent?.type === "docx_image") {
+      args.parent_type = "docx_image";
+      args.parent_node = input.parent.documentId;
+      args.document_id = input.parent.documentId;
+    } else if (input.parent?.type === "drive") {
+      args.parent_type = "explorer";
+      if (input.parent.folderToken) args.parent_node = input.parent.folderToken;
+    }
+    const result = await this.tryMcpToolByCandidates({
+      candidates: MCP_RENDER_CANDIDATES.uploadMedia,
+      args,
+      context,
+      label: "media upload",
+    });
+    const rec = toolResultAsRecord(result) ?? asRecord(result);
+    const mediaToken =
+      pickTrimmedString(rec ?? {}, ["file_token", "fileToken", "media_token", "mediaToken", "token"]) ?? "";
+    if (!mediaToken) {
+      throw new ToolGatewayError("INVALID_RESPONSE", "MCP media upload 未返回 media token", {
+        causeText: typeof result === "string" ? result.slice(0, 600) : JSON.stringify(result).slice(0, 600),
+      });
+    }
+    return {
+      mediaToken,
+      url: pickTrimmedString(rec ?? {}, ["url", "preview_url", "previewUrl", "link"]),
+      source: "mcp",
+    };
   }
 
   async insertDocxImageBlock(
-    _input: DocxImageBlockInsertInput,
-    _context?: GatewayRequestContext,
+    input: DocxImageBlockInsertInput,
+    context?: GatewayRequestContext,
   ): Promise<DocxBlockInsertResult> {
-    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 docx image block 工具");
+    const docToken = normalizeFeishuDocxTokenForMcp(input.documentId);
+    if (!docToken) {
+      throw new ToolGatewayError("VALIDATION", "MCP insertDocxImageBlock 缺少有效 documentId");
+    }
+    const args: Record<string, unknown> = {
+      document_id: docToken,
+      docID: docToken,
+      parent_block_id: input.parentBlockId,
+      parentBlockId: input.parentBlockId,
+      media_token: input.mediaToken,
+      mediaToken: input.mediaToken,
+      ...(typeof input.index === "number" ? { index: input.index } : {}),
+      ...(input.caption ? { caption: input.caption } : {}),
+    };
+    try {
+      const result = await this.tryMcpToolByCandidates({
+        candidates: MCP_RENDER_CANDIDATES.docxImageInsert,
+        args,
+        context,
+        label: "docx image block insert",
+      });
+      const rec = toolResultAsRecord(result) ?? asRecord(result);
+      return {
+        ok: true,
+        blockId: rec ? pickTrimmedString(rec, ["block_id", "blockId", "id"]) : undefined,
+        source: "mcp",
+      };
+    } catch (error) {
+      if (error instanceof ToolGatewayError && error.code === "NOT_SUPPORTED") throw error;
+      return {
+        ok: false,
+        warning: error instanceof Error ? error.message : String(error),
+        source: "mcp",
+      };
+    }
   }
 
   async insertDocxEmbedBlock(
-    _input: DocxEmbedBlockInsertInput,
-    _context?: GatewayRequestContext,
+    input: DocxEmbedBlockInsertInput,
+    context?: GatewayRequestContext,
   ): Promise<DocxBlockInsertResult> {
-    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 docx embed block 工具");
+    const docToken = normalizeFeishuDocxTokenForMcp(input.documentId);
+    if (!docToken) {
+      throw new ToolGatewayError("VALIDATION", "MCP insertDocxEmbedBlock 缺少有效 documentId");
+    }
+    const args: Record<string, unknown> = {
+      document_id: docToken,
+      docID: docToken,
+      parent_block_id: input.parentBlockId,
+      parentBlockId: input.parentBlockId,
+      embed_kind: input.embedKind,
+      embedKind: input.embedKind,
+      ref_token: input.refToken,
+      refToken: input.refToken,
+      ...(typeof input.index === "number" ? { index: input.index } : {}),
+      ...(input.caption ? { caption: input.caption } : {}),
+    };
+    try {
+      const result = await this.tryMcpToolByCandidates({
+        candidates: MCP_RENDER_CANDIDATES.docxEmbedInsert,
+        args,
+        context,
+        label: "docx embed block insert",
+      });
+      const rec = toolResultAsRecord(result) ?? asRecord(result);
+      return {
+        ok: true,
+        blockId: rec ? pickTrimmedString(rec, ["block_id", "blockId", "id"]) : undefined,
+        source: "mcp",
+      };
+    } catch (error) {
+      if (error instanceof ToolGatewayError && error.code === "NOT_SUPPORTED") throw error;
+      return {
+        ok: false,
+        warning: error instanceof Error ? error.message : String(error),
+        source: "mcp",
+      };
+    }
   }
 
   async createSheet(
@@ -715,9 +980,44 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
   }
 
   async createWhiteboard(
-    _input: WhiteboardCreateInput,
-    _context?: GatewayRequestContext,
+    input: WhiteboardCreateInput,
+    context?: GatewayRequestContext,
   ): Promise<WhiteboardCreateResult> {
-    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 whiteboard create 工具");
+    const args: Record<string, unknown> = {
+      title: input.title,
+      syntax: input.syntax,
+      body: input.body,
+      content: input.body,
+      ...(input.parentFolderToken
+        ? { parent_folder_token: input.parentFolderToken, parentFolderToken: input.parentFolderToken }
+        : {}),
+    };
+    const result = await this.tryMcpToolByCandidates({
+      candidates: MCP_RENDER_CANDIDATES.whiteboardCreate,
+      args,
+      context,
+      label: "whiteboard create",
+    });
+    const rec = toolResultAsRecord(result) ?? asRecord(result);
+    const token =
+      pickTrimmedString(rec ?? {}, ["whiteboard_token", "whiteboardToken", "token", "node_token", "nodeToken"]) ?? "";
+    if (!token) {
+      throw new ToolGatewayError("INVALID_RESPONSE", "MCP whiteboard create 未返回 token", {
+        causeText: typeof result === "string" ? result.slice(0, 600) : JSON.stringify(result).slice(0, 600),
+      });
+    }
+    return {
+      whiteboardToken: token,
+      url: pickTrimmedString(rec ?? {}, ["url", "preview_url", "previewUrl", "link"]),
+      source: "mcp",
+    };
+  }
+
+  async fetchDocumentOutline(
+    _documentId: string,
+    _context?: GatewayRequestContext,
+  ): Promise<string[]> {
+    // MCP 侧暂未提供 outline-only 拉取工具，返回空数组让 ToolGateway 走 lark-cli 兜底
+    throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 document outline 工具");
   }
 }

@@ -571,6 +571,23 @@ export class ToolGateway implements FeishuToolGatewayApi {
       context,
     );
   }
+
+  /**
+   * 获取文档大纲（章节标题列表）。
+   * 优先走 lark-cli `docs +fetch --scope outline`，失败时返回空数组（不抛出）。
+   */
+  async fetchDocumentOutline(documentId: string, context?: GatewayRequestContext): Promise<string[]> {
+    try {
+      return await this.executeWithPolicy(
+        "document.outline",
+        "fetchDocumentOutline",
+        (adapter) => adapter.fetchDocumentOutline(documentId, context),
+        context,
+      );
+    } catch {
+      return [];
+    }
+  }
 }
 
 export const toolGateway = new ToolGateway();

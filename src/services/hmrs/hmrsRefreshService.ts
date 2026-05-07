@@ -6,6 +6,9 @@ import { HmrsRepository } from "./hmrsRepository.js";
 import type { HmrsRefreshStatus } from "./model/memPalaceTree.js";
 import { buildRequiredFolders, HMRS_FOLDER_NAMES } from "./hmrsStructureBuilder.js";
 import { getStyleDistillationService } from "./styleDistillationService.js";
+import { FileCatalogRepository } from "./repo/file/fileCatalogRepository.js";
+import { FileIndexRepository } from "./repo/file/fileIndexRepository.js";
+import type { L1CatalogObject, L2IndexObject } from "./model/layerSchemas.js";
 import { createHash } from "node:crypto";
 
 type DiscoveredBucketSource = {
@@ -14,6 +17,154 @@ type DiscoveredBucketSource = {
   bucketLabel: string;
   parentPath: string;
 };
+
+type TemplateDocIndexItem = {
+  docToken?: string;
+  title?: string;
+  structureSummary?: string;
+  summary?: string;
+  sourceUrl?: string;
+};
+
+type TemplateIndexFile = {
+  items?: TemplateDocIndexItem[];
+  bucketRole?: string;
+  bucketParentPath?: string;
+};
+
+/**
+ * 从云盘 templates_wing 每个 room 的 structureDrawer 读取 JSON artifacts，
+ * 将 TemplateStructureIndex 条目回写到本地 hmrs-catalog.json / hmrs-index.json。
+ *
+ * 这消除了 Gap 1（ingest 写到云盘但本地 catalog 从未读回）和
+ * Gap 3（templateSkillStore 读 catalog 但 templates_wing 条目为空）。
+ */
+async function syncTemplateArtifactsToLocalCatalog(input: {
+  userId: string;
+  rootFolderToken: string;
+  repo: HmrsRepository;
+}): Promise<void> {
+  const catalogRepo = new FileCatalogRepository();
+  const indexRepo = new FileIndexRepository();
+  const now = new Date().toISOString();
+
+  try {
+    const templatesWingFolder = await input.repo.ensureFolderPath(
+      input.userId,
+      input.rootFolderToken,
+      HMRS_FOLDER_NAMES.templatesWing,
+    );
+    const roomFolders = await input.repo.listChildFolders(input.userId, templatesWingFolder.token);
+
+    const l1Items: L1CatalogObject[] = [];
+    const l2Items: L2IndexObject[] = [];
+
+    for (const room of roomFolders) {
+      const structurePath = `${HMRS_FOLDER_NAMES.templatesWing}/${room.name}/${HMRS_FOLDER_NAMES.structureDrawer}`;
+      try {
+        const structureDrawer = await input.repo.ensureFolderPath(
+          input.userId,
+          input.rootFolderToken,
+          structurePath,
+        );
+        const folderItems = await input.repo.listFolderItems(input.userId, structureDrawer.token);
+        const jsonFiles = folderItems.filter(
+          (item) => !item.type.toLowerCase().includes("folder") && item.name.endsWith(".json"),
+        );
+
+        for (const jsonFile of jsonFiles) {
+          try {
+            const parsed = await input.repo.readJsonObjectByName<TemplateIndexFile>(
+              input.userId,
+              structureDrawer.token,
+              jsonFile.name,
+            );
+            if (!parsed?.items || parsed.items.length === 0) continue;
+
+            for (const item of parsed.items) {
+              if (!item.docToken || !item.title) continue;
+              if (!item.structureSummary) continue;
+
+              const l1Id = `l1_tmpl_${item.docToken}`;
+              const l2Id = `l2_tmpl_${item.docToken}`;
+
+              l1Items.push({
+                id: l1Id,
+                type: "TemplateStructureIndex",
+                layer: "L1",
+                wingId: "templates_wing",
+                roomId: room.name,
+                drawerId: "structure_drawer",
+                owner: input.userId,
+                projectTag: "模板",
+                timeRange: { end: now },
+                keywords: [item.title, room.name],
+                qualityScore: 0.85,
+                sourceRef: {
+                  sourceType: "doc",
+                  docToken: item.docToken,
+                  url: item.sourceUrl,
+                },
+                title: item.title,
+                summary: item.summary ?? item.title,
+              });
+
+              l2Items.push({
+                id: l2Id,
+                type: "TemplateStructureIndex",
+                layer: "L2",
+                wingId: "templates_wing",
+                roomId: room.name,
+                drawerId: "structure_drawer",
+                owner: input.userId,
+                projectTag: "模板",
+                timeRange: { end: now },
+                keywords: [item.title, room.name],
+                qualityScore: 0.85,
+                sourceRef: {
+                  sourceType: "doc",
+                  docToken: item.docToken,
+                  url: item.sourceUrl,
+                },
+                parentId: l1Id,
+                title: item.title,
+                structureSummary: item.structureSummary,
+              });
+            }
+          } catch (fileError) {
+            logger.warn("syncTemplateArtifacts: failed to read json file", {
+              userId: input.userId,
+              roomName: room.name,
+              fileName: jsonFile.name,
+              error: fileError instanceof Error ? fileError.message : String(fileError),
+            });
+          }
+        }
+      } catch (roomError) {
+        logger.warn("syncTemplateArtifacts: failed to scan room structureDrawer", {
+          userId: input.userId,
+          roomName: room.name,
+          error: roomError instanceof Error ? roomError.message : String(roomError),
+        });
+      }
+    }
+
+    if (l1Items.length > 0) {
+      await catalogRepo.upsert(l1Items);
+      await indexRepo.upsert(l2Items);
+      logger.info("syncTemplateArtifacts: synced template entries to local catalog", {
+        userId: input.userId,
+        l1Count: l1Items.length,
+        l2Count: l2Items.length,
+      });
+    }
+  } catch (error) {
+    logger.warn("syncTemplateArtifacts: failed", {
+      userId: input.userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 function readManagedFolderTokens(): string[] {
   return env.HMRS_MANAGED_FOLDER_TOKENS
@@ -24,55 +175,84 @@ function readManagedFolderTokens(): string[] {
 
 /**
  * 从个人数据库内部的纳管房间发现来源文件夹，作为唯一索引面。
- * 不再扫描用户云盘根目录中的兄弟文件夹，避免污染私域。
+ *
+ * 策略：
+ * 1. 固定工作资料桶（资源纳管库/已纳管文档房间）。
+ * 2. 模板桶：动态枚举 "模板知识库" 下所有 room 子目录，对每个 room 扫描 "示例抽屉"；
+ *    这样新增房间（日报、业务周报等）无需修改此函数，也兼容用户自建的额外模板房间。
+ * 3. bucketParentPath 传 **room 路径**（不含 "/示例抽屉"），确保 ingestManagedFolder
+ *    把 structureDrawer 写到正确的 "模板知识库/{room}/结构抽屉" 而非嵌套到 "示例抽屉" 下。
  */
 async function discoverHmrsBucketSources(input: {
   userId: string;
   rootFolderToken: string;
   repo: HmrsRepository;
 }): Promise<DiscoveredBucketSource[]> {
-  const buckets: Array<{ path: string; role: IngestBucketRole; label: string }> = [
-    {
-      path: `${HMRS_FOLDER_NAMES.resourcesWing}/${HMRS_FOLDER_NAMES.importedDocsRoom}`,
-      role: "work_material",
-      label: HMRS_FOLDER_NAMES.importedDocsRoom,
-    },
-    {
-      path: `${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.weeklyReportRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}`,
-      role: "template_example",
-      label: `${HMRS_FOLDER_NAMES.weeklyReportRoom}-${HMRS_FOLDER_NAMES.examplesDrawer}`,
-    },
-    {
-      path: `${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.meetingSummaryRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}`,
-      role: "template_example",
-      label: `${HMRS_FOLDER_NAMES.meetingSummaryRoom}-${HMRS_FOLDER_NAMES.examplesDrawer}`,
-    },
-    {
-      path: `${HMRS_FOLDER_NAMES.templatesWing}/${HMRS_FOLDER_NAMES.proposalRoom}/${HMRS_FOLDER_NAMES.examplesDrawer}`,
-      role: "template_example",
-      label: `${HMRS_FOLDER_NAMES.proposalRoom}-${HMRS_FOLDER_NAMES.examplesDrawer}`,
-    },
-  ];
   const sources: DiscoveredBucketSource[] = [];
-  for (const bucket of buckets) {
-    try {
-      const ensured = await input.repo.ensureFolderPath(input.userId, input.rootFolderToken, bucket.path);
-      const docs = await input.repo.listDocsInFolder(input.userId, ensured.token).catch(() => []);
-      if (docs.length <= 0) continue;
+
+  // 1. 固定工作资料桶
+  const workPath = `${HMRS_FOLDER_NAMES.resourcesWing}/${HMRS_FOLDER_NAMES.importedDocsRoom}`;
+  try {
+    const ensured = await input.repo.ensureFolderPath(input.userId, input.rootFolderToken, workPath);
+    const docs = await input.repo.listDocsInFolder(input.userId, ensured.token).catch(() => []);
+    if (docs.length > 0) {
       sources.push({
         folderToken: ensured.token,
-        bucketRole: bucket.role,
-        bucketLabel: bucket.label,
-        parentPath: bucket.path,
-      });
-    } catch (error) {
-      logger.warn("hmrs bucket discover failed", {
-        userId: input.userId,
-        path: bucket.path,
-        error: error instanceof Error ? error.message : String(error),
+        bucketRole: "work_material",
+        bucketLabel: HMRS_FOLDER_NAMES.importedDocsRoom,
+        parentPath: workPath,
       });
     }
+  } catch (error) {
+    logger.warn("hmrs work_material bucket discover failed", {
+      userId: input.userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
+
+  // 2. 模板桶：动态发现 "模板知识库" 下所有 room
+  try {
+    const templatesWingFolder = await input.repo.ensureFolderPath(
+      input.userId,
+      input.rootFolderToken,
+      HMRS_FOLDER_NAMES.templatesWing,
+    );
+    const roomFolders = await input.repo.listChildFolders(input.userId, templatesWingFolder.token);
+
+    for (const room of roomFolders) {
+      const roomPath = `${HMRS_FOLDER_NAMES.templatesWing}/${room.name}`;
+      const examplesPath = `${roomPath}/${HMRS_FOLDER_NAMES.examplesDrawer}`;
+      try {
+        const examplesFolder = await input.repo.ensureFolderPath(
+          input.userId,
+          input.rootFolderToken,
+          examplesPath,
+        );
+        const docs = await input.repo.listDocsInFolder(input.userId, examplesFolder.token).catch(() => []);
+        if (docs.length <= 0) continue;
+        sources.push({
+          folderToken: examplesFolder.token,
+          bucketRole: "template_example",
+          bucketLabel: `${room.name}-${HMRS_FOLDER_NAMES.examplesDrawer}`,
+          // parentPath = room 路径（不含 /示例抽屉），避免 ingestManagedFolder 把
+          // structureDrawer 写到错误的嵌套路径 "示例抽屉/结构抽屉"
+          parentPath: roomPath,
+        });
+      } catch (error) {
+        logger.warn("hmrs template room bucket discover failed", {
+          userId: input.userId,
+          roomName: room.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  } catch (error) {
+    logger.warn("hmrs templates wing discover failed", {
+      userId: input.userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   return sources;
 }
 
@@ -214,6 +394,18 @@ export class HmrsRefreshService {
       ingestedDocCount,
     };
     HmrsRefreshService.lastResultByUser.set(input.userId, result);
+
+    // 将云盘 template structureDrawer 里的 JSON 回读到本地 catalog（不阻塞主链路）
+    void syncTemplateArtifactsToLocalCatalog({
+      userId: input.userId,
+      rootFolderToken: bootstrap.rootFolderToken,
+      repo: this.repo,
+    }).catch((error) => {
+      logger.warn("syncTemplateArtifacts failed", {
+        userId: input.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 
     /**
      * 异步触发写作风格蒸馏：不阻塞 refresh 主链路。

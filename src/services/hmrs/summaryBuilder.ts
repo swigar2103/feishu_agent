@@ -13,6 +13,8 @@ export type DocumentIndexEntry = {
   title: string;
   summary: string;
   headingHints: string[];
+  /** JSON 字符串 {"sectionOrder":[...], "reportType":"..."} — 仅 template_example 桶填充 */
+  structureSummary?: string;
   projectTags: string[];
   sourceUrl?: string;
 };
@@ -42,10 +44,12 @@ export function buildFolderSummary(input: {
   };
 }
 
-export function buildDocumentIndexes(docs: GatewayDocument[]): DocumentIndexEntry[] {
+export function buildDocumentIndexes(
+  docs: Array<GatewayDocument & { structureSummary?: string }>,
+): DocumentIndexEntry[] {
   return docs.map((doc) => {
     const body = (doc.content ?? doc.summary ?? "").trim();
-    return {
+    const entry: DocumentIndexEntry = {
       docToken: doc.id,
       title: doc.title,
       summary: (doc.summary ?? body.slice(0, 240)).trim() || `文档候选：${doc.title}`,
@@ -57,5 +61,9 @@ export function buildDocumentIndexes(docs: GatewayDocument[]): DocumentIndexEntr
       ].filter(Boolean),
       sourceUrl: doc.url,
     };
+    if (doc.structureSummary) {
+      entry.structureSummary = doc.structureSummary;
+    }
+    return entry;
   });
 }

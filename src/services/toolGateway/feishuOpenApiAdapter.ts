@@ -789,5 +789,16 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       "OpenAPI whiteboard 创建尚未在本仓库封装；请通过 lark-cli 走白板创建命令",
     );
   }
+
+  async fetchDocumentOutline(
+    _documentId: string,
+    _context?: GatewayRequestContext,
+  ): Promise<string[]> {
+    // OpenAPI 侧暂未封装 outline-only 拉取，依赖 lark-cli 优先路由
+    throw new ToolGatewayError(
+      "NOT_SUPPORTED",
+      "OpenAPI 侧暂未封装 document outline 接口；请通过 lark-cli 获取大纲",
+    );
+  }
 }
 

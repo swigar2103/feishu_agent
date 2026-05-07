@@ -66,6 +66,69 @@ function buildMarkdownCreateContent(title: string, body?: string): string {
   return `# ${title}\n\n${trimmedBody}`;
 }
 
+/**
+ * 从 lark-cli `docs +fetch --scope outline` 的输出中提取章节标题列表。
+ * lark-cli 可能返回 { outline: "## 摘要\n## 进展" } 或 { items: [...] } 等多种形态。
+ */
+function extractOutlineSections(raw: unknown): string[] {
+  if (!raw || typeof raw !== "object") {
+    if (typeof raw === "string") {
+      return (raw as string)
+        .split(/\r?\n/)
+        .map((line) => line.replace(/^#+\s*/, "").trim())
+        .filter(Boolean);
+    }
+    return [];
+  }
+  const rec = raw as Record<string, unknown>;
+
+  // 形态1：{ outline: "## 章节1\n## 章节2" }
+  if (typeof rec["outline"] === "string") {
+    return (rec["outline"] as string)
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^#+\s*/, "").trim())
+      .filter(Boolean);
+  }
+
+  // 形态2：{ items: [{ title: "..." }, ...] }
+  if (Array.isArray(rec["items"])) {
+    return (rec["items"] as unknown[])
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          const o = item as Record<string, unknown>;
+          const t = o["title"] ?? o["heading"] ?? o["name"] ?? o["text"] ?? "";
+          return typeof t === "string" ? t.trim() : "";
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }
+
+  // 形态3：{ sections: [...] }
+  if (Array.isArray(rec["sections"])) {
+    return (rec["sections"] as unknown[])
+      .map((s) => {
+        if (typeof s === "string") return s.trim();
+        if (s && typeof s === "object") {
+          const o = s as Record<string, unknown>;
+          const t = o["title"] ?? o["heading"] ?? o["name"] ?? "";
+          return typeof t === "string" ? t.trim() : "";
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }
+
+  // 形态4：第一层 key 即为 data/result 包装
+  const firstVal = Object.values(rec)[0];
+  if (firstVal && typeof firstVal === "object" && !Array.isArray(firstVal)) {
+    return extractOutlineSections(firstVal);
+  }
+
+  return [];
+}
+
 function classifyCliFailure(stderr: string, exitCode: number): ToolGatewayError {
   const text = stderr.toLowerCase();
   if (text.includes("unknown command") || text.includes("not found")) {
@@ -208,6 +271,22 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
       this.inferIdentityFromContext(context),
     );
     return parseDocuments(payload)[0] ?? null;
+  }
+
+  async fetchDocumentOutline(documentId: string, context?: GatewayRequestContext): Promise<string[]> {
+    try {
+      const result = await execLarkCli(
+        this.withIdentity(
+          ["docs", "+fetch", "--api-version", "v2", "--scope", "outline", "--doc", documentId, "--format", "json"],
+          this.inferIdentityFromContext(context),
+        ),
+      );
+      if (result.exitCode !== 0) return [];
+      const raw = parseCliJson(result.stdout);
+      return extractOutlineSections(raw);
+    } catch {
+      return [];
+    }
   }
 
   async getFileContent(fileToken: string, context?: GatewayRequestContext): Promise<string> {

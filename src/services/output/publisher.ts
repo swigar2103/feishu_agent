@@ -6,6 +6,7 @@ import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
 import { listAllDocumentBlocks } from "../../integrations/feishu/docxBlocks.js";
 import type { GatewayDocument } from "../toolGateway/types.js";
 import type { RenderedArtifact } from "../render/artifactRenderer.js";
+import { evaluateDraftQuality } from "../hmrs/writeback/memoryWritebackService.js";
 
 export type PublishedArtifact = {
   type: "feishu_doc" | "bitable" | "slides";
@@ -29,16 +30,24 @@ function normalizeMultilineToBullets(text: string): string {
     .join("\n");
 }
 
-function renderDraftAsTemplateMarkdown(draft: Draft): string {
+function renderDraftAsTemplateMarkdown(draft: Draft, renderedArtifacts?: RenderedArtifact[]): string {
   const sections = draft.sections
     .map((section) => `## ${section.heading}\n${section.content}`)
     .join("\n\n");
-  const readyChartSlots = draft.chartSlots.filter((s) => s.status === "ready" && s.data);
-  const needsDataChartSlots = draft.chartSlots.filter((s) => s.status !== "ready" || !s.data);
-  const readyTimelineSlots = draft.timelineSlots.filter((s) => s.status === "ready" && s.data && s.data.length > 0);
-  const needsDataTimelineSlots = draft.timelineSlots.filter((s) => s.status !== "ready" || !s.data || s.data.length === 0);
-  const readyGanttSlots = draft.ganttSlots.filter((s) => s.status === "ready" && s.data && s.data.length > 0);
-  const needsDataGanttSlots = draft.ganttSlots.filter((s) => s.status !== "ready" || !s.data || s.data.length === 0);
+
+  /**
+   * 「已渲染为可视化对象」hint 必须以 publisher 实际持有的 renderedArtifacts.slotId 集合为开关，
+   * 不能再用 chartSlot.status === "ready" 误判（章节升级和图片实际上传是两件事）。
+   * 槽位 ready 但 ArtifactRenderer 失败时，回退到「待补充数据」清单，避免出现「假装已渲染」的占位行。
+   */
+  const renderedSlotIds = new Set((renderedArtifacts ?? []).map((a) => a.slotId));
+
+  const chartRendered = draft.chartSlots.filter((s) => renderedSlotIds.has(s.slotId));
+  const chartNotRendered = draft.chartSlots.filter((s) => !renderedSlotIds.has(s.slotId));
+  const timelineRendered = draft.timelineSlots.filter((s) => renderedSlotIds.has(s.slotId));
+  const timelineNotRendered = draft.timelineSlots.filter((s) => !renderedSlotIds.has(s.slotId));
+  const ganttRendered = draft.ganttSlots.filter((s) => renderedSlotIds.has(s.slotId));
+  const ganttNotRendered = draft.ganttSlots.filter((s) => !renderedSlotIds.has(s.slotId));
 
   const chartBlock = draft.chartSuggestions.length > 0
     ? [
@@ -49,18 +58,18 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
       ].join("\n")
     : "";
   const readyChartHintBlock =
-    readyChartSlots.length > 0
+    chartRendered.length > 0
       ? [
           "## 图表（已渲染为可视化对象）",
-          ...readyChartSlots.map(
+          ...chartRendered.map(
             (slot) => `- ${slot.title}（${slot.chartType}）：实际图形将在文档下方插入`,
           ),
         ].join("\n")
       : "";
-  const chartSlotBlock = needsDataChartSlots.length > 0
+  const chartSlotBlock = chartNotRendered.length > 0
     ? [
         "## 图表槽位（待补充数据）",
-        ...needsDataChartSlots.map(
+        ...chartNotRendered.map(
           (slot) => `- ${slot.title}（${slot.chartType}）｜指标建议：${slot.metricHint}`,
         ),
       ].join("\n")
@@ -69,33 +78,33 @@ function renderDraftAsTemplateMarkdown(draft: Draft): string {
     ? ["## 待确认事项", ...draft.openQuestions.map((item) => `- ${item}`)].join("\n")
     : "";
   const readyTimelineHintBlock =
-    readyTimelineSlots.length > 0
+    timelineRendered.length > 0
       ? [
           "## 时间线（已渲染为可视化对象）",
-          ...readyTimelineSlots.map((slot) => `- ${slot.title}：实际时间线将在文档下方插入`),
+          ...timelineRendered.map((slot) => `- ${slot.title}：实际时间线将在文档下方插入`),
         ].join("\n")
       : "";
-  const timelineBlock = needsDataTimelineSlots.length > 0
+  const timelineBlock = timelineNotRendered.length > 0
     ? [
         "## 时间线（待补充数据）",
-        ...needsDataTimelineSlots.map(
+        ...timelineNotRendered.map(
           (slot) => `- ${slot.title}｜周期：${slot.periodHint}${slot.notes ? `｜说明：${slot.notes}` : ""}`,
         ),
       ].join("\n")
     : "";
   const readyGanttHintBlock =
-    readyGanttSlots.length > 0
+    ganttRendered.length > 0
       ? [
           "## 甘特任务（已渲染为可视化对象）",
-          ...readyGanttSlots.map((slot) => `- ${slot.task}：实际甘特图将在文档下方插入`),
+          ...ganttRendered.map((slot) => `- ${slot.task}：实际甘特图将在文档下方插入`),
         ].join("\n")
       : "";
-  const ganttBlock = needsDataGanttSlots.length > 0
+  const ganttBlock = ganttNotRendered.length > 0
     ? [
         "## 甘特任务占位（待补充细节）",
         "| 任务 | 负责人 | 开始 | 结束 |",
         "|---|---|---|---|",
-        ...needsDataGanttSlots.map(
+        ...ganttNotRendered.map(
           (slot) =>
             `| ${slot.task} | ${slot.ownerHint ?? "待定"} | ${slot.startHint ?? "待定"} | ${slot.endHint ?? "待定"} |`,
         ),
@@ -354,6 +363,33 @@ async function attachRenderedArtifactsToDocx(input: {
   return { inserted, skipped: 0, failed };
 }
 
+/**
+ * 当 draft 命中污染语 / 内容过短时，把要发到飞书云盘的正文换成"质量未达标自检稿"，
+ * 避免用户在云端文档看到一整篇围绕"docID 为空"的报错文字（且与模板毫无关系）。
+ * 同时跳过 artifact 附加，避免在质量稿上插入图表造成误导。
+ */
+function renderQualityRejectMarkdown(draft: Draft, reasons: string[]): string {
+  const reasonLines = reasons.slice(0, 8).map((r) => `- ${r}`).join("\n");
+  return [
+    `# ${draft.title}`,
+    "## 自检结果：草稿质量未达标，已暂缓正文发布",
+    "本次会话生成的初稿被质量门控拒绝，常见原因：",
+    "- 检索到的云盘候选文档实际是过往失败日志/占位文本，未提供真实业务素材；",
+    "- 用户提示中未指定具体项目/数据源，模型缺少可信事实；",
+    "",
+    "## 命中原因",
+    reasonLines || "- （无）",
+    "",
+    "## 建议下一步",
+    "- 在飞书 IM 直接发送 1～2 篇真实参考文档链接（@飞书 + 链接），让 Agent 重新做检索；",
+    "- 或在提示中给出本周已完成事项 / 关键指标的列表，Agent 会据此填充章节；",
+    "- 完成后再次触发，系统将基于新素材重写并尝试出图。",
+    "",
+    "## 原始任务",
+    draft.summary || "（无）",
+  ].join("\n");
+}
+
 async function publishFeishuDoc(input: {
   draft: Draft;
   sessionId: string;
@@ -362,7 +398,24 @@ async function publishFeishuDoc(input: {
   preferUserScope?: boolean;
   renderedArtifacts?: RenderedArtifact[];
 }): Promise<PublishedArtifact> {
-  const content = renderDraftAsTemplateMarkdown(input.draft);
+  const verdict = evaluateDraftQuality({ draft: input.draft });
+  const isQualityReject = !verdict.pass;
+  if (isQualityReject) {
+    logger.warn("[publish-telemetry] draft quality gate rejected, publishing self-check note instead", {
+      sessionId: input.sessionId,
+      reasons: verdict.reasons.slice(0, 8),
+    });
+    logPublishTelemetry({
+      publish_status: "quality_reject_note",
+      output_type: "feishu_doc",
+      sessionId: input.sessionId,
+      reasons: verdict.reasons.slice(0, 8),
+    });
+  }
+  const content = isQualityReject
+    ? renderQualityRejectMarkdown(input.draft, verdict.reasons)
+    : renderDraftAsTemplateMarkdown(input.draft, input.renderedArtifacts);
+  const renderedArtifactsForAttach = isQualityReject ? [] : (input.renderedArtifacts ?? []);
   const doc = await toolGateway.createDocument({
     title: input.draft.title,
     content,
@@ -407,10 +460,10 @@ async function publishFeishuDoc(input: {
     throw error;
   }
 
-  if (input.renderedArtifacts && input.renderedArtifacts.length > 0) {
+  if (renderedArtifactsForAttach.length > 0) {
     const attachStat = await attachRenderedArtifactsToDocx({
       documentId: doc.id,
-      artifacts: input.renderedArtifacts,
+      artifacts: renderedArtifactsForAttach,
       userId: input.userId,
       preferUserScope: input.preferUserScope,
     });
@@ -421,7 +474,7 @@ async function publishFeishuDoc(input: {
       inserted: attachStat.inserted,
       skipped: attachStat.skipped,
       failed: attachStat.failed,
-      total: input.renderedArtifacts.length,
+      total: renderedArtifactsForAttach.length,
     });
   }
   await toolGateway.addComment({
@@ -432,22 +485,28 @@ async function publishFeishuDoc(input: {
     preferUserScope: input.preferUserScope,
   });
   const url = doc.url ?? `https://mock.feishu.local/feishu_doc/${input.sessionId}/${input.index + 1}`;
-  await notifyChatIfNeeded(
-    [`报告文档已生成：${doc.title}`, url, summarizeDraftForNotify(input.draft)].join("\n"),
-  );
+  const notifyBody = isQualityReject
+    ? [
+        "报告生成已暂缓（草稿质量未达标，已发布自检稿到云端供你查看原因）：",
+        url,
+        `命中原因：${verdict.reasons.slice(0, 4).join("；")}`,
+        "建议：在群里 @ 我并附上 1～2 篇真实参考文档链接，或直接列出本周关键事项后重试。",
+      ].join("\n")
+    : [`报告文档已生成：${doc.title}`, url, summarizeDraftForNotify(input.draft)].join("\n");
+  await notifyChatIfNeeded(notifyBody);
   logPublishTelemetry({
-    publish_status: "published",
+    publish_status: isQualityReject ? "quality_reject_published" : "published",
     output_type: "feishu_doc",
     adapter: doc.source ?? viewed?.source,
     documentId: doc.id,
     sessionId: input.sessionId,
-    artifactCount: input.renderedArtifacts?.length ?? 0,
+    artifactCount: renderedArtifactsForAttach.length,
   });
   return {
     type: "feishu_doc",
     id: doc.id,
     url,
-    status: "published",
+    status: isQualityReject ? "fallback" : "published",
     artifactSource: doc.source ?? viewed?.source,
   };
 }

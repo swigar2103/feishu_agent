@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-07T03:23:45.192Z",
+  "updatedAt": "2026-05-07T04:33:54.069Z",
   "items": [
     {
       "id": "l1_doc_feishu_001",
@@ -94,32 +94,6 @@
       "summary": "本周院周会及医疗运营周报显示，滨江院区在运营方面取得了显著进展，但也存在一些需要关注的问题。"
     },
     {
-      "id": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
-      "type": "StyleIdentitySummary",
-      "layer": "L1",
-      "wingId": "people_wing",
-      "roomId": "self_room",
-      "drawerId": "style_drawer",
-      "owner": "ou_b7e1ded69f1528003929f526273b7443",
-      "projectTag": "default",
-      "timeRange": {
-        "end": "2026-05-07T03:23:45.191Z"
-      },
-      "keywords": [
-        "【项目名称】@总负责人",
-        "本周总结",
-        "已完成",
-        "进行中",
-        "下周计划"
-      ],
-      "qualityScore": 0.7,
-      "sourceRef": {
-        "sourceType": "unknown"
-      },
-      "title": "风格身份摘要",
-      "summary": "本周主要围绕文档ID为空的错误日志进行分析与处理，发现多个资源因缺少有效文档ID导致无法正常读取。针对此问题，已提出补充文档ID、检查输入参数及联系相关负责人确认文档ID正确性的建议。"
-    },
-    {
       "id": "l1_ext_doc_Z2QzdBeouobyelxTvQsc7dfBnBd",
       "type": "doc_summary",
       "layer": "L1",
@@ -129,11 +103,21 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
-        "周报",
-        "<hb>周报</hb>",
+        "文档-Z2QzdBeouobyelxTvQsc7dfBnBd",
+        "{\"error\":\"[VALIDATION:1002]",
+        "Document",
+        "ID",
+        "cannot",
+        "be",
+        "empty\\n💡",
+        "Suggestion:",
+        "Please",
+        "check",
+        "if",
+        "the",
         "hmrs",
         "mcp"
       ],
@@ -143,8 +127,8 @@
         "docToken": "Z2QzdBeouobyelxTvQsc7dfBnBd",
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/Z2QzdBeouobyelxTvQsc7dfBnBd"
       },
-      "title": "周报",
-      "summary": "<hb>周报</hb>"
+      "title": "文档-Z2QzdBeouobyelxTvQsc7dfBnBd",
+      "summary": "{\"error\":\"[VALIDATION:1002] Document ID cannot be empty\\n💡 Suggestion: Please check if the input parameters meet the requirements\\n📍 Context: param=docID\",\"log_id\":\"20260507121429EE2B47095C5DB9920DB1\"}"
     },
     {
       "id": "l1_ext_doc_Sr7NwSCc6ieXb0kWW1pcrjSYnEc",
@@ -156,11 +140,21 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
-        "业务经营周报",
-        "文档候选：业务经营周报",
+        "文档-Sr7NwSCc6ieXb0kWW1pcrjSYnEc",
+        "{\"error\":\"[VALIDATION:1002]",
+        "Document",
+        "ID",
+        "cannot",
+        "be",
+        "empty\\n💡",
+        "Suggestion:",
+        "Please",
+        "check",
+        "if",
+        "the",
         "hmrs",
         "mcp"
       ],
@@ -169,8 +163,8 @@
         "sourceType": "unknown",
         "url": "https://lcntby86s4d0.feishu.cn/wiki/Sr7NwSCc6ieXb0kWW1pcrjSYnEc"
       },
-      "title": "业务经营周报",
-      "summary": "文档候选：业务经营周报"
+      "title": "文档-Sr7NwSCc6ieXb0kWW1pcrjSYnEc",
+      "summary": "{\"error\":\"[VALIDATION:1002] Document ID cannot be empty\\n💡 Suggestion: Please check if the input parameters meet the requirements\\n📍 Context: param=docID\",\"log_id\":\"20260507121429A8E807CA6287ED700F0D\"}"
     },
     {
       "id": "l1_ext_doc_U20XdQENzoggJDxedflc5Mrpn0e",
@@ -209,7 +203,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T00:55:29.462Z"
+        "end": "2026-05-07T04:33:54.066Z"
       },
       "keywords": [
         "体育类新闻周报",
@@ -281,10 +275,13 @@
       "id": "l1_ext_doc_doxcnFhBUpAc4IBzL8WC7ci81Nf",
       "type": "doc_summary",
       "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-07T04:33:54.067Z"
       },
       "keywords": [
         "项目周报",
@@ -308,10 +305,13 @@
       "id": "l1_ext_doc_doxcnYV6qAOp9qLGFHh4GBR9KSe",
       "type": "doc_summary",
       "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-07T04:33:54.067Z"
       },
       "keywords": [
         "团队",
@@ -392,11 +392,21 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
-        "团队工作周报",
-        "<b>团队工作</b><hb>周报</hb>",
+        "文档-I3PtdB2x6oI3hPxvtO1cmiu0nqe",
+        "{\"error\":\"[VALIDATION:1002]",
+        "Document",
+        "ID",
+        "cannot",
+        "be",
+        "empty\\n💡",
+        "Suggestion:",
+        "Please",
+        "check",
+        "if",
+        "the",
         "hmrs",
         "mcp"
       ],
@@ -406,8 +416,8 @@
         "docToken": "I3PtdB2x6oI3hPxvtO1cmiu0nqe",
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/I3PtdB2x6oI3hPxvtO1cmiu0nqe"
       },
-      "title": "团队工作周报",
-      "summary": "<b>团队工作</b><hb>周报</hb>"
+      "title": "文档-I3PtdB2x6oI3hPxvtO1cmiu0nqe",
+      "summary": "{\"error\":\"[VALIDATION:1002] Document ID cannot be empty\\n💡 Suggestion: Please check if the input parameters meet the requirements\\n📍 Context: param=docID\",\"log_id\":\"20260507121431A8E807CA6287ED7010CC\"}"
     },
     {
       "id": "l1_ext_doc_Q5UodFXuvo98IuxW69Ecdqcanwh",
@@ -419,7 +429,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
         "业务经营周报",
@@ -500,11 +510,10 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
         "体育类新闻周报",
-        "<b>体育类新闻</b><hb>周报</hb>",
         "hmrs",
         "mcp"
       ],
@@ -515,7 +524,7 @@
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/VLPqd1U1Oofuz4xOkVec0qm2nBb"
       },
       "title": "体育类新闻周报",
-      "summary": "<b>体育类新闻</b><hb>周报</hb>"
+      "summary": "体育类新闻周报"
     },
     {
       "id": "l1_ext_doc_P8MxdwDoMoy3zZxE692cfg1rnUh",
@@ -527,11 +536,21 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
-        "团队工作周报",
-        "<b>团队工作</b><hb>周报</hb>",
+        "文档-P8MxdwDoMoy3zZxE692cfg1rnUh",
+        "{\"error\":\"[VALIDATION:1002]",
+        "Document",
+        "ID",
+        "cannot",
+        "be",
+        "empty\\n💡",
+        "Suggestion:",
+        "Please",
+        "check",
+        "if",
+        "the",
         "hmrs",
         "mcp"
       ],
@@ -541,8 +560,8 @@
         "docToken": "P8MxdwDoMoy3zZxE692cfg1rnUh",
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/P8MxdwDoMoy3zZxE692cfg1rnUh"
       },
-      "title": "团队工作周报",
-      "summary": "<b>团队工作</b><hb>周报</hb>"
+      "title": "文档-P8MxdwDoMoy3zZxE692cfg1rnUh",
+      "summary": "{\"error\":\"[VALIDATION:1002] Document ID cannot be empty\\n💡 Suggestion: Please check if the input parameters meet the requirements\\n📍 Context: param=docID\",\"log_id\":\"20260507121430F9576BF76D553C955777\"}"
     },
     {
       "id": "l1_ext_doc_U3ktdJmMfofZqvx6AyDcw4aZnze",
@@ -554,11 +573,10 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
         "团队工作周报",
-        "<b>团队工作</b><hb>周报</hb>",
         "hmrs",
         "mcp"
       ],
@@ -569,7 +587,7 @@
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/U3ktdJmMfofZqvx6AyDcw4aZnze"
       },
       "title": "团队工作周报",
-      "summary": "<b>团队工作</b><hb>周报</hb>"
+      "summary": "团队工作周报"
     },
     {
       "id": "l1_ext_doc_SJjvdh7Lroaaw3xBX2BcXtFcn2N",
@@ -581,11 +599,10 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
         "团队工作周报",
-        "<b>团队工作</b><hb>周报</hb>",
         "hmrs",
         "mcp"
       ],
@@ -596,7 +613,7 @@
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/SJjvdh7Lroaaw3xBX2BcXtFcn2N"
       },
       "title": "团队工作周报",
-      "summary": "<b>团队工作</b><hb>周报</hb>"
+      "summary": "团队工作周报"
     },
     {
       "id": "l1_ext_doc_GioNdaLEjovJT2xATkfcFJScnAe",
@@ -608,13 +625,21 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.500Z"
+        "end": "2026-05-07T04:14:32.911Z"
       },
       "keywords": [
-        "团队工作周报",
-        "本周周报筹备阶段严格遵循用户指定的团队工作周报模板要求",
-        "已完成预设章节框架的搭建",
-        "文风匹配专业清晰的要求",
+        "文档-GioNdaLEjovJT2xATkfcFJScnAe",
+        "{\"error\":\"[VALIDATION:1002]",
+        "Document",
+        "ID",
+        "cannot",
+        "be",
+        "empty\\n💡",
+        "Suggestion:",
+        "Please",
+        "check",
+        "if",
+        "the",
         "hmrs",
         "mcp"
       ],
@@ -624,8 +649,45 @@
         "docToken": "GioNdaLEjovJT2xATkfcFJScnAe",
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/GioNdaLEjovJT2xATkfcFJScnAe"
       },
-      "title": "团队工作周报",
-      "summary": "本周周报筹备阶段严格遵循用户指定的团队工作周报模板要求，已完成预设章节框架的搭建，文风匹配专业清晰的要求。"
+      "title": "文档-GioNdaLEjovJT2xATkfcFJScnAe",
+      "summary": "{\"error\":\"[VALIDATION:1002] Document ID cannot be empty\\n💡 Suggestion: Please check if the input parameters meet the requirements\\n📍 Context: param=docID\",\"log_id\":\"20260507121430C4F02736774EBF74BB43\"}"
+    },
+    {
+      "id": "l1_ext_doc_AmQWdaXNKovspaxpTSkcRuFdnBf",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-07T04:14:32.911Z"
+      },
+      "keywords": [
+        "文档-AmQWdaXNKovspaxpTSkcRuFdnBf",
+        "{\"error\":\"[VALIDATION:1002]",
+        "Document",
+        "ID",
+        "cannot",
+        "be",
+        "empty\\n💡",
+        "Suggestion:",
+        "Please",
+        "check",
+        "if",
+        "the",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.35,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "AmQWdaXNKovspaxpTSkcRuFdnBf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/AmQWdaXNKovspaxpTSkcRuFdnBf"
+      },
+      "title": "文档-AmQWdaXNKovspaxpTSkcRuFdnBf",
+      "summary": "{\"error\":\"[VALIDATION:1002] Document ID cannot be empty\\n💡 Suggestion: Please check if the input parameters meet the requirements\\n📍 Context: param=docID\",\"log_id\":\"20260507121428A8E807CA6287ED700E7D\"}"
     }
   ]
 }

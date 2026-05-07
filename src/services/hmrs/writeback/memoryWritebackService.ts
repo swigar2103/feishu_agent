@@ -11,6 +11,52 @@ import {
   L3DetailPointerObjectSchema,
 } from "../model/layerSchemas.js";
 
+/** 命中任一即视为草稿质量不达标，禁止写回（避免污染 HMRS 形成回路） */
+const POLLUTION_PATTERN =
+  /(文档|document)\s*ID|缺失|为空|无法获取|无法加载|无法访问|占位|todo|fallback|VALIDATION:1002/i;
+const WRITER_VALIDATION_FAILURE_HINT = "Writer JSON 生成未通过校验";
+
+export type DraftQualityVerdict = {
+  pass: boolean;
+  reasons: string[];
+};
+
+export function evaluateDraftQuality(input: {
+  draft: Draft;
+  expectedSectionCount?: number;
+}): DraftQualityVerdict {
+  const reasons: string[] = [];
+  const draft = input.draft;
+  const summary = (draft.summary ?? "").trim();
+  if (summary.length < 80) reasons.push(`summary_too_short(${summary.length})`);
+  if (POLLUTION_PATTERN.test(summary)) reasons.push("summary_contains_polluted_phrase");
+
+  const expected = input.expectedSectionCount ?? draft.sections.length;
+  if (expected > 0 && draft.sections.length < Math.ceil(expected * 0.6)) {
+    reasons.push(`sections_too_few(${draft.sections.length}/${expected})`);
+  }
+
+  for (const section of draft.sections) {
+    const content = (section.content ?? "").trim();
+    if (!content) {
+      reasons.push(`section_empty:${section.heading}`);
+      continue;
+    }
+    if (POLLUTION_PATTERN.test(content)) {
+      reasons.push(`section_polluted:${section.heading}`);
+    }
+    if (content.length < 30) {
+      reasons.push(`section_too_short:${section.heading}(${content.length})`);
+    }
+  }
+
+  if ((draft.openQuestions ?? []).some((q) => q.includes(WRITER_VALIDATION_FAILURE_HINT))) {
+    reasons.push("writer_schema_validation_failed");
+  }
+
+  return { pass: reasons.length === 0, reasons };
+}
+
 export class MemoryWritebackService {
   constructor(private readonly repos: HmrsRepositories) {}
 
@@ -30,6 +76,18 @@ export class MemoryWritebackService {
   }): Promise<void> {
     const owner = input.request.userId;
     const projectTag = input.request.industry ?? input.request.reportType ?? "default";
+
+    const verdict = evaluateDraftQuality({ draft: input.draft });
+    if (!verdict.pass) {
+      logger.warn("[hmrs-writeback] draft quality gate rejected, skipping writeback to avoid HMRS pollution", {
+        owner,
+        sessionId: input.request.sessionId,
+        sectionCount: input.draft.sections.length,
+        summaryLen: input.draft.summary.length,
+        reasons: verdict.reasons.slice(0, 8),
+      });
+      return;
+    }
 
     const qualityScore = this.qualityFromDraft(input.draft);
     const uniqueSignals = Array.from(

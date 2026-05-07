@@ -3,6 +3,7 @@ export type GatewayCapability =
   | "document.list"
   | "document.view"
   | "document.fileContent"
+  | "document.outline"
   | "document.create"
   | "document.update"
   | "document.comment.list"

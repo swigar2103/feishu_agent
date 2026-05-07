@@ -9,6 +9,7 @@ const CAPABILITY_ORDER: Partial<Record<GatewayCapability, GatewayAdapterName[]>>
   "document.list": ["mcp", "lark_cli", "openapi"],
   "document.view": ["mcp", "lark_cli", "openapi"],
   "document.fileContent": ["mcp", "lark_cli", "openapi"],
+  "document.outline": ["lark_cli", "mcp", "openapi"],
   "document.create": ["mcp", "lark_cli", "openapi"],
   "document.update": ["mcp", "lark_cli", "openapi"],
   "document.comment.list": ["mcp", "lark_cli", "openapi"],
@@ -28,13 +29,13 @@ const CAPABILITY_ORDER: Partial<Record<GatewayCapability, GatewayAdapterName[]>>
   "drive.file.copy": ["openapi", "lark_cli", "mcp"],
   "drive.file.delete": ["openapi", "lark_cli", "mcp"],
   "drive.task.check": ["openapi", "lark_cli", "mcp"],
-  "media.upload.image": ["openapi", "lark_cli", "mcp"],
-  "docx.block.image.insert": ["openapi", "lark_cli", "mcp"],
-  "docx.block.embed.insert": ["openapi", "lark_cli", "mcp"],
+  "media.upload.image": ["mcp", "openapi", "lark_cli"],
+  "docx.block.image.insert": ["mcp", "openapi", "lark_cli"],
+  "docx.block.embed.insert": ["mcp", "openapi", "lark_cli"],
   "sheet.create": ["lark_cli", "openapi", "mcp"],
   "sheet.write": ["lark_cli", "openapi", "mcp"],
   "sheet.chart.create": ["lark_cli", "openapi", "mcp"],
-  "whiteboard.create": ["lark_cli", "openapi", "mcp"],
+  "whiteboard.create": ["mcp", "lark_cli", "openapi"],
 };
 
 export function getAdapterPriority(capability: GatewayCapability): GatewayAdapterName[] {

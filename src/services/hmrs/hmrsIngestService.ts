@@ -26,6 +26,27 @@ function slugify(input: string): string {
     .slice(0, 80) || "default_project";
 }
 
+function inferReportType(title: string): string {
+  if (/日报/.test(title)) return "daily_report";
+  if (/周报/.test(title)) return "weekly_report";
+  if (/月报/.test(title)) return "monthly_report";
+  if (/会议|纪要/.test(title)) return "meeting_summary";
+  if (/方案|提案/.test(title)) return "proposal";
+  if (/里程碑|计划/.test(title)) return "project_plan";
+  if (/经营|业务/.test(title)) return "biz_weekly";
+  return "general";
+}
+
+function extractHeadingsFromContent(content: string): string[] {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^#{1,3}\s+\S/.test(line))
+    .map((line) => line.replace(/^#+\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
 export class HmrsIngestService {
   constructor(private readonly repo: HmrsRepository = new HmrsRepository()) {}
 
@@ -61,12 +82,34 @@ export class HmrsIngestService {
     const folderMeta = await this.repo.getFolderMeta(input.userId, input.sourceFolderToken).catch(() => null);
     const sourceFolderName = this.readableShortName(folderMeta?.name ?? input.sourceFolderToken);
     const docs = await this.repo.listDocsInFolder(input.userId, input.sourceFolderToken);
+    const isTemplateBucketEarly = (input.bucketRole ?? "work_material") === "template_example";
     const viewed = [];
     for (const doc of docs.slice(0, 30)) {
       const detail = await toolGateway.viewDocument(doc.token, {
         userId: input.userId,
         preferUserScope: true,
       }).catch(() => null);
+
+      // 对模板桶中的每篇文档提取大纲，生成结构化 structureSummary
+      let structureSummary: string | undefined;
+      if (isTemplateBucketEarly) {
+        const outline = await toolGateway.fetchDocumentOutline(doc.token, {
+          userId: input.userId,
+          preferUserScope: true,
+        }).catch(() => [] as string[]);
+        if (outline.length > 0) {
+          const reportType = inferReportType(doc.title);
+          structureSummary = JSON.stringify({ sectionOrder: outline, reportType });
+        } else {
+          // fallback：从正文中提取 ## 标题行
+          const fallbackHeadings = extractHeadingsFromContent(detail?.content ?? detail?.summary ?? "");
+          if (fallbackHeadings.length > 0) {
+            const reportType = inferReportType(doc.title);
+            structureSummary = JSON.stringify({ sectionOrder: fallbackHeadings, reportType });
+          }
+        }
+      }
+
       viewed.push({
         id: doc.token,
         title: doc.title,
@@ -74,6 +117,7 @@ export class HmrsIngestService {
         content: detail?.content,
         url: detail?.url,
         source: detail?.source,
+        structureSummary,
       });
     }
 

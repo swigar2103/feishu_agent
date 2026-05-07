@@ -11,6 +11,8 @@ import { toolGateway } from "../toolGateway/gateway.js";
 import { expandMemPalaceTerms } from "./memPalace.js";
 import { deriveMcpDocumentSearchQueries } from "./mcpSearchQueries.js";
 import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
+import { detectDocumentPollution } from "../../shared/evidenceQuality.js";
+import { logger } from "../../shared/logger.js";
 
 function scoreByRules(prompt: string, resource: ResourceSummary): number {
   const lowerPrompt = prompt.toLowerCase();
@@ -69,21 +71,28 @@ function mapDocToResourceSummary(
 ): ResourceSummary {
   const sourceTag = doc.source ?? "unknown";
   const fallbackTitle = (doc.title || doc.id || "未命名文档").trim();
-  const summary = (doc.summary ?? doc.content ?? "").trim() || `文档候选：${fallbackTitle}`;
+  /**
+   * 深读后 doc.content 即为正文（已被 MCP adapter 截断到 8K）。
+   * 优先使用正文做 summary，让 Writer 拿到第一手 evidence；正文缺失时退回 search-doc snippet。
+   */
+  const deepBody = (doc.content ?? "").trim();
+  const snippet = (doc.summary ?? "").trim();
+  const summary = deepBody || snippet || `文档候选：${fallbackTitle}`;
+  const score = deepBody ? 0.55 : 0.32;
   return {
     resourceId: `ext_doc_${doc.id}`,
     resourceType: "doc_summary",
     title: fallbackTitle,
     summary,
     project: "外部文档",
-    tags: ["external", sourceTag],
-    keywords: `${doc.title} ${doc.summary ?? ""}`
+    tags: ["external", sourceTag, deepBody ? "deep_fetched" : "snippet_only"],
+    keywords: `${doc.title} ${snippet}`
       .split(/[，。,\s]/)
       .filter(Boolean)
       .slice(0, 8),
     updatedAt: new Date().toISOString(),
     link: doc.url,
-    score: 0.32,
+    score,
   };
 }
 
@@ -120,11 +129,35 @@ async function fetchExternalCandidates(query: string, userId?: string): Promise<
       }
     }
   }
+  /**
+   * Adapter 已在 deepFetch 阶段做了一次污染丢弃；这里基于 (title + content) 再过一遍：
+   * 兼容 listDocuments / 旧版 adapter 未做深读的情况，确保到达 Writer 前的 ext_doc 不是失败日志。
+   */
+  let droppedByPollution = 0;
+  const cleanedDocs: typeof docs = [];
+  for (const d of docs) {
+    const verdict = detectDocumentPollution({
+      title: d.title ?? "",
+      content: (d.content ?? d.summary ?? "").trim(),
+    });
+    if (verdict.polluted) {
+      droppedByPollution += 1;
+      continue;
+    }
+    cleanedDocs.push(d);
+  }
+  if (droppedByPollution > 0) {
+    logger.warn("[screening] dropped polluted external docs before mapping to resource pool", {
+      droppedByPollution,
+      kept: cleanedDocs.length,
+    });
+  }
+
   const userQuery = queries[0] ?? query;
   const users = await toolGateway.searchUsers(userQuery, context).catch(() => []);
 
   return [
-    ...docs.slice(0, 4).map(mapDocToResourceSummary),
+    ...cleanedDocs.slice(0, 4).map(mapDocToResourceSummary),
     ...users.slice(0, 3).map(mapUserToResourceSummary),
   ];
 }
