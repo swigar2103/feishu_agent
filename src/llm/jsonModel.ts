@@ -9,6 +9,7 @@ export async function invokeJsonModel<T>(
     systemPrompt: string;
     userPrompt: string;
     model?: string;
+    timeoutMs?: number;
   },
 ): Promise<T> {
   const raw = await invokeBailianModel({
@@ -16,6 +17,7 @@ export async function invokeJsonModel<T>(
     systemPrompt: input.systemPrompt,
     userPrompt: input.userPrompt,
     jsonMode: true,
+    timeoutMs: input.timeoutMs,
   });
 
   const json = extractJsonObject(raw);

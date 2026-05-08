@@ -563,11 +563,13 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
   }
 
   async deleteFile(
-    input: { fileToken: string },
+    input: { fileToken: string; fileType?: string },
     context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus | null> {
+    // Feishu DELETE /drive/v1/files/{token} 必须带 type 参数，否则返回参数错误
+    const typeParam = input.fileType ?? "file";
     const data = await this.requestDriveData<Record<string, unknown>>(
-      `/open-apis/drive/v1/files/${encodeURIComponent(input.fileToken)}`,
+      `/open-apis/drive/v1/files/${encodeURIComponent(input.fileToken)}?type=${encodeURIComponent(typeParam)}`,
       context,
       { method: "DELETE" },
     );

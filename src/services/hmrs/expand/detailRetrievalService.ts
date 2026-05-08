@@ -5,7 +5,9 @@ import type { UserRequest } from "../../../schemas/index.js";
 import { toolGateway } from "../../toolGateway/gateway.js";
 import { hasValidUserOAuth } from "../../../storage/userOAuthStore.js";
 import { FileIndexRepository } from "../repo/file/fileIndexRepository.js";
+import { HmrsRepository } from "../hmrsRepository.js";
 import { logger } from "../../../shared/logger.js";
+import { env } from "../../../config/env.js";
 
 type ExpandedItem = {
   l2Id: string;
@@ -115,10 +117,67 @@ async function buildTemplateDistillationFromExpanded(input: {
   }
 }
 
+/**
+ * 从选定的飞书子文件夹中逐文件读取真实内容（MemPalace Step 3）。
+ * 仅在 targetFolderTokens 非空时执行；每个文件夹列出文档后逐一调 viewDocument（UAT + openapi 优先）。
+ */
+async function fetchDocsFromFolders(input: {
+  userId: string;
+  targetFolderTokens: string[];
+  maxDocsPerFolder?: number;
+  maxCharsPerDoc?: number;
+}): Promise<Array<{ token: string; title: string; content: string }>> {
+  if (!input.targetFolderTokens.length) return [];
+  const hmrsRepo = new HmrsRepository();
+  const context = hasValidUserOAuth(input.userId)
+    ? { userId: input.userId, preferUserScope: true as const }
+    : undefined;
+  const maxDocs = input.maxDocsPerFolder ?? 8;
+  const maxChars = input.maxCharsPerDoc ?? 12_000;
+  const results: Array<{ token: string; title: string; content: string }> = [];
+
+  function flattenDocs(node: { files: { token: string; title: string }[]; subFolders: unknown[] }): Array<{ token: string; title: string }> {
+    const docs = [...node.files];
+    for (const sub of node.subFolders as Array<{ files: { token: string; title: string }[]; subFolders: unknown[] }>) {
+      docs.push(...flattenDocs(sub));
+    }
+    return docs;
+  }
+
+  for (const folderToken of input.targetFolderTokens) {
+    // 递归读取：支持“近一周”子文件夹放在纳管根目录下的场景
+    const tree = await hmrsRepo.listFolderStructure(input.userId, folderToken, 3).catch(() => null);
+    const docs = tree ? flattenDocs(tree).slice(0, maxDocs) : [];
+    for (const doc of docs) {
+      const viewed = await toolGateway.viewDocument(doc.token, context).catch(() => null);
+      const content = viewed?.content?.trim();
+      if (content) {
+        results.push({ token: doc.token, title: doc.title, content: content.slice(0, maxChars) });
+        logger.info("[detailRetrieval] 子文件夹文档读取成功", {
+          userId: input.userId,
+          folderToken,
+          docToken: doc.token,
+          title: doc.title,
+          contentLen: content.length,
+        });
+      } else {
+        logger.warn("[detailRetrieval] 子文件夹文档读取无内容", {
+          userId: input.userId,
+          folderToken,
+          docToken: doc.token,
+          title: doc.title,
+        });
+      }
+    }
+  }
+  return results;
+}
+
 export async function fetchDetailByExpansion(input: {
   request: UserRequest;
   expandedL2Ids: string[];
   screened: CandidateResourceList;
+  targetFolderTokens?: string[];
 }): Promise<DetailedContext> {
   const byId = new Map(input.screened.candidates.map((item) => [item.resourceId, item]));
   const expanded: ExpandedItem[] = input.expandedL2Ids
@@ -144,6 +203,37 @@ export async function fetchDetailByExpansion(input: {
   const facts: DetailedContext["facts"] = [];
   const sourceDetails: DetailedContext["sourceDetails"] = [];
 
+  // Step A：按 targetFolderTokens 从子文件夹直接读取文档正文（优先级最高）
+  // 若 Planner 未选定文件夹，兜底扫描 env 中配置的纳管根文件夹
+  const resolvedFolderTokens: string[] =
+    (input.targetFolderTokens?.length ?? 0) > 0
+      ? input.targetFolderTokens!
+      : env.HMRS_MANAGED_FOLDER_TOKENS
+        ? env.HMRS_MANAGED_FOLDER_TOKENS.split(",").map((t) => t.trim()).filter(Boolean)
+        : [];
+
+  if (input.request.userId && resolvedFolderTokens.length > 0) {
+    const folderDocs = await fetchDocsFromFolders({
+      userId: input.request.userId,
+      targetFolderTokens: resolvedFolderTokens,
+      maxDocsPerFolder: 8,
+      maxCharsPerDoc: 12_000,
+    });
+    for (const doc of folderDocs) {
+      facts.push(toFact(`folder_doc_${doc.token}`, doc.content, `飞书子文件夹文档：${doc.title}`));
+      sourceDetails.push({ resourceId: `folder_doc_${doc.token}`, detail: `【${doc.title}】\n${doc.content}` });
+    }
+    if (folderDocs.length > 0) {
+      logger.info("[detailRetrieval] 从目标子文件夹读取文档完成", {
+        userId: input.request.userId,
+        folderCount: resolvedFolderTokens.length,
+        docCount: folderDocs.length,
+        totalChars: folderDocs.reduce((s, d) => s + d.content.length, 0),
+      });
+    }
+  }
+
+  // Step B：按 L2 展开候选读取（与 Step A 互补，避免遗漏）
   for (const item of expanded) {
     const rawDocId =
       item.link?.trim() ||
@@ -154,22 +244,12 @@ export async function fetchDetailByExpansion(input: {
     const content = viewed?.content?.trim();
     if (content) {
       const clipped = content.slice(0, 12_000);
-      facts.push(
-        toFact(item.resourceId, clipped, "HMRS L3 按需展开正文摘录"),
-      );
-      sourceDetails.push({
-        resourceId: item.resourceId,
-        detail: content,
-      });
+      facts.push(toFact(item.resourceId, clipped, "HMRS L3 按需展开正文摘录"));
+      sourceDetails.push({ resourceId: item.resourceId, detail: content });
       continue;
     }
-    facts.push(
-      toFact(item.resourceId, item.summary, "HMRS L3 展开失败，回退摘要"),
-    );
-    sourceDetails.push({
-      resourceId: item.resourceId,
-      detail: `${item.title}\n${item.summary}`,
-    });
+    facts.push(toFact(item.resourceId, item.summary, "HMRS L3 展开失败，回退摘要"));
+    sourceDetails.push({ resourceId: item.resourceId, detail: `${item.title}\n${item.summary}` });
   }
 
   // 检测 TemplateStructureIndex 候选，自动构建 TemplateProfile 注入 templateDistillation
@@ -179,6 +259,16 @@ export async function fetchDetailByExpansion(input: {
         userId: input.request.userId,
       })
     : undefined;
+
+  logger.info("[detailRetrieval] retrieval diagnostics", {
+    userId: input.request.userId,
+    facts: facts.length,
+    sourceDetails: sourceDetails.length,
+    resolvedFolderTokenCount: resolvedFolderTokens.length,
+    expandedL2Count: input.expandedL2Ids.length,
+    folderFactCount: facts.filter((f) => f.sourceId.startsWith("folder_doc_")).length,
+    l2FactCount: facts.filter((f) => !f.sourceId.startsWith("folder_doc_")).length,
+  });
 
   return DetailedContextSchema.parse({
     facts,

@@ -115,8 +115,9 @@ export class ToolGateway implements FeishuToolGatewayApi {
   }
 
   /**
-   * UAT 主链路下，用户态文档读取优先走 MCP/lark-cli。
-   * OpenAPI 常以 TAT 读取用户私有文档导致 1770032 forBidden。
+   * UAT 主链路下，document.fileContent 走 MCP/lark-cli（TAT 读私有文件易 403）。
+   * document.view 不再过滤 openapi：openapi 的 viewDocument 用 UAT 调 raw_content，
+   * 可拿到真实正文，比 MCP 的 ~200 字元数据响应质量高得多。
    */
   private shouldSkipOpenApiForUserScopedRead(
     capability: GatewayCapability,
@@ -125,7 +126,8 @@ export class ToolGateway implements FeishuToolGatewayApi {
     if (env.FEISHU_MCP_IDENTITY !== "uat") return false;
     if (!context?.userId?.trim()) return false;
     if (!context.preferUserScope) return false;
-    return capability === "document.view" || capability === "document.fileContent";
+    // 只跳过 fileContent，document.view 走 openapi → raw_content + UAT
+    return capability === "document.fileContent";
   }
 
   private filterOrderForContext(
@@ -468,7 +470,7 @@ export class ToolGateway implements FeishuToolGatewayApi {
   }
 
   deleteFile(
-    input: { fileToken: string },
+    input: { fileToken: string; fileType?: string },
     context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus | null> {
     return this.executeWithPolicy(

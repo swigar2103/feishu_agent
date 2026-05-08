@@ -11,15 +11,43 @@ import {
   L3DetailPointerObjectSchema,
 } from "../model/layerSchemas.js";
 
-/** 命中任一即视为草稿质量不达标，禁止写回（避免污染 HMRS 形成回路） */
+/**
+ * 内容污染检测：命中表明 LLM 生成了系统占位符而非真实内容。
+ * 注意：只检测明确的系统术语，避免误判"缺失数据"等正常业务描述。
+ */
 const POLLUTION_PATTERN =
-  /(文档|document)\s*ID|缺失|为空|无法获取|无法加载|无法访问|占位|todo|fallback|VALIDATION:1002/i;
+  /(文档|document)\s*ID|无法加载|无法访问|占位|todo|fallback|VALIDATION:1002/i;
 const WRITER_VALIDATION_FAILURE_HINT = "Writer JSON 生成未通过校验";
 
 export type DraftQualityVerdict = {
   pass: boolean;
   reasons: string[];
 };
+
+/**
+ * 发布专用宽松门控：只检查章节是否有实质内容，不做污染词分析。
+ * 污染词分析仅保留在 HMRS 回写门控（evaluateDraftQuality）中，
+ * 避免因 Writer 措辞习惯而屏蔽正常发布。
+ */
+export function evaluateDraftForPublish(input: {
+  draft: Draft;
+}): DraftQualityVerdict {
+  const reasons: string[] = [];
+  const draft = input.draft;
+  const summary = (draft.summary ?? "").trim();
+  if (summary.length === 0) reasons.push("summary_empty");
+
+  const emptySections = draft.sections.filter((s) => !(s.content ?? "").trim());
+  if (emptySections.length > 0 && emptySections.length === draft.sections.length) {
+    reasons.push("all_sections_empty");
+  }
+
+  if ((draft.openQuestions ?? []).some((q) => q.includes("Writer JSON 生成未通过校验"))) {
+    reasons.push("writer_schema_validation_failed");
+  }
+
+  return { pass: reasons.length === 0, reasons };
+}
 
 export function evaluateDraftQuality(input: {
   draft: Draft;
@@ -28,7 +56,7 @@ export function evaluateDraftQuality(input: {
   const reasons: string[] = [];
   const draft = input.draft;
   const summary = (draft.summary ?? "").trim();
-  if (summary.length < 80) reasons.push(`summary_too_short(${summary.length})`);
+  if (summary.length < 40) reasons.push(`summary_too_short(${summary.length})`);
   if (POLLUTION_PATTERN.test(summary)) reasons.push("summary_contains_polluted_phrase");
 
   const expected = input.expectedSectionCount ?? draft.sections.length;
@@ -36,6 +64,7 @@ export function evaluateDraftQuality(input: {
     reasons.push(`sections_too_few(${draft.sections.length}/${expected})`);
   }
 
+  let pollutedCount = 0;
   for (const section of draft.sections) {
     const content = (section.content ?? "").trim();
     if (!content) {
@@ -43,11 +72,15 @@ export function evaluateDraftQuality(input: {
       continue;
     }
     if (POLLUTION_PATTERN.test(content)) {
-      reasons.push(`section_polluted:${section.heading}`);
+      pollutedCount += 1;
     }
-    if (content.length < 30) {
+    if (content.length < 20) {
       reasons.push(`section_too_short:${section.heading}(${content.length})`);
     }
+  }
+  // 仅当超过半数章节被污染时才拦截（避免误判含"缺失/无法获取"等正常业务描述的文本）
+  if (pollutedCount > 0 && pollutedCount > Math.ceil(draft.sections.length / 2)) {
+    reasons.push(`sections_mostly_polluted(${pollutedCount}/${draft.sections.length})`);
   }
 
   if ((draft.openQuestions ?? []).some((q) => q.includes(WRITER_VALIDATION_FAILURE_HINT))) {

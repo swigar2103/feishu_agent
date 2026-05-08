@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   CandidateResourceListSchema,
+  ResourceSelectionDecisionSchema,
   type CandidateResourceList,
   type ResourceSummary,
 } from "../../schemas/agentContracts.js";
@@ -35,34 +36,48 @@ function normalizeResourceSummary(resource: ResourceSummary): ResourceSummary {
   };
 }
 
-const LlmScreeningSchema = z.object({
-  selectedResourceIds: z.array(z.string()).default([]),
-  reason: z.array(z.string()).default([]),
+const LlmScreeningSchema = ResourceSelectionDecisionSchema.extend({
+  decisionReasons: z.array(z.string()).default([]),
 });
 
-async function llmFallbackScreening(
+async function llmFallbackScreening(input: {
   request: UserRequest,
-  resourcePool: ResourceSummary[],
-): Promise<{ selectedResourceIds: string[]; reason: string[] }> {
-  const compact = resourcePool.slice(0, 20).map((r) => ({
+  resourcePool: ResourceSummary[];
+  stage: "managed_only" | "managed_plus_global";
+}): Promise<z.infer<typeof LlmScreeningSchema>> {
+  const compact = input.resourcePool.slice(0, 30).map((r) => ({
     resourceId: r.resourceId,
     title: r.title,
     summary: r.summary,
     tags: r.tags,
+    score: r.score ?? 0,
   }));
 
   try {
     const result = await invokeJsonModel(LlmScreeningSchema, {
       systemPrompt: [
         "你是 Resource Screening Agent。",
-        "请基于任务请求从资源摘要中选择最值得深读的资源ID列表。",
+        "你需要根据任务意图，自主选择最值得深读的资源。",
+        "规则：",
+        "1) 优先使用纳管目录资源（tags 含 managed）。",
+        "2) 仅在证据不足时，才允许选择 global_mcp 资源（tags 含 external/global_mcp）。",
+        "3) 必须输出 sectionResourceMapping，说明每个章节为什么选这些资源。",
+        "4) 若证据不足，请将 insufficient=true，并给出 insufficiencyReasons。",
+        `5) 当前阶段=${input.stage}；当阶段是 managed_only 时，allowGlobalSupplement 仅在确实证据不足时置 true。`,
         "只返回 JSON。",
       ].join("\n"),
-      userPrompt: `request=${JSON.stringify(request)}\nresourcePool=${JSON.stringify(compact)}`,
+      userPrompt: `request=${JSON.stringify(input.request)}\nresourcePool=${JSON.stringify(compact)}`,
     });
     return LlmScreeningSchema.parse(result);
   } catch {
-    return { selectedResourceIds: [], reason: ["LLM fallback 失败，回退规则筛选"] };
+    return LlmScreeningSchema.parse({
+      selectedResourceIds: [],
+      sectionResourceMapping: [],
+      insufficient: false,
+      insufficiencyReasons: [],
+      allowGlobalSupplement: false,
+      decisionReasons: ["LLM fallback 失败，回退规则筛选"],
+    });
   }
 }
 
@@ -197,7 +212,7 @@ export async function screenResources(input: {
     })
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
-  const ruleCandidates = scored.filter((item) => (item.score ?? 0) >= 0.25).slice(0, 8);
+  const ruleCandidates = scored.filter((item) => (item.score ?? 0) >= 0.25).slice(0, 12);
   const topN = ruleCandidates.slice(0, 3);
   const avgTopScore =
     topN.length > 0 ? topN.reduce((sum, item) => sum + (item.score ?? 0), 0) / topN.length : 0;
@@ -213,33 +228,66 @@ export async function screenResources(input: {
     `mention_soft=${mentioned.length}`,
   ];
 
-  if (!needExternalSupplement) {
+  // 先做 managed-only 决策（让 LLM 自主选择资源）
+  const managedUniverse = ruleCandidates.filter((item) => item.tags.includes("managed"));
+  const managedPool = managedUniverse.length > 0 ? managedUniverse : ruleCandidates;
+  const managedDecision = await llmFallbackScreening({
+    request: input.request,
+    resourcePool: managedPool,
+    stage: "managed_only",
+  });
+  const managedSet = new Set(managedDecision.selectedResourceIds);
+  const managedSelected = managedPool.filter((item) => managedSet.has(item.resourceId)).slice(0, 8);
+
+  if (!managedDecision.allowGlobalSupplement && managedSelected.length > 0) {
     return CandidateResourceListSchema.parse({
-      candidates: ruleCandidates.map(normalizeResourceSummary),
-      usedLlmFallback: false,
-      screeningReason: reasons,
+      candidates: managedSelected.map(normalizeResourceSummary),
+      usedLlmFallback: true,
+      screeningReason: [...reasons, ...managedDecision.decisionReasons, "采用 managed-only 选择结果"],
+      selectionDecision: managedDecision,
     });
   }
 
-  const llm = await llmFallbackScreening(input.request, scored);
-  const llmSet = new Set(llm.selectedResourceIds);
-  const llmCandidates = scored.filter((resource) => llmSet.has(resource.resourceId)).slice(0, 8);
   const mergedBase: ResourceSummary[] =
-    llmCandidates.length > 0 ? llmCandidates : scored.slice(0, 5);
+    managedSelected.length > 0 ? managedSelected : managedPool.slice(0, 6);
   let merged: ResourceSummary[] = mergedBase;
-  const screeningReason = [...reasons, ...llm.reason];
+  const screeningReason = [...reasons, ...managedDecision.decisionReasons];
 
-  if (needExternalSupplement) {
+  if (needExternalSupplement || managedDecision.allowGlobalSupplement || managedDecision.insufficient) {
     const external = await fetchExternalCandidates(input.request.prompt, input.request.userId);
     const existing = new Set(merged.map((item) => item.resourceId));
-    const supplements = external.filter((item) => !existing.has(item.resourceId));
-    merged = [...merged, ...supplements].slice(0, 8);
+    const supplements = external
+      .filter((item) => !existing.has(item.resourceId))
+      .map((item) => ({
+        ...item,
+        tags: [...item.tags, "global_mcp"],
+      }));
+    const mergedUniverse = [...managedPool, ...supplements].slice(0, 20);
+    const secondDecision = await llmFallbackScreening({
+      request: input.request,
+      resourcePool: mergedUniverse,
+      stage: "managed_plus_global",
+    });
+    const selectedSet = new Set(secondDecision.selectedResourceIds);
+    const selected = mergedUniverse.filter((item) => selectedSet.has(item.resourceId)).slice(0, 8);
+    merged = selected.length > 0 ? selected : mergedUniverse.slice(0, 8);
     screeningReason.push(`外部工具补充候选=${supplements.length}`);
+    screeningReason.push(...secondDecision.decisionReasons);
+    screeningReason.push(
+      `selection_summary(managed=${merged.filter((x) => x.tags.includes("managed")).length},global=${merged.filter((x) => x.tags.includes("global_mcp")).length})`,
+    );
+    return CandidateResourceListSchema.parse({
+      candidates: merged.map(normalizeResourceSummary),
+      usedLlmFallback: true,
+      screeningReason,
+      selectionDecision: secondDecision,
+    });
   }
 
   return CandidateResourceListSchema.parse({
     candidates: merged.map(normalizeResourceSummary),
     usedLlmFallback: true,
     screeningReason,
+    selectionDecision: managedDecision,
   });
 }

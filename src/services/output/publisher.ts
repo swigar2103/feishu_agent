@@ -6,13 +6,13 @@ import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
 import { listAllDocumentBlocks } from "../../integrations/feishu/docxBlocks.js";
 import type { GatewayDocument } from "../toolGateway/types.js";
 import type { RenderedArtifact } from "../render/artifactRenderer.js";
-import { evaluateDraftQuality } from "../hmrs/writeback/memoryWritebackService.js";
+import { evaluateDraftForPublish } from "../hmrs/writeback/memoryWritebackService.js";
 
 export type PublishedArtifact = {
   type: "feishu_doc" | "bitable" | "slides";
   id: string;
   url: string;
-  status: "published" | "fallback" | "mock_published";
+  status: "published" | "fallback" | "mock_published" | "quality_reject";
   artifactSource?: "mcp" | "lark_cli" | "openapi";
 };
 
@@ -398,7 +398,8 @@ async function publishFeishuDoc(input: {
   preferUserScope?: boolean;
   renderedArtifacts?: RenderedArtifact[];
 }): Promise<PublishedArtifact> {
-  const verdict = evaluateDraftQuality({ draft: input.draft });
+  // 发布门控：只检查是否有实质内容，不做污染词分析（污染词检查保留给 HMRS 回写）
+  const verdict = evaluateDraftForPublish({ draft: input.draft });
   const isQualityReject = !verdict.pass;
   if (isQualityReject) {
     logger.warn("[publish-telemetry] draft quality gate rejected, publishing self-check note instead", {
@@ -506,7 +507,8 @@ async function publishFeishuDoc(input: {
     type: "feishu_doc",
     id: doc.id,
     url,
-    status: isQualityReject ? "fallback" : "published",
+    // quality_reject 仍有真实 URL，不能混同 fallback（fallback 代表无 URL）
+    status: isQualityReject ? "quality_reject" : "published",
     artifactSource: doc.source ?? viewed?.source,
   };
 }

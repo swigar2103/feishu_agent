@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -19,6 +19,10 @@ let cached: MemPalaceFile | null = null;
 function loadMemPalace(): MemPalaceFile {
   if (cached) return cached;
   const p = join(__dirname, "../../data/memPalace.json");
+  if (!existsSync(p)) {
+    cached = { rooms: [] };
+    return cached;
+  }
   const raw = readFileSync(p, "utf-8");
   cached = JSON.parse(raw) as MemPalaceFile;
   return cached;

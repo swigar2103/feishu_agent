@@ -107,6 +107,17 @@ function computeEvidenceTelemetry(sourceEvidence?: string): {
   };
 }
 
+function buildWriterModelCandidates(): string[] {
+  const values = [
+    env.BAILIAN_MODEL_WRITER,
+    env.BAILIAN_MODEL_WRITER_FALLBACK,
+    env.BAILIAN_MODEL_ORCHESTRATOR,
+  ]
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+  return [...new Set(values)];
+}
+
 function collectAnalysisLines(analysis: AnalysisResult): string[] {
   return [...analysis.keyInsights, ...analysis.normalizedFacts].filter(
     (s) => typeof s === "string" && s.trim().length > 0,
@@ -495,9 +506,24 @@ function coerceChartDataSemantic(raw: unknown, chartType: string): unknown {
   const r = raw as Record<string, unknown>;
   const kindCandidate = coerceString(r.kind);
   const kind = kindCandidate && allowed.has(kindCandidate) ? kindCandidate : normalizeChartKind(chartType);
+  const dimension =
+    coerceString(r.dimension) ??
+    (Array.isArray(r.dimension) ? r.dimension.map((x) => coerceString(x)).filter(Boolean).join("/") : undefined) ??
+    "维度";
+  const metric =
+    coerceString(r.metric) ??
+    (Array.isArray(r.metric) ? r.metric.map((x) => coerceString(x)).filter(Boolean).join("/") : undefined) ??
+    "指标";
+  const periodHint =
+    coerceString(r.periodHint) ??
+    coerceString(r.period) ??
+    (Array.isArray(r.periodHint) ? r.periodHint.map((x) => coerceString(x)).filter(Boolean).join("/") : undefined) ??
+    "本期";
   return {
-    ...r,
     kind,
+    dimension,
+    metric,
+    periodHint,
   };
 }
 
@@ -719,9 +745,10 @@ async function invokeWriterRaw(
     sourceEvidence?: string;
   },
   extraInstruction?: string,
+  modelOverride?: string,
 ): Promise<unknown> {
   const raw = await invokeBailianModel({
-    model: env.BAILIAN_MODEL_WRITER,
+    model: modelOverride ?? env.BAILIAN_MODEL_WRITER,
     systemPrompt: buildWriterSystemPrompt(),
     userPrompt: [
       buildWriterUserPrompt(
@@ -737,6 +764,7 @@ async function invokeWriterRaw(
       extraInstruction ? `\n【修复约束】${extraInstruction}` : "",
     ].join("\n"),
     jsonMode: true,
+    timeoutMs: env.WRITER_LLM_TIMEOUT_MS,
   });
   return JSON.parse(extractJsonObject(raw)) as unknown;
 }
@@ -765,8 +793,36 @@ export async function writeDraft(input: {
     evidenceChars: evidence.evidenceChars,
     evidenceSourceCount: evidence.evidenceSourceCount,
   });
+  const writerModels = buildWriterModelCandidates();
+  const invokeWriterWithCandidates = async (extraInstruction?: string): Promise<unknown> => {
+    let lastError: unknown = null;
+    for (const model of writerModels) {
+      try {
+        return await invokeWriterRaw(
+          {
+            userRequest: input.userRequest,
+            plan: input.plan,
+            analysis: input.analysis,
+            skillMatch: input.skillMatch,
+            rewriteHints: input.rewriteHints,
+            sourceEvidence: input.sourceEvidence,
+          },
+          extraInstruction,
+          model,
+        );
+      } catch (error) {
+        lastError = error;
+        logger.warn("[writer] model attempt failed, try next candidate", {
+          model,
+          timeoutMs: env.WRITER_LLM_TIMEOUT_MS,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    throw lastError ?? new Error("Writer LLM 调用失败");
+  };
   try {
-    const firstPayloadRaw = await invokeWriterRaw(input);
+    const firstPayloadRaw = await invokeWriterWithCandidates();
     const firstPayload = preNormalizeDraftPayload(firstPayloadRaw);
     const firstTry = DraftSchema.safeParse(firstPayload);
     if (firstTry.success) {
@@ -805,15 +861,7 @@ export async function writeDraft(input: {
       return enriched;
     }
 
-    const retryPayloadRaw = await invokeWriterRaw(
-      {
-        userRequest: input.userRequest,
-        plan: input.plan,
-        analysis: input.analysis,
-        skillMatch: input.skillMatch,
-        rewriteHints: input.rewriteHints,
-        sourceEvidence: input.sourceEvidence,
-      },
+    const retryPayloadRaw = await invokeWriterWithCandidates(
       `上一轮输出未通过校验：${firstTry.error.issues
         .map((issue) => `${issue.path.join(".")}:${issue.message}`)
         .slice(0, 8)
@@ -852,16 +900,18 @@ export async function writeDraft(input: {
     });
     return enrichedRetry;
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     if (env.AGENT_STRICT_FACT_MODE) {
       throw new Error(
-        `严格真实模式：Writer 失败且不允许兜底占位稿。原始错误：${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `严格真实模式：Writer 失败且不允许兜底占位稿（含超时）。原始错误：${errMsg}`,
       );
     }
-    logger.warn("Writer JSON 调用失败，已使用兜底草稿", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+    const isTimeout = errMsg.includes("超时") || errMsg.includes("timeout") || errMsg.includes("Abort");
+    if (isTimeout) {
+      logger.warn("Writer LLM 超时，已使用兜底草稿（超时不受严格模式拦截）", { message: errMsg });
+    } else {
+      logger.warn("Writer JSON 调用失败，已使用兜底草稿", { message: errMsg });
+    }
     const fallback = fallbackDraft(input);
     logger.info("[writer-telemetry] drafting fallback used", {
       sessionId: input.userRequest.sessionId,

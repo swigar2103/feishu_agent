@@ -117,9 +117,14 @@ export async function deepRetrieveContext(input: {
   screened: CandidateResourceList;
 }): Promise<DetailedContext> {
   const facade = getMemoryFacade();
+  const prioritized = input.plan.prioritizedResourceIds?.length
+    ? input.plan.prioritizedResourceIds
+    : (input.screened.selectionDecision?.selectedResourceIds ?? []);
   const expansion = input.plan.expansionDecision?.finalResourceIds?.length
     ? input.plan.expansionDecision.finalResourceIds
-    : input.screened.candidates.slice(0, 6).map((item) => `l2_${item.resourceId}`);
+    : (prioritized.length > 0
+        ? prioritized.slice(0, 6).map((id) => `l2_${id}`)
+        : input.screened.candidates.slice(0, 6).map((item) => `l2_${item.resourceId}`));
   const base = await facade.retrieveDetails({
     request: input.request,
     expansion: {
@@ -134,6 +139,7 @@ export async function deepRetrieveContext(input: {
       },
     },
     screened: input.screened,
+    targetFolderTokens: input.plan.expansionDecision?.targetFolderTokens ?? [],
   });
   const templateDistillation =
     base.templateDistillation ?? buildFallbackTemplateDistillation({ plan: input.plan, screened: input.screened });

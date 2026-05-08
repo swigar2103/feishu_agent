@@ -32,6 +32,13 @@ export function buildPlannerSystemPrompt(): string {
     "你是 Planner Agent，只负责计划，不写正文。",
     "请输出执行计划 JSON，包含结构、优先资源、缺失信息和深读策略。",
     "若输入中包含 larkCliGuidance.hardRules，必须把它们转化为可执行计划约束（如读取策略、章节完整性、发布前校验）。",
+    "若输入中包含 managedFolderStructure，请根据任务意图从中选择最相关的子文件夹，在 expansionDecision.targetFolderTokens 中输出所选子文件夹的 token 列表：",
+    "  - 周报/工作总结 → 选名称含「本周」「近期」「当前」或最近日期的子文件夹",
+    "  - 项目分析 → 选名称含项目名称关键词的子文件夹",
+    "  - 未能匹配时 → 选所有子文件夹，让后续环节自行过滤",
+    "expansionDecision.targetFolderTokens 为空数组时，后续将读取根目录所有文档，请尽量填写精确的 token 以减少无关读取。",
+    "资源选择策略（必须遵守）：先纳管后外部；先最近一周后历史资料；每个章节至少关联 1 个证据来源。",
+    "当你判断纳管证据不足时，必须在 reason 中解释缺口类型（缺时间范围/缺指标/缺项目上下文）。",
     "仅输出 JSON。",
   ].join("\n");
 }
@@ -43,6 +50,7 @@ export function buildPlannerUserPrompt(input: {
   screened: CandidateResourceList;
   hmrsL1?: L1CatalogObject[];
   hmrsL2?: L2IndexObject[];
+  managedFolderStructure?: unknown;
 }): string {
   return [
     "请生成可执行计划。",
@@ -58,6 +66,7 @@ export function buildPlannerUserPrompt(input: {
     `screened=${JSON.stringify(input.screened)}`,
     `hmrsL1=${JSON.stringify(input.hmrsL1 ?? [])}`,
     `hmrsL2=${JSON.stringify(input.hmrsL2 ?? [])}`,
+    `managedFolderStructure=${JSON.stringify(input.managedFolderStructure ?? [])}`,
   ].join("\n");
 }
 

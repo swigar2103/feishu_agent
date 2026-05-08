@@ -1,191 +1,6 @@
 {
-  "updatedAt": "2026-05-07T04:33:54.074Z",
+  "updatedAt": "2026-05-08T19:13:27.814Z",
   "items": [
-    {
-      "id": "l2_doc_feishu_001",
-      "type": "doc_summary",
-      "layer": "L2",
-      "owner": "user_demo_primary",
-      "projectTag": "通用项目",
-      "timeRange": {
-        "end": "2026-05-04T11:26:14.558Z"
-      },
-      "keywords": [
-        "2025年调研显示",
-        "竞品A在下沉市场的渗透率提升了12%",
-        "主要得益于其轻量版小程序的上线",
-        "doc",
-        "分析报告",
-        "通用"
-      ],
-      "qualityScore": 0.5,
-      "sourceRef": {
-        "sourceType": "unknown"
-      },
-      "parentId": "l1_doc_feishu_001",
-      "title": "doc_feishu_001",
-      "structureSummary": "doc_feishu_001 2025年调研显示，竞品A在下沉市场的渗透率提升了12%，主要得益于其轻量版小程序的上线。"
-    },
-    {
-      "id": "l2_msg_feishu_102",
-      "type": "message_thread_summary",
-      "layer": "L2",
-      "owner": "user_demo_primary",
-      "projectTag": "通用项目",
-      "timeRange": {
-        "end": "2026-05-04T11:26:14.558Z"
-      },
-      "keywords": [
-        "Alice在群里提到：我们的用户反馈支付流程太长",
-        "比竞品多出了2个跳转页面",
-        "message",
-        "分析报告",
-        "通用"
-      ],
-      "qualityScore": 0.5,
-      "sourceRef": {
-        "sourceType": "chat"
-      },
-      "parentId": "l1_msg_feishu_102",
-      "title": "msg_feishu_102",
-      "structureSummary": "msg_feishu_102 Alice在群里提到：我们的用户反馈支付流程太长，比竞品多出了2个跳转页面。"
-    },
-    {
-      "id": "l2_table_feishu_201",
-      "type": "table_summary",
-      "layer": "L2",
-      "owner": "user_demo_primary",
-      "projectTag": "医疗运营",
-      "timeRange": {
-        "end": "2026-05-04T11:26:14.558Z"
-      },
-      "keywords": [
-        "医疗集采最新名录：器械类A项已纳入第二批清单",
-        "预计价格降幅30%",
-        "table",
-        "分析报告",
-        "通用"
-      ],
-      "qualityScore": 0.5,
-      "sourceRef": {
-        "sourceType": "table"
-      },
-      "parentId": "l1_table_feishu_201",
-      "title": "table_feishu_201",
-      "structureSummary": "table_feishu_201 医疗集采最新名录：器械类A项已纳入第二批清单，预计价格降幅30%。"
-    },
-    {
-      "id": "l2_template_pref_user_demo_primary_1",
-      "type": "TemplateStructureIndex",
-      "layer": "L2",
-      "owner": "user_demo_primary",
-      "projectTag": "通用",
-      "timeRange": {
-        "end": "2026-05-06T17:05:24.083Z"
-      },
-      "keywords": [
-        "今日完成",
-        "本周内",
-        "滨江院区完成了多项重要任务",
-        "包括但不限于：",
-        "成功优化了患者预约流程",
-        "提高了预约效率",
-        "减少了患者等待时间",
-        "完成了新设备的安装调试",
-        "提升了诊疗能力"
-      ],
-      "qualityScore": 0.68,
-      "sourceRef": {
-        "sourceType": "unknown"
-      },
-      "parentId": "l1_style_user_demo_primary",
-      "title": "今日完成",
-      "structureSummary": "本周内，滨江院区完成了多项重要任务，包括但不限于：\n- 成功优化了患者预约流程，提高了预约效率，减少了患者等待时间。\n- 完成了新设备的安装调试，提升了诊疗能力。\n- 对部分科室进行了人员调配，确保了医疗服务质量。\n- 与供应商签订了新的合作协议，保障了医疗物资的供应。"
-    },
-    {
-      "id": "l2_template_pref_user_demo_primary_2",
-      "type": "TemplateStructureIndex",
-      "layer": "L2",
-      "owner": "user_demo_primary",
-      "projectTag": "通用",
-      "timeRange": {
-        "end": "2026-05-06T17:05:24.083Z"
-      },
-      "keywords": [
-        "明日计划",
-        "针对未来一周的工作计划",
-        "滨江院区将重点推进以下几项工作：",
-        "继续完善患者信息管理系统",
-        "提升数据处理能力",
-        "开展医护人员培训",
-        "提高专业技能和服务水平",
-        "加强与社区卫生服务中心的合作",
-        "扩大医疗服务范围"
-      ],
-      "qualityScore": 0.68,
-      "sourceRef": {
-        "sourceType": "unknown"
-      },
-      "parentId": "l1_style_user_demo_primary",
-      "title": "明日计划",
-      "structureSummary": "针对未来一周的工作计划，滨江院区将重点推进以下几项工作：\n- 继续完善患者信息管理系统，提升数据处理能力。\n- 开展医护人员培训，提高专业技能和服务水平。\n- 加强与社区卫生服务中心的合作，扩大医疗服务范围。\n- 推进医疗信息化建设，实现电子病历的全面覆盖。"
-    },
-    {
-      "id": "l2_template_pref_user_demo_primary_3",
-      "type": "TemplateStructureIndex",
-      "layer": "L2",
-      "owner": "user_demo_primary",
-      "projectTag": "通用",
-      "timeRange": {
-        "end": "2026-05-06T17:05:24.083Z"
-      },
-      "keywords": [
-        "阻塞项与协作",
-        "本周运营过程中遇到了一些阻碍",
-        "具体包括：",
-        "医疗设备维护问题导致部分科室无法正常运行",
-        "需要进一步协调解决",
-        "信息系统升级过程中出现了一些技术难题",
-        "需与IT部门密切合作",
-        "部分药品短缺",
-        "影响了患者的治疗进度"
-      ],
-      "qualityScore": 0.68,
-      "sourceRef": {
-        "sourceType": "unknown"
-      },
-      "parentId": "l1_style_user_demo_primary",
-      "title": "阻塞项与协作",
-      "structureSummary": "本周运营过程中遇到了一些阻碍，具体包括：\n- 医疗设备维护问题导致部分科室无法正常运行，需要进一步协调解决。\n- 信息系统升级过程中出现了一些技术难题，需与IT部门密切合作。\n- 部分药品短缺，影响了患者的治疗进度，需加强与药房的沟通。\n- 人力资源调配不均，导致某些科室压力较大，需进行合理调整。"
-    },
-    {
-      "id": "l2_template_pref_user_demo_primary_4",
-      "type": "TemplateStructureIndex",
-      "layer": "L2",
-      "owner": "user_demo_primary",
-      "projectTag": "通用",
-      "timeRange": {
-        "end": "2026-05-06T17:05:24.083Z"
-      },
-      "keywords": [
-        "行动项",
-        "为了应对上述问题",
-        "滨江院区制定了以下行动项：",
-        "设备维护团队需在下周二前完成所有设备的检查与维护工作",
-        "IT部门应在下周五前完成信息系统升级",
-        "并确保新系统稳定运行",
-        "药房需在下周一前补充短缺药品库存",
-        "人事部门应于下周三前完成人员调配方案",
-        "确保各科室人员配置合理"
-      ],
-      "qualityScore": 0.68,
-      "sourceRef": {
-        "sourceType": "unknown"
-      },
-      "parentId": "l1_style_user_demo_primary",
-      "title": "行动项",
-      "structureSummary": "为了应对上述问题，滨江院区制定了以下行动项：\n- 设备维护团队需在下周二前完成所有设备的检查与维护工作。\n- IT部门应在下周五前完成信息系统升级，并确保新系统稳定运行。\n- 药房需在下周一前补充短缺药品库存。\n- 人事部门应于下周三前完成人员调配方案，确保各科室人员配置合理。"
-    },
     {
       "id": "l2_ext_doc_Z2QzdBeouobyelxTvQsc7dfBnBd",
       "type": "doc_summary",
@@ -271,7 +86,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T00:55:29.462Z"
+        "end": "2026-05-08T16:49:30.785Z"
       },
       "keywords": [
         "体育类新闻周报",
@@ -299,7 +114,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T04:33:54.066Z"
+        "end": "2026-05-08T16:49:30.786Z"
       },
       "keywords": [
         "体育类新闻周报",
@@ -321,10 +136,13 @@
       "id": "l2_ext_doc_Jkn1dsy1uoIfC2xT1vhcSIEpnKf",
       "type": "doc_summary",
       "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-08T16:49:30.785Z"
       },
       "keywords": [
         "本周体育类新闻周报",
@@ -352,7 +170,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T00:55:29.462Z"
+        "end": "2026-05-08T16:49:30.786Z"
       },
       "keywords": [
         "本周体育类新闻周报",
@@ -380,7 +198,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T04:33:54.067Z"
+        "end": "2026-05-08T16:49:30.786Z"
       },
       "keywords": [
         "项目周报",
@@ -411,7 +229,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T04:33:54.067Z"
+        "end": "2026-05-08T16:49:30.786Z"
       },
       "keywords": [
         "团队",
@@ -435,10 +253,13 @@
       "id": "l2_ext_doc_UVW2dlK4Xo1ATsxETiYcPltWnAf",
       "type": "doc_summary",
       "layer": "L2",
-      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-08T16:10:37.215Z"
       },
       "keywords": [
         "业务经营周报",
@@ -460,18 +281,21 @@
       "id": "l2_ext_doc_P7SqdML9xoo09kxJeplcWB5yngh",
       "type": "doc_summary",
       "layer": "L2",
-      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-06T17:38:49.496Z"
+        "end": "2026-05-08T16:10:37.215Z"
       },
       "keywords": [
         "第17周医疗运营周报（华章义远·滨江院区）",
-        "<b>华章义远医疗集团",
+        "华章义远医疗集团",
         "·",
-        "滨江综合院区（三甲）医疗运营</b><hb>周报</hb><b>（第17周",
+        "滨江综合院区（三甲）医疗运营周报（第17周",
         "/",
-        "2026-04-21～2026-04-27）</b>",
+        "2026-04-21～2026-04-27）",
         "hmrs",
         "mcp"
       ],
@@ -483,7 +307,7 @@
       },
       "parentId": "l1_ext_doc_P7SqdML9xoo09kxJeplcWB5yngh",
       "title": "第17周医疗运营周报（华章义远·滨江院区）",
-      "structureSummary": "第17周医疗运营周报（华章义远·滨江院区） <b>华章义远医疗集团 · 滨江综合院区（三甲）医疗运营</b><hb>周报</hb><b>（第17周 / 2026-04-21～2026-04-27）</b>"
+      "structureSummary": "第17周医疗运营周报（华章义远·滨江院区） 华章义远医疗集团 · 滨江综合院区（三甲）医疗运营周报（第17周 / 2026-04-21～2026-04-27）"
     },
     {
       "id": "l2_ext_doc_I3PtdB2x6oI3hPxvtO1cmiu0nqe",
@@ -533,7 +357,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T04:14:32.911Z"
+        "end": "2026-05-08T16:49:30.785Z"
       },
       "keywords": [
         "业务经营周报",
@@ -561,7 +385,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "外部文档",
       "timeRange": {
-        "end": "2026-05-07T03:19:19.501Z"
+        "end": "2026-05-08T16:49:30.785Z"
       },
       "keywords": [
         "团队工作周报",
@@ -801,6 +625,1711 @@
       "parentId": "l1_ext_doc_AmQWdaXNKovspaxpTSkcRuFdnBf",
       "title": "文档-AmQWdaXNKovspaxpTSkcRuFdnBf",
       "structureSummary": "文档-AmQWdaXNKovspaxpTSkcRuFdnBf {\"error\":\"[VALIDATION:1002] Document ID cannot be empty\\n💡 Suggestion: Please check if the input parameters meet the requirements\\n📍 Context: param=docID\",\"log_id\":\"20260507121428A8E807CA6287ED700E7D\"}"
+    },
+    {
+      "id": "l2_ext_doc_YKXvdUBrooMnurxLeOdcGl5anMc",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T12:38:58.158Z"
+      },
+      "keywords": [
+        "华东区域",
+        "·",
+        "本周业务经营周报",
+        "第",
+        "18",
+        "周",
+        "业务经营周报（3C",
+        "家电",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "YKXvdUBrooMnurxLeOdcGl5anMc",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/YKXvdUBrooMnurxLeOdcGl5anMc"
+      },
+      "parentId": "l1_ext_doc_YKXvdUBrooMnurxLeOdcGl5anMc",
+      "title": "华东区域 · 本周业务经营周报",
+      "structureSummary": "华东区域 · 本周业务经营周报 第 18 周 · 华东区域 · 业务经营周报（3C 家电 · 家居 · 个护）"
+    },
+    {
+      "id": "l2_ext_doc_FxtKdT1qaois2IxCs9xc7fafnfi",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:10:37.215Z"
+      },
+      "keywords": [
+        "第",
+        "18",
+        "周",
+        "·",
+        "华东区域",
+        "业务经营周报（3C",
+        "家电",
+        "家居",
+        "个护）",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "FxtKdT1qaois2IxCs9xc7fafnfi#G21HdIwTAoiSNqxMmc9cepXUnJg",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/FxtKdT1qaois2IxCs9xc7fafnfi#G21HdIwTAoiSNqxMmc9cepXUnJg"
+      },
+      "parentId": "l1_ext_doc_FxtKdT1qaois2IxCs9xc7fafnfi",
+      "title": "第 18 周 · 华东区域 · 业务经营周报（3C 家电 · 家居 · 个护）",
+      "structureSummary": "第 18 周 · 华东区域 · 业务经营周报（3C 家电 · 家居 · 个护） 摘要：本周全渠道有效 GMV ￥3,842 万，环比 +6.8%；   其中 3C 数码贡献 41%，家居 33%，个护香化 26%。   全渠道成交单量 11.6 万单，件单价同比提升 4.2%。"
+    },
+    {
+      "id": "l2_ext_doc_doxcnhkFVg1Q4Gx2QB1BlYM7E2d",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:10:37.215Z"
+      },
+      "keywords": [
+        "双月业务总结",
+        "描述本双月做过的团队建设相关的事情",
+        "比如设计团队周报模板、为团队总结核心指标等",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "doxcnhkFVg1Q4Gx2QB1BlYM7E2d#doxcnCn2hMVGWjV1XrDFpkf23se",
+        "url": "https://www.feishu.cn/docx/doxcnhkFVg1Q4Gx2QB1BlYM7E2d#doxcnCn2hMVGWjV1XrDFpkf23se"
+      },
+      "parentId": "l1_ext_doc_doxcnhkFVg1Q4Gx2QB1BlYM7E2d",
+      "title": "双月业务总结",
+      "structureSummary": "双月业务总结 描述本双月做过的团队建设相关的事情，比如设计团队周报模板、为团队总结核心指标等"
+    },
+    {
+      "id": "l2_ext_doc_Ysg1dXoWpoNIz6xF5HLcscSsn9f",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:10:37.215Z"
+      },
+      "keywords": [
+        "🔖",
+        "项目说明书",
+        "项目进展周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Ysg1dXoWpoNIz6xF5HLcscSsn9f#doxcnthUkNUyofoOxdOeBm6WBLe",
+        "url": "https://www.feishu.cn/docx/Ysg1dXoWpoNIz6xF5HLcscSsn9f#doxcnthUkNUyofoOxdOeBm6WBLe"
+      },
+      "parentId": "l1_ext_doc_Ysg1dXoWpoNIz6xF5HLcscSsn9f",
+      "title": "🔖 项目说明书",
+      "structureSummary": "🔖 项目说明书 项目进展周报"
+    },
+    {
+      "id": "l2_ext_doc_BGobdHsFYouovqxmtuIc6ApunQb",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T12:38:58.158Z"
+      },
+      "keywords": [
+        "🗓",
+        "My",
+        "Weekly",
+        "To-do",
+        "List",
+        "Review",
+        "my",
+        "weekly",
+        "work",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "BGobdHsFYouovqxmtuIc6ApunQb",
+        "url": "https://www.feishu.cn/docx/BGobdHsFYouovqxmtuIc6ApunQb"
+      },
+      "parentId": "l1_ext_doc_BGobdHsFYouovqxmtuIc6ApunQb",
+      "title": "🗓 My Weekly To-do List",
+      "structureSummary": "🗓 My Weekly To-do List Review my weekly work"
+    },
+    {
+      "id": "l2_ext_doc_JfjzdT2YooPMXZxpz7PcHdSNnqc",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:49:30.786Z"
+      },
+      "keywords": [
+        "团队工作周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "JfjzdT2YooPMXZxpz7PcHdSNnqc",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/JfjzdT2YooPMXZxpz7PcHdSNnqc"
+      },
+      "parentId": "l1_ext_doc_JfjzdT2YooPMXZxpz7PcHdSNnqc",
+      "title": "团队工作周报",
+      "structureSummary": "团队工作周报 团队工作周报"
+    },
+    {
+      "id": "l2_ext_doc_YT5TdRz1CoWgyExOqRVcWvH0nzb",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:49:30.785Z"
+      },
+      "keywords": [
+        "华东区域",
+        "·",
+        "本周业务经营周报",
+        "文档候选：华东区域",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "YT5TdRz1CoWgyExOqRVcWvH0nzb",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/YT5TdRz1CoWgyExOqRVcWvH0nzb"
+      },
+      "parentId": "l1_ext_doc_YT5TdRz1CoWgyExOqRVcWvH0nzb",
+      "title": "华东区域 · 本周业务经营周报",
+      "structureSummary": "华东区域 · 本周业务经营周报 文档候选：华东区域 · 本周业务经营周报"
+    },
+    {
+      "id": "l2_ext_doc_NWqsdtCseoE2bdxEaqycgeXfnnD",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:10:37.215Z"
+      },
+      "keywords": [
+        "项目计划与执行（含甘特图）",
+        "复盘打分",
+        "已完成&归档",
+        "制定OKR-KR拆解",
+        "开始日期",
+        "优先级",
+        "高优",
+        "正常",
+        "本周周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "NWqsdtCseoE2bdxEaqycgeXfnnD",
+        "url": "https://www.feishu.cn/docx/NWqsdtCseoE2bdxEaqycgeXfnnD"
+      },
+      "parentId": "l1_ext_doc_NWqsdtCseoE2bdxEaqycgeXfnnD",
+      "title": "项目计划与执行（含甘特图）",
+      "structureSummary": "项目计划与执行（含甘特图） 复盘打分 已完成&归档 制定OKR-KR拆解 开始日期 优先级 高优 正常 本周周报"
+    },
+    {
+      "id": "l2_ext_doc_KcT8dGyYyo2a9QxpDQNc9IEYnNc",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T14:39:54.645Z"
+      },
+      "keywords": [
+        "📅",
+        "Team",
+        "Bi-Weekly",
+        "Meeting",
+        "Notes",
+        "on",
+        "bi-weekly",
+        "meeting:",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "KcT8dGyYyo2a9QxpDQNc9IEYnNc",
+        "url": "https://www.feishu.cn/docx/KcT8dGyYyo2a9QxpDQNc9IEYnNc"
+      },
+      "parentId": "l1_ext_doc_KcT8dGyYyo2a9QxpDQNc9IEYnNc",
+      "title": "📅 Team Bi-Weekly Meeting",
+      "structureSummary": "📅 Team Bi-Weekly Meeting Notes on bi-weekly meeting:"
+    },
+    {
+      "id": "l2_template_pref_ou_ec074de53e44c0829c0344144e472677_1",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_ec074de53e44c0829c0344144e472677",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:12:36.259Z"
+      },
+      "keywords": [
+        "一、门店销售概况",
+        "本周华东区域门店销售呈现结构性亮点与局部承压并存态势",
+        "滨江店「降噪耳机",
+        "Pro」套装组合销量达",
+        "180",
+        "贴膜与质保服务连带转化率达",
+        "34%",
+        "验证高价值单品+增值服务组合策略的有效性；家居类目受「以旧换新」活动深度拉动",
+        "沙发/床垫"
+      ],
+      "qualityScore": 0.7,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_ec074de53e44c0829c0344144e472677",
+      "title": "一、门店销售概况",
+      "structureSummary": "本周华东区域门店销售呈现结构性亮点与局部承压并存态势。滨江店「降噪耳机 Pro」套装组合销量达 2,180 套，贴膜与质保服务连带转化率达 34%，验证高价值单品+增值服务组合策略的有效性；家居类目受「以旧换新」活动深度拉动，沙发/床垫 GMV 环比 +12%，成为当周增长主力；个护香化因气温升高带动防晒与修护类需求，SKU 动销率提升至 78%（上周 71%），反映品类热度显著回升。需关注的是，线下门店整体转化率环比下降 0.3 个百分点，虽客流增长 +5.1%，但转化效率未同步提升，需结合动线优化与导购话术复盘进一步归因。"
+    },
+    {
+      "id": "l2_template_pref_ou_ec074de53e44c0829c0344144e472677_2",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_ec074de53e44c0829c0344144e472677",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:12:36.259Z"
+      },
+      "keywords": [
+        "二、商品销售概括（非食品结构）",
+        "商品结构持续向中高端与场景化延伸",
+        "3C",
+        "类中",
+        "手机/平板",
+        "GMV",
+        "￥1",
+        "575",
+        "4K–6K"
+      ],
+      "qualityScore": 0.7,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_ec074de53e44c0829c0344144e472677",
+      "title": "二、商品销售概括（非食品结构）",
+      "structureSummary": "商品结构持续向中高端与场景化延伸。3C 类中，手机/平板 GMV 达 ￥1,575 万，4K–6K 主力价位段占比 52%，智能穿戴订单量 14,200 单，体现消费电子升级趋势；家居类中，收纳类与灯具类子品类环比分别 +15% 和 +11%，增速领跑，而大件物流安装单均耗时 27.4 小时（超目标 3.4 小时），SLA 超时率达 2.7%，已成履约瓶颈；个护品类客单价 ￥186，新客占比 29%，组合购（洗发+护发+精油）带动客单提升 ￥42，印证多 SKU 搭配对用户价值与客单的双重撬动作用。"
+    },
+    {
+      "id": "l2_template_pref_ou_ec074de53e44c0829c0344144e472677_3",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_ec074de53e44c0829c0344144e472677",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:12:36.259Z"
+      },
+      "keywords": [
+        "三、新业务开展进度",
+        "端团购试点取得实质性突破",
+        "本周签约企业客户",
+        "周意向订单金额",
+        "￥320",
+        "万（含税）",
+        "预计",
+        "30",
+        "天内转化率"
+      ],
+      "qualityScore": 0.7,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_ec074de53e44c0829c0344144e472677",
+      "title": "三、新业务开展进度",
+      "structureSummary": "B 端团购试点取得实质性突破，本周签约企业客户 6 家，周意向订单金额 ￥320 万（含税），预计 30 天内转化率 ≥45%；同城小时达服务覆盖门店扩展至 23 家，准时率达 94.2%，在遭遇暴雨导致 1.2% 订单延误后，已即时切换备用承运商并完成闭环响应，保障服务韧性。两项新业务均已进入可量化、可追踪、可复盘的运营阶段，为后续规模化复制奠定基础。"
+    },
+    {
+      "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_1",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:13:27.811Z"
+      },
+      "keywords": [
+        "月 7 日（星期四） 12:00",
+        "复赛作品提交截止时间为2026年5月7日（星期四）12:00（北京时间）",
+        "该节点为当前冲刺阶段刚性终点",
+        "截至本周期末（5月7日）",
+        "项目已完成办公Agent的‘个人数据库+高质量产物+稳定授权链路’三重升级：HMRS个人数据库第一版完成分层重构（Wing/Room/Drawer结构）",
+        "实现OAuth后自动初始化、目录纳管、索引生成与按需展开；Planner生成BlueprintPlan、Writer按模板规则与风格画像产出Draft",
+        "v2；ArtifactRenderer支持图表/时间线/甘特槽位渲染并嵌入飞书Docx；Webhook链路增加重复事件去重、同chat串行锁、历史消息水位过滤三类稳定性保护；Cloudflare固定域名oauth.zhongshu-sheng.com彻底解决OAuth回调失配问题",
+        "所有成果已整合至GitHub原型仓库（https://github.com/swigar2103/feishu_agent.git）",
+        "并完成互联网可读权限配置"
+      ],
+      "qualityScore": 0.8,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
+      "title": "月 7 日（星期四） 12:00",
+      "structureSummary": "复赛作品提交截止时间为2026年5月7日（星期四）12:00（北京时间），该节点为当前冲刺阶段刚性终点。截至本周期末（5月7日），项目已完成办公Agent的‘个人数据库+高质量产物+稳定授权链路’三重升级：HMRS个人数据库第一版完成分层重构（Wing/Room/Drawer结构），实现OAuth后自动初始化、目录纳管、索引生成与按需展开；Planner生成BlueprintPlan、Writer按模板规则与风格画像产出Draft v2；ArtifactRenderer支持图表/时间线/甘特槽位渲染并嵌入飞书Docx；Webhook链路增加重复事件去重、同chat串行锁、历史消息水位过滤三类稳定性保护；Cloudflare固定域名oauth.zhongshu-sheng.com彻底解决OAuth回调失配问题。所有成果已整合至GitHub原型仓库（https://github.com/swigar2103/feishu_agent.git），并完成互联网可读权限配置，满足复赛提交模版中‘开【互联网获取链接可阅读权限】’的硬性要求。"
+    },
+    {
+      "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_2",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:13:27.811Z"
+      },
+      "keywords": [
+        "月 10 日（星期日）11:00",
+        "入围决赛名单将于2026年5月10日（星期日）11:00（北京时间）正式公布",
+        "此节点标志着复赛评审进入结果公示阶段",
+        "为支撑评审聚焦‘完整性与价值（50%）’维度",
+        "项目已实质性打通‘IM触发→资料检索→模板化初版生成→飞书文档交付→在线编辑协作→长期记忆写回’全闭环：用户可在飞书IM中发起‘帮我生成本周周报’等自然语言指令",
+        "系统经Intent",
+        "Agent识别、Planner规划、Retriever从HMRS分层召回资料、Analyst结构化归纳、Writer生成具备section结构与标题层级的初稿、Reviewer执行合规与风格校验后",
+        "将正式文档链接返回IM卡片；用户进入在线编辑页面后",
+        "AI持续作为协作编辑助手参与局部改写与结构调整"
+      ],
+      "qualityScore": 0.8,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
+      "title": "月 10 日（星期日）11:00",
+      "structureSummary": "入围决赛名单将于2026年5月10日（星期日）11:00（北京时间）正式公布，此节点标志着复赛评审进入结果公示阶段。为支撑评审聚焦‘完整性与价值（50%）’维度，项目已实质性打通‘IM触发→资料检索→模板化初版生成→飞书文档交付→在线编辑协作→长期记忆写回’全闭环：用户可在飞书IM中发起‘帮我生成本周周报’等自然语言指令，系统经Intent Agent识别、Planner规划、Retriever从HMRS分层召回资料、Analyst结构化归纳、Writer生成具备section结构与标题层级的初稿、Reviewer执行合规与风格校验后，将正式文档链接返回IM卡片；用户进入在线编辑页面后，AI持续作为协作编辑助手参与局部改写与结构调整，其修改痕迹与最终成果实时写回HMRS，形成‘越用越懂用户’的学习闭环。该闭环能力已在mermaid-diagram (1).png与(2).png中完成可视化表达，并嵌入复赛提交文档。"
+    },
+    {
+      "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_3",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:13:27.811Z"
+      },
+      "keywords": [
+        "月 15 日（星期五）",
+        "决赛定于2026年5月15日（星期五）举行",
+        "项目技术方案与演示准备已全面就绪",
+        "当前系统已深度集成飞书生态全栈能力：IM入口通过Webhook全链路联通（phase1模板复制快车道与full",
+        "LangGraph全链路双策略）；工具层通过Tool",
+        "Gateway统一调度Feishu",
+        "OpenAPI（如GET",
+        "/open-apis/docx/v1/documents/{document_id}/raw_content拉取结构化正文）、MCP（search-doc/fetch-doc/create-doc等白名单工具）及lark-cli（workflow",
+        "skill映射）；资源层以飞书个人云盘为HMRS承载空间"
+      ],
+      "qualityScore": 0.8,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
+      "title": "月 15 日（星期五）",
+      "structureSummary": "决赛定于2026年5月15日（星期五）举行，项目技术方案与演示准备已全面就绪。当前系统已深度集成飞书生态全栈能力：IM入口通过Webhook全链路联通（phase1模板复制快车道与full LangGraph全链路双策略）；工具层通过Tool Gateway统一调度Feishu OpenAPI（如GET /open-apis/docx/v1/documents/{document_id}/raw_content拉取结构化正文）、MCP（search-doc/fetch-doc/create-doc等白名单工具）及lark-cli（workflow skill映射）；资源层以飞书个人云盘为HMRS承载空间，实现L1/L2/L3分层召回与预算控制；输出层支持飞书文档、多维表格、幻灯片等多形态产物发布。Demo录屏正在上传中，项目链接https://github.com/swigar2103/feishu_agent.git已公开，代码仓库包含graph/llm/services/schemas/tool-gateway等完整模块边界，符合‘技术实现性（25%）’评分维度对工程规范与可扩展性的要求。"
+    },
+    {
+      "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_4",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:13:27.811Z"
+      },
+      "keywords": [
+        "一、个人信息（必须包含）",
+        "李宗翰",
+        "约翰霍普金斯大学Robotics专业硕士",
+        "预计2027年9月毕业；担任飞书AI校园挑战赛参赛项目‘中书省：基于飞书生态的AI",
+        "Agent办公协同系统’组长",
+        "负责从0到1设计并推进面向飞书办公场景的AI",
+        "Agent系统",
+        "承担产品定义、核心技术实现与工程落地全责",
+        "具体职责覆盖IM入口设计、用户OAuth授权链路、资料检索机制、智能生成引擎、飞书文档交付与在线编辑工作台建设"
+      ],
+      "qualityScore": 0.8,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
+      "title": "一、个人信息（必须包含）",
+      "structureSummary": "李宗翰，约翰霍普金斯大学Robotics专业硕士，预计2027年9月毕业；担任飞书AI校园挑战赛参赛项目‘中书省：基于飞书生态的AI Agent办公协同系统’组长，负责从0到1设计并推进面向飞书办公场景的AI Agent系统，承担产品定义、核心技术实现与工程落地全责。具体职责覆盖IM入口设计、用户OAuth授权链路、资料检索机制、智能生成引擎、飞书文档交付与在线编辑工作台建设，以及长期记忆学习闭环（HMRS）的架构设计与实施。实习意向为飞书Byteintern岗位，可实习地点全球均可，最快到岗时间为随时，可实习时长半年以上。"
+    },
+    {
+      "id": "l2_template_pref_ou_b7e1ded69f1528003929f526273b7443_5",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T19:13:27.811Z"
+      },
+      "keywords": [
+        "二、项目结果展示（必须包含）",
+        "项目结果严格对应赛事三大评分维度：在‘完整性与价值（50%）’方面",
+        "系统已实现从IM需求触发到正式文档交付的完整闭环",
+        "解决信息分散查找成本高、文档生成质量不稳定、办公流程缺乏闭环、用户经验无法沉淀四大痛点；在‘创新性（25%）’方面",
+        "首创将官方workflow",
+        "skill、模板结构知识与HMRS用户长期记忆融合生成链路",
+        "引入分层资源记忆（Wing/Room/Drawer）替代传统vector",
+        "retrieval",
+        "并强调IM入口+在线编辑工作台的人机协作模式；在‘技术实现性（25%）’方面"
+      ],
+      "qualityScore": 0.8,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_b7e1ded69f1528003929f526273b7443",
+      "title": "二、项目结果展示（必须包含）",
+      "structureSummary": "项目结果严格对应赛事三大评分维度：在‘完整性与价值（50%）’方面，系统已实现从IM需求触发到正式文档交付的完整闭环，解决信息分散查找成本高、文档生成质量不稳定、办公流程缺乏闭环、用户经验无法沉淀四大痛点；在‘创新性（25%）’方面，首创将官方workflow skill、模板结构知识与HMRS用户长期记忆融合生成链路，引入分层资源记忆（Wing/Room/Drawer）替代传统vector retrieval，并强调IM入口+在线编辑工作台的人机协作模式；在‘技术实现性（25%）’方面，采用LangGraph进行Agent编排，构建含Intent Agent、Planner、Retriever、Analyst、Writer、Reviewer等8–10个核心角色的多智能体层，代码仓库https://github.com/swigar2103/feishu_agent.git已开源，模块职责明确，支持灰度替换与后续扩展。项目一句话介绍为：‘本项目面向办公协作中“从IM沟通到正式文档产出”这一高频但低效的流程，构建了一个以AI Agent为主导、以飞书IM为入口、以飞书云文档和用户个人数据库为资源底座、以在线编辑页面为协作工作台的智能办公系统。’"
+    },
+    {
+      "id": "l2_ext_doc_TayxdBgmJomrNKxcBWKca1aanrb",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:56:11.448Z"
+      },
+      "keywords": [
+        "2026-05-05",
+        "院周会（运营联席）纪要",
+        "影像增强剂外渗与跌倒事件纳入周报双周报披露清单",
+        "由医务处统一模板收集",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "TayxdBgmJomrNKxcBWKca1aanrb",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/TayxdBgmJomrNKxcBWKca1aanrb"
+      },
+      "parentId": "l1_ext_doc_TayxdBgmJomrNKxcBWKca1aanrb",
+      "title": "2026-05-05 院周会（运营联席）纪要",
+      "structureSummary": "2026-05-05 院周会（运营联席）纪要 影像增强剂外渗与跌倒事件纳入周报双周报披露清单，由医务处统一模板收集。"
+    },
+    {
+      "id": "l2_ext_doc_Qt0sdherOoFsLyxZPNccbbFhnQe",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "Zonghan.Li_BESV",
+        "Group",
+        "4_2146093",
+        "近一周文件",
+        "hmrs",
+        "managed",
+        "folder_TZONfcHi4lXzEXd9tv4cVgeNncf"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Qt0sdherOoFsLyxZPNccbbFhnQe",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Qt0sdherOoFsLyxZPNccbbFhnQe"
+      },
+      "parentId": "l1_ext_doc_Qt0sdherOoFsLyxZPNccbbFhnQe",
+      "title": "Zonghan.Li_BESV Group 4_2146093",
+      "structureSummary": "Zonghan.Li_BESV Group 4_2146093 纳管目录文档：Zonghan.Li_BESV Group 4_2146093（来源文件夹：近一周文件）"
+    },
+    {
+      "id": "l2_ext_doc_Q9TxdYPIpowG4DxoSrCcy6ynnvf",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "飞书",
+        "AI",
+        "校园挑战赛-复赛作品提交",
+        "近一周文件",
+        "hmrs",
+        "managed",
+        "folder_TZONfcHi4lXzEXd9tv4cVgeNncf"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Q9TxdYPIpowG4DxoSrCcy6ynnvf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Q9TxdYPIpowG4DxoSrCcy6ynnvf"
+      },
+      "parentId": "l1_ext_doc_Q9TxdYPIpowG4DxoSrCcy6ynnvf",
+      "title": "飞书 AI 校园挑战赛-复赛作品提交",
+      "structureSummary": "飞书 AI 校园挑战赛-复赛作品提交 纳管目录文档：飞书 AI 校园挑战赛-复赛作品提交（来源文件夹：近一周文件）"
+    },
+    {
+      "id": "l2_ext_doc_doxcn3USEadjBa4TB6rJ95Hy8tb",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:30:19.170Z"
+      },
+      "keywords": [
+        "Weekly",
+        "Team",
+        "Briefing",
+        "文档候选：Weekly",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "doxcn3USEadjBa4TB6rJ95Hy8tb",
+        "url": "https://www.feishu.cn/docx/doxcn3USEadjBa4TB6rJ95Hy8tb"
+      },
+      "parentId": "l1_ext_doc_doxcn3USEadjBa4TB6rJ95Hy8tb",
+      "title": "Weekly Team Briefing",
+      "structureSummary": "Weekly Team Briefing 文档候选：Weekly Team Briefing"
+    },
+    {
+      "id": "l2_ext_doc_KPRdwkVAii2NYLkWQlkceCvqnrh",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:30:19.170Z"
+      },
+      "keywords": [
+        "飞书",
+        "AI",
+        "校园挑战赛-复赛作品提交模版参考（请创建副本使用）",
+        "副本",
+        "智汇流周报是飞书生态首款智能团队效能周报生成Skill",
+        "致力于解决企业团队周报编写效率低、信息分散、数据不全面、人工汇总耗时耗力的学生团队和创业团队常见痛点",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "unknown",
+        "url": "https://jcneyh7qlo8i.feishu.cn/wiki/KPRdwkVAii2NYLkWQlkceCvqnrh#doxcndkRUDgcD4ElWkaHYPONckg"
+      },
+      "parentId": "l1_ext_doc_KPRdwkVAii2NYLkWQlkceCvqnrh",
+      "title": "飞书 AI 校园挑战赛-复赛作品提交模版参考（请创建副本使用） 副本",
+      "structureSummary": "飞书 AI 校园挑战赛-复赛作品提交模版参考（请创建副本使用） 副本 智汇流周报是飞书生态首款智能团队效能周报生成Skill，致力于解决企业团队周报编写效率低、信息分散、数据不全面、人工汇总耗时耗力的学生团队和创业团队常见痛点。"
+    },
+    {
+      "id": "l2_ext_doc_Ripxdya3qoF2E9x9vzZcia0WnQe",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:26:28.849Z"
+      },
+      "keywords": [
+        "Weekly",
+        "Team",
+        "Briefing",
+        "文档候选：Weekly",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Ripxdya3qoF2E9x9vzZcia0WnQe",
+        "url": "https://www.feishu.cn/docx/Ripxdya3qoF2E9x9vzZcia0WnQe"
+      },
+      "parentId": "l1_ext_doc_Ripxdya3qoF2E9x9vzZcia0WnQe",
+      "title": "Weekly Team Briefing",
+      "structureSummary": "Weekly Team Briefing 文档候选：Weekly Team Briefing"
+    },
+    {
+      "id": "l2_ext_doc_doxcn3gwhYvrUwaZ8UlFeb5C8Eh",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:21:46.687Z"
+      },
+      "keywords": [
+        "Onboarding",
+        "Guide",
+        "Regular",
+        "team",
+        "meetings:",
+        "specify",
+        "the",
+        "regular",
+        "meetings",
+        "such",
+        "as",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "doxcn3gwhYvrUwaZ8UlFeb5C8Eh#doxcnOWnE1dckKH2AiLTahkpqZc",
+        "url": "https://www.feishu.cn/docx/doxcn3gwhYvrUwaZ8UlFeb5C8Eh#doxcnOWnE1dckKH2AiLTahkpqZc"
+      },
+      "parentId": "l1_ext_doc_doxcn3gwhYvrUwaZ8UlFeb5C8Eh",
+      "title": "Onboarding Guide",
+      "structureSummary": "Onboarding Guide Regular team meetings: specify the regular team meetings such as weekly meetings."
+    },
+    {
+      "id": "l2_ext_doc_ZydzdB883oGOMmxb9WYchTV9nch",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:19:25.300Z"
+      },
+      "keywords": [
+        "📅",
+        "Team",
+        "Bi-Weekly",
+        "Meeting",
+        "Notes",
+        "on",
+        "bi-weekly",
+        "meeting:",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "ZydzdB883oGOMmxb9WYchTV9nch",
+        "url": "https://www.feishu.cn/docx/ZydzdB883oGOMmxb9WYchTV9nch"
+      },
+      "parentId": "l1_ext_doc_ZydzdB883oGOMmxb9WYchTV9nch",
+      "title": "📅 Team Bi-Weekly Meeting",
+      "structureSummary": "📅 Team Bi-Weekly Meeting Notes on bi-weekly meeting:"
+    },
+    {
+      "id": "l2_ext_doc_Eq0ywVPwdirCLakfBeucCwKWnoh",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:16:21.295Z"
+      },
+      "keywords": [
+        "飞书",
+        "AI",
+        "校园挑战赛-线上开赛仪式",
+        "🚀飞书AI校园大赛-个人周报模版",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "unknown",
+        "url": "https://bytedance.larkoffice.com/wiki/Eq0ywVPwdirCLakfBeucCwKWnoh#VLv6dryasoR1Lsx3aKkcVcPZnTg"
+      },
+      "parentId": "l1_ext_doc_Eq0ywVPwdirCLakfBeucCwKWnoh",
+      "title": "飞书 AI 校园挑战赛-线上开赛仪式",
+      "structureSummary": "飞书 AI 校园挑战赛-线上开赛仪式 🚀飞书AI校园大赛-个人周报模版"
+    },
+    {
+      "id": "l2_ext_doc_BSPadQ3ZToZDlQxM0Lzccdkindb",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:16:21.295Z"
+      },
+      "keywords": [
+        "Weekly",
+        "Department",
+        "Meeting",
+        "文档候选：Weekly",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "BSPadQ3ZToZDlQxM0Lzccdkindb",
+        "url": "https://www.feishu.cn/docx/BSPadQ3ZToZDlQxM0Lzccdkindb"
+      },
+      "parentId": "l1_ext_doc_BSPadQ3ZToZDlQxM0Lzccdkindb",
+      "title": "Weekly Department Meeting",
+      "structureSummary": "Weekly Department Meeting 文档候选：Weekly Department Meeting"
+    },
+    {
+      "id": "l2_ext_doc_BxRod3y38ofoWoxLTOhc7pkbnCb",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T15:44:13.826Z"
+      },
+      "keywords": [
+        "🗓",
+        "My",
+        "Weekly",
+        "To-do",
+        "List",
+        "Review",
+        "my",
+        "weekly",
+        "work",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "BxRod3y38ofoWoxLTOhc7pkbnCb",
+        "url": "https://www.feishu.cn/docx/BxRod3y38ofoWoxLTOhc7pkbnCb"
+      },
+      "parentId": "l1_ext_doc_BxRod3y38ofoWoxLTOhc7pkbnCb",
+      "title": "🗓 My Weekly To-do List",
+      "structureSummary": "🗓 My Weekly To-do List Review my weekly work"
+    },
+    {
+      "id": "l2_ext_doc_TB6MdTPcjopcDrxlnPGcReuLnPc",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:10:37.215Z"
+      },
+      "keywords": [
+        "华东地区本周业务经营周报",
+        "摘要",
+        "本报告基于当前可获取的资源信息",
+        "围绕华东地区的门店销售概况、商品销售概括及新业务开展进度进行分析",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "TB6MdTPcjopcDrxlnPGcReuLnPc#doxcnpwAB7CnIbdrshTQn7h8ipg",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/TB6MdTPcjopcDrxlnPGcReuLnPc#doxcnpwAB7CnIbdrshTQn7h8ipg"
+      },
+      "parentId": "l1_ext_doc_TB6MdTPcjopcDrxlnPGcReuLnPc",
+      "title": "华东地区本周业务经营周报",
+      "structureSummary": "华东地区本周业务经营周报 华东地区本周业务经营周报   摘要   本报告基于当前可获取的资源信息，围绕华东地区的门店销售概况、商品销售概括及新业务开展进度进行分析。"
+    },
+    {
+      "id": "l2_template_pref_ou_1a93bc6613a690cc6c18e5fa50bd5aec_1",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T16:13:18.799Z"
+      },
+      "keywords": [
+        "一、业务经营情况",
+        "本周华东区域3C数码品类总销售量为14",
+        "890单",
+        "销售总额达11",
+        "711万元",
+        "高端旗舰手机如华为Mate",
+        "60",
+        "Pro环比增长15.2%",
+        "而苹果iPhone"
+      ],
+      "qualityScore": 0.7,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "title": "一、业务经营情况",
+      "structureSummary": "本周华东区域3C数码品类总销售量为14,890单，销售总额达11,711万元。高端旗舰手机如华为Mate 60 Pro环比增长15.2%，而苹果iPhone 15 Pro Max环比下降3.1%。电脑终端需求分层，华硕ROG和惠普暗影精灵游戏本环比分别增长14.5%和9.6%。家居家电品类总销售量为9,974单，销售总额达6,810万元。电视板块中，海信85英寸U8KL MiniLED电视环比增长28.4%，TCL98英寸Q10G Pro巨幕电视环比增长15.6%。冰箱板块中，海尔510升十字对开门冰箱环比增长32.4%，容声506升离子净味平嵌冰箱环比增长24.5%。个护香化品类总销售量为47,336单，销售总额达3,677万元。防晒类目如资生堂安热沙环比增长65.4%，库存周转仅需7天。高端抗老护肤品如雅诗兰黛小棕瓶和修丽可CE经典抗氧精华环比增长显著。本周全渠道有效GMV为3,842万元，环比增长6.8%。3C数码贡献41%，家居33%，个护香化26%。线下门店客流环比增长5.1%，但转化率略降0.3pct；线上自营占比升至58%。核心风险为家电安装履约SLA超时率2.7%（上周1.9%）。"
+    },
+    {
+      "id": "l2_template_pref_ou_1a93bc6613a690cc6c18e5fa50bd5aec_2",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T16:13:18.799Z"
+      },
+      "keywords": [
+        "四、 库存周转与供应链健康度诊断",
+        "本周大盘整体库存周转天数优化至18.5天",
+        "但结构性旱涝不均的问题凸显",
+        "季节性爆品如安热沙小金瓶及消暑家电库存仅够支撑不足5天的动销周期",
+        "旧款3C与家电长库龄商品沉淀资金超690万元",
+        "建议联动政企B端团购渠道进行打包让利或在线上POP渠道开启特卖清仓专场"
+      ],
+      "qualityScore": 0.7,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "title": "四、 库存周转与供应链健康度诊断",
+      "structureSummary": "本周大盘整体库存周转天数优化至18.5天，但结构性旱涝不均的问题凸显。季节性爆品如安热沙小金瓶及消暑家电库存仅够支撑不足5天的动销周期。旧款3C与家电长库龄商品沉淀资金超690万元，建议联动政企B端团购渠道进行打包让利或在线上POP渠道开启特卖清仓专场。"
+    },
+    {
+      "id": "l2_template_pref_ou_1a93bc6613a690cc6c18e5fa50bd5aec_3",
+      "type": "TemplateStructureIndex",
+      "layer": "L2",
+      "wingId": "templates_wing",
+      "roomId": "weekly_report_room",
+      "drawerId": "structure_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "default",
+      "timeRange": {
+        "end": "2026-05-08T16:13:18.799Z"
+      },
+      "keywords": [
+        "五、 会员资产沉淀与客群消费洞察",
+        "全渠道会员消费占比提升至64%",
+        "私域流量池对整体GMV的支撑作用进一步巩固",
+        "26-35岁核心客群贡献了45%的业绩",
+        "是高端家电和贵妇级美妆的购买主力",
+        "跨品类礼赠经济初现端倪",
+        "约14%购买高净值3C数码的男性客群顺手结算了高端抗老护肤品或戴森吹风机",
+        "家电安装运力遭遇局部瓶颈",
+        "大家电SLA超时率攀升至2.7%（上周1.9%）"
+      ],
+      "qualityScore": 0.7,
+      "sourceRef": {
+        "sourceType": "unknown"
+      },
+      "parentId": "l1_style_ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "title": "五、 会员资产沉淀与客群消费洞察",
+      "structureSummary": "全渠道会员消费占比提升至64%，私域流量池对整体GMV的支撑作用进一步巩固。26-35岁核心客群贡献了45%的业绩，是高端家电和贵妇级美妆的购买主力。跨品类礼赠经济初现端倪，约14%购买高净值3C数码的男性客群顺手结算了高端抗老护肤品或戴森吹风机。家电安装运力遭遇局部瓶颈，大家电SLA超时率攀升至2.7%（上周1.9%）。隐性乱收费客诉需铁腕治理，本周共接到12起关于家电安装环节的违规收费投诉。天气因素成为短期消费催化剂，华东多地气温提早突破30℃，直接引爆了防晒霜、空调等消暑类目的单周暴涨。竞对“百亿补贴”下沉，价格战压力向线下传导，友商在本周大规模启动针对3C标品的线下定点补贴。下周经营策略包括供应链保卫战、履约交付攻坚战以及“520”全域共振前置蓄水。"
+    },
+    {
+      "id": "l2_ext_doc_ArGzdJjpNolswaxJbDacOk5rnhH",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_1a93bc6613a690cc6c18e5fa50bd5aec",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:03:30.534Z"
+      },
+      "keywords": [
+        "华东地区本周业务经营周报",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "ArGzdJjpNolswaxJbDacOk5rnhH",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/ArGzdJjpNolswaxJbDacOk5rnhH"
+      },
+      "parentId": "l1_ext_doc_ArGzdJjpNolswaxJbDacOk5rnhH",
+      "title": "华东地区本周业务经营周报",
+      "structureSummary": "华东地区本周业务经营周报 华东地区本周业务经营周报"
+    },
+    {
+      "id": "l2_ext_doc_DOyOdh1nSofL3fxweMCcw18EnBd",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_ec074de53e44c0829c0344144e472677",
+      "projectTag": "外部文档",
+      "timeRange": {
+        "end": "2026-05-08T16:26:14.377Z"
+      },
+      "keywords": [
+        "分析报告",
+        "-",
+        "im_om_x100b508e1de6c0a0c2d20b5d0ed6dd0",
+        "第",
+        "18",
+        "周",
+        "·",
+        "华东区域",
+        "业务经营周报（3C",
+        "家电",
+        "hmrs",
+        "mcp"
+      ],
+      "qualityScore": 0.39999999999999997,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "DOyOdh1nSofL3fxweMCcw18EnBd",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/DOyOdh1nSofL3fxweMCcw18EnBd"
+      },
+      "parentId": "l1_ext_doc_DOyOdh1nSofL3fxweMCcw18EnBd",
+      "title": "分析报告 - im_om_x100b508e1de6c0a0c2d20b5d0ed6dd0",
+      "structureSummary": "分析报告 - im_om_x100b508e1de6c0a0c2d20b5d0ed6dd0 第 18 周 · 华东区域 · 业务经营周报（3C 家电 · 家居 · 个护）"
+    },
+    {
+      "id": "l2_ext_doc_MZmAb9XFhoCDg6xrL0Xcov43nmh",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:24:26.022Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "MZmAb9XFhoCDg6xrL0Xcov43nmh",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/MZmAb9XFhoCDg6xrL0Xcov43nmh"
+      },
+      "parentId": "l1_ext_doc_MZmAb9XFhoCDg6xrL0Xcov43nmh",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_SzIwbYQU8owkRWxNNvocFQyNnXg",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:24:26.022Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "SzIwbYQU8owkRWxNNvocFQyNnXg",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/SzIwbYQU8owkRWxNNvocFQyNnXg"
+      },
+      "parentId": "l1_ext_doc_SzIwbYQU8owkRWxNNvocFQyNnXg",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_HcZSdoYoDoeYiSx6hROc7Uyanob",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "李宗翰-个人阶段性小结",
+        "近一周文件",
+        "hmrs",
+        "managed",
+        "folder_TZONfcHi4lXzEXd9tv4cVgeNncf"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "HcZSdoYoDoeYiSx6hROc7Uyanob",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/HcZSdoYoDoeYiSx6hROc7Uyanob"
+      },
+      "parentId": "l1_ext_doc_HcZSdoYoDoeYiSx6hROc7Uyanob",
+      "title": "李宗翰-个人阶段性小结",
+      "structureSummary": "李宗翰-个人阶段性小结 纳管目录文档：李宗翰-个人阶段性小结（来源文件夹：近一周文件）"
+    },
+    {
+      "id": "l2_ext_doc_Su1wd2HPro7odoxRpRfcVjk3n2f",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "IOT302TC_Zonghan.Li_2146093_cw2",
+        "近一周文件",
+        "hmrs",
+        "managed",
+        "folder_TZONfcHi4lXzEXd9tv4cVgeNncf"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Su1wd2HPro7odoxRpRfcVjk3n2f",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Su1wd2HPro7odoxRpRfcVjk3n2f"
+      },
+      "parentId": "l1_ext_doc_Su1wd2HPro7odoxRpRfcVjk3n2f",
+      "title": "IOT302TC_Zonghan.Li_2146093_cw2",
+      "structureSummary": "IOT302TC_Zonghan.Li_2146093_cw2 纳管目录文档：IOT302TC_Zonghan.Li_2146093_cw2（来源文件夹：近一周文件）"
+    },
+    {
+      "id": "l2_ext_doc_QdZrdsT1poxDhhxiZCucNsXxnld",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "IOT303TC_zonghan.li_2146093",
+        "近一周文件",
+        "hmrs",
+        "managed",
+        "folder_TZONfcHi4lXzEXd9tv4cVgeNncf"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "QdZrdsT1poxDhhxiZCucNsXxnld",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/QdZrdsT1poxDhhxiZCucNsXxnld"
+      },
+      "parentId": "l1_ext_doc_QdZrdsT1poxDhhxiZCucNsXxnld",
+      "title": "IOT303TC_zonghan.li_2146093",
+      "structureSummary": "IOT303TC_zonghan.li_2146093 纳管目录文档：IOT303TC_zonghan.li_2146093（来源文件夹：近一周文件）"
+    },
+    {
+      "id": "l2_ext_doc_NNBYdCYxWoYVZDx9tzscyP0wneg",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "DTS304TC_Assessment1_2146093",
+        "近一周文件",
+        "hmrs",
+        "managed",
+        "folder_TZONfcHi4lXzEXd9tv4cVgeNncf"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "NNBYdCYxWoYVZDx9tzscyP0wneg",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/NNBYdCYxWoYVZDx9tzscyP0wneg"
+      },
+      "parentId": "l1_ext_doc_NNBYdCYxWoYVZDx9tzscyP0wneg",
+      "title": "DTS304TC_Assessment1_2146093",
+      "structureSummary": "DTS304TC_Assessment1_2146093 纳管目录文档：DTS304TC_Assessment1_2146093（来源文件夹：近一周文件）"
+    },
+    {
+      "id": "l2_ext_doc_Fzd5bn4NOoUgsFx5v3SchqoGnCg",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:26:45.835Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Fzd5bn4NOoUgsFx5v3SchqoGnCg",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Fzd5bn4NOoUgsFx5v3SchqoGnCg"
+      },
+      "parentId": "l1_ext_doc_Fzd5bn4NOoUgsFx5v3SchqoGnCg",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_PwX3b2d03o25rtxnk9fc6sxmnwd",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:26:45.835Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "PwX3b2d03o25rtxnk9fc6sxmnwd",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/PwX3b2d03o25rtxnk9fc6sxmnwd"
+      },
+      "parentId": "l1_ext_doc_PwX3b2d03o25rtxnk9fc6sxmnwd",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_Flubbi15wojWzbxtO8Ocz4Hdnub",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:38:12.796Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Flubbi15wojWzbxtO8Ocz4Hdnub",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Flubbi15wojWzbxtO8Ocz4Hdnub"
+      },
+      "parentId": "l1_ext_doc_Flubbi15wojWzbxtO8Ocz4Hdnub",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_UoX0b7NhyoLBdUx3ubAcszyInnf",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:38:12.797Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "UoX0b7NhyoLBdUx3ubAcszyInnf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/UoX0b7NhyoLBdUx3ubAcszyInnf"
+      },
+      "parentId": "l1_ext_doc_UoX0b7NhyoLBdUx3ubAcszyInnf",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_Jwrhblr5DowGjWxWquzcpm7rn7f",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:55:55.006Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "Jwrhblr5DowGjWxWquzcpm7rn7f",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/Jwrhblr5DowGjWxWquzcpm7rn7f"
+      },
+      "parentId": "l1_ext_doc_Jwrhblr5DowGjWxWquzcpm7rn7f",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_DbXbbfLBIow3r6xPYK4c8kL3nVf",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:55:55.007Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "DbXbbfLBIow3r6xPYK4c8kL3nVf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/DbXbbfLBIow3r6xPYK4c8kL3nVf"
+      },
+      "parentId": "l1_ext_doc_DbXbbfLBIow3r6xPYK4c8kL3nVf",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_LhLKb8N26o3cjzxodG4c5REanBc",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:58:25.808Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "LhLKb8N26o3cjzxodG4c5REanBc",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/LhLKb8N26o3cjzxodG4c5REanBc"
+      },
+      "parentId": "l1_ext_doc_LhLKb8N26o3cjzxodG4c5REanBc",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_HUSVbwORToMf5uximXzcbJVcnuf",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T17:58:25.808Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "HUSVbwORToMf5uximXzcbJVcnuf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/HUSVbwORToMf5uximXzcbJVcnuf"
+      },
+      "parentId": "l1_ext_doc_HUSVbwORToMf5uximXzcbJVcnuf",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_VM0xbqESroMVOpxUAgZcsCcqn0b",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:14:58.599Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "VM0xbqESroMVOpxUAgZcsCcqn0b",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/VM0xbqESroMVOpxUAgZcsCcqn0b"
+      },
+      "parentId": "l1_ext_doc_VM0xbqESroMVOpxUAgZcsCcqn0b",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_BeHTbc6Lroe2Q3xUJN0cMzcRn6g",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:14:58.599Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "BeHTbc6Lroe2Q3xUJN0cMzcRn6g",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/BeHTbc6Lroe2Q3xUJN0cMzcRn6g"
+      },
+      "parentId": "l1_ext_doc_BeHTbc6Lroe2Q3xUJN0cMzcRn6g",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_LLUMbzMakoQGZKxAiKIc5ZD0nNb",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:26:04.482Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "LLUMbzMakoQGZKxAiKIc5ZD0nNb",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/LLUMbzMakoQGZKxAiKIc5ZD0nNb"
+      },
+      "parentId": "l1_ext_doc_LLUMbzMakoQGZKxAiKIc5ZD0nNb",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_AtMGb1Ok4oKWePxBsybcuDDEnhf",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:26:04.482Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "AtMGb1Ok4oKWePxBsybcuDDEnhf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/AtMGb1Ok4oKWePxBsybcuDDEnhf"
+      },
+      "parentId": "l1_ext_doc_AtMGb1Ok4oKWePxBsybcuDDEnhf",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_IlF6bp44QoVeQKx0JA2covDXnue",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:35:16.219Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "IlF6bp44QoVeQKx0JA2covDXnue",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/IlF6bp44QoVeQKx0JA2covDXnue"
+      },
+      "parentId": "l1_ext_doc_IlF6bp44QoVeQKx0JA2covDXnue",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_TBt9bZN98oMYWSxu7SxcuVLin0V",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:35:16.219Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "TBt9bZN98oMYWSxu7SxcuVLin0V",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/TBt9bZN98oMYWSxu7SxcuVLin0V"
+      },
+      "parentId": "l1_ext_doc_TBt9bZN98oMYWSxu7SxcuVLin0V",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_JOnUbjxYJovs0sxpADqcHexenNf",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "JOnUbjxYJovs0sxpADqcHexenNf",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/JOnUbjxYJovs0sxpADqcHexenNf"
+      },
+      "parentId": "l1_ext_doc_JOnUbjxYJovs0sxpADqcHexenNf",
+      "title": "纳管记录_已纳管文档房间.json",
+      "structureSummary": "纳管记录_已纳管文档房间.json 纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l2_ext_doc_YPY1bm1cQo2s5WxkYZ3cWxu9n5f",
+      "type": "doc_summary",
+      "layer": "L2",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T18:52:42.581Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.47,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "YPY1bm1cQo2s5WxkYZ3cWxu9n5f",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/YPY1bm1cQo2s5WxkYZ3cWxu9n5f"
+      },
+      "parentId": "l1_ext_doc_YPY1bm1cQo2s5WxkYZ3cWxu9n5f",
+      "title": "说明_纳管文档索引.md",
+      "structureSummary": "说明_纳管文档索引.md 纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
     }
   ]
 }

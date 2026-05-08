@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SourceRefSchema = z.object({
-  sourceType: z.enum(["doc", "chat", "table", "message", "file", "unknown"]).default("unknown"),
+  sourceType: z.enum(["doc", "chat", "table", "message", "file", "folder", "unknown"]).default("unknown"),
   docToken: z.string().optional(),
   chatId: z.string().optional(),
   msgId: z.string().optional(),

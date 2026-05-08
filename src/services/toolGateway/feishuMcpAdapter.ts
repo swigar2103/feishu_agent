@@ -782,7 +782,7 @@ export class FeishuMcpAdapter implements FeishuToolGatewayApi {
   }
 
   async deleteFile(
-    _input: { fileToken: string },
+    _input: { fileToken: string; fileType?: string },
     _context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus | null> {
     throw new ToolGatewayError("NOT_SUPPORTED", "MCP 侧暂未提供 delete file 工具");

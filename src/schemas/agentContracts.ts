@@ -41,10 +41,37 @@ export const ResourceSummarySchema = z.object({
 
 export type ResourceSummary = z.infer<typeof ResourceSummarySchema>;
 
+export const ResourceSelectionDecisionSchema = z.object({
+  selectedResourceIds: z.array(z.string()).default([]),
+  sectionResourceMapping: z
+    .array(
+      z.object({
+        section: z.string().min(1),
+        resourceIds: z.array(z.string()).default([]),
+        reason: z.string().min(1),
+      }),
+    )
+    .default([]),
+  insufficient: z.boolean().default(false),
+  insufficiencyReasons: z.array(z.string()).default([]),
+  allowGlobalSupplement: z.boolean().default(false),
+  decisionReasons: z.array(z.string()).default([]),
+  suggestedBudget: z
+    .object({
+      maxItems: z.number().int().positive().optional(),
+      maxChars: z.number().int().positive().optional(),
+      priority: z.enum(["balanced", "precision", "coverage"]).optional(),
+    })
+    .optional(),
+});
+
+export type ResourceSelectionDecision = z.infer<typeof ResourceSelectionDecisionSchema>;
+
 export const CandidateResourceListSchema = z.object({
   candidates: z.array(ResourceSummarySchema).default([]),
   usedLlmFallback: z.boolean().default(false),
   screeningReason: z.array(z.string()).default([]),
+  selectionDecision: ResourceSelectionDecisionSchema.optional(),
 });
 
 export type CandidateResourceList = z.infer<typeof CandidateResourceListSchema>;
@@ -137,6 +164,7 @@ export const ExecutionPlanSchema = z.object({
       l2Ids: z.array(z.string()).default([]),
       finalResourceIds: z.array(z.string()).default([]),
       reason: z.array(z.string()).default([]),
+      targetFolderTokens: z.array(z.string()).default([]),
     })
     .optional(),
   recallBudgetHint: z
@@ -338,7 +366,7 @@ export const FinalDeliverableSchema = z.object({
         type: z.enum(["feishu_doc", "bitable", "slides"]),
         id: z.string().min(1),
         url: z.string().min(1),
-        status: z.enum(["published", "fallback", "mock_published"]),
+        status: z.enum(["published", "fallback", "mock_published", "quality_reject"]),
         /** Tool Gateway 实际命中：`mcp` | `lark_cli` | `openapi` */
         artifactSource: z.enum(["mcp", "lark_cli", "openapi"]).optional(),
       }),

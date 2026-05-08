@@ -245,7 +245,7 @@ export interface FeishuToolGatewayApi {
     context?: GatewayRequestContext,
   ): Promise<{ fileToken?: string; url?: string; task?: GatewayDriveTaskStatus | null }>;
   deleteFile(
-    input: { fileToken: string },
+    input: { fileToken: string; fileType?: string },
     context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus | null>;
   checkTask(

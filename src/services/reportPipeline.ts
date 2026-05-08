@@ -212,6 +212,16 @@ export async function runReportPipeline(
       timelineHits: qualityBaseline.templateElementHits.timeline,
       ganttHits: qualityBaseline.templateElementHits.gantt,
       publishedArtifactCount: state.finalDeliverable?.publishedArtifacts?.length ?? 0,
+      managedCandidateCount:
+        state.candidateResources?.candidates.filter((c) => c.tags.includes("managed")).length ?? 0,
+      globalSupplementCount:
+        state.candidateResources?.candidates.filter((c) => c.tags.includes("global_mcp")).length ?? 0,
+      selectionDecisionReasons: state.candidateResources?.selectionDecision?.decisionReasons ?? [],
+      selectionInsufficient: state.candidateResources?.selectionDecision?.insufficient ?? false,
+      fallbackTriggeredBy:
+        state.candidateResources?.selectionDecision?.insufficient
+          ? "insufficient_evidence"
+          : undefined,
     });
     publishPipelineProgress({
       sessionId: request.sessionId,

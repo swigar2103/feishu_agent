@@ -482,7 +482,7 @@ export class LarkCliAdapter implements FeishuToolGatewayApi {
   }
 
   async deleteFile(
-    _input: { fileToken: string },
+    _input: { fileToken: string; fileType?: string },
     _context?: GatewayRequestContext,
   ): Promise<GatewayDriveTaskStatus | null> {
     throw new ToolGatewayError("NOT_SUPPORTED", "lark-cli 当前未封装 delete file 命令");

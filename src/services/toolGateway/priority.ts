@@ -7,7 +7,8 @@ const DEFAULT_ORDER: GatewayAdapterName[] = ["mcp", "lark_cli", "openapi"];
 const CAPABILITY_ORDER: Partial<Record<GatewayCapability, GatewayAdapterName[]>> = {
   "document.search": ["mcp", "lark_cli", "openapi"],
   "document.list": ["mcp", "lark_cli", "openapi"],
-  "document.view": ["mcp", "lark_cli", "openapi"],
+  // openapi 优先：走 raw_content API（UAT 读真实正文），MCP 作 fallback（仅返回 ~200 字元数据）
+  "document.view": ["openapi", "mcp", "lark_cli"],
   "document.fileContent": ["mcp", "lark_cli", "openapi"],
   "document.outline": ["lark_cli", "mcp", "openapi"],
   "document.create": ["mcp", "lark_cli", "openapi"],

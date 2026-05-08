@@ -1,34 +1,10 @@
 import { CandidateResourceListSchema, ResourceSummarySchema, type ResourceSummary } from "../../schemas/agentContracts.js";
-import { deriveMcpDocumentSearchQueries } from "../../services/resourcePool/mcpSearchQueries.js";
-import { toolGateway } from "../../services/toolGateway/gateway.js";
-import { hasValidUserOAuth } from "../../storage/userOAuthStore.js";
 import { readHmrsTaskType } from "../../services/hmrs/flags/hmrsFeatureFlags.js";
 import { getMemoryFacade } from "../../services/hmrs/facade/memoryFacade.js";
 import { logHmrsDiff } from "../../services/hmrs/observe/hmrsDiffLogger.js";
 import { publishPipelineProgress } from "../../services/progress/pipelineProgress.js";
+import { screenResources } from "../../services/resourcePool/screening.js";
 import type { ReportGraphStateType } from "../state.js";
-
-function toResourceSummary(
-  doc: Awaited<ReturnType<typeof toolGateway.searchDocuments>>[number],
-): ResourceSummary {
-  const title = (doc.title || doc.id || "未命名文档").trim();
-  const summary = (doc.summary ?? doc.content ?? "").trim() || `文档候选：${title}`;
-  return ResourceSummarySchema.parse({
-    resourceId: `ext_doc_${doc.id}`,
-    resourceType: "doc_summary",
-    title,
-    summary,
-    project: "外部文档",
-    tags: ["hmrs", doc.source ?? "unknown"],
-    keywords: `${doc.title ?? ""} ${doc.summary ?? ""}`
-      .split(/[，。,\s]/)
-      .filter(Boolean)
-      .slice(0, 12),
-    updatedAt: new Date().toISOString(),
-    link: doc.url,
-    score: 0.35,
-  });
-}
 
 function ensureNonEmptySummary(resource: ResourceSummary): ResourceSummary {
   const title = resource.title.trim() || resource.resourceId;
@@ -88,21 +64,32 @@ function buildInlineResources(state: ReportGraphStateType): ResourceSummary[] {
 async function fetchCloudDocResources(state: ReportGraphStateType): Promise<ResourceSummary[]> {
   if (!state.taskRequest) return [];
   const request = state.taskRequest.userRequest;
-  const context = request.userId
-    ? { userId: request.userId, preferUserScope: hasValidUserOAuth(request.userId) }
-    : undefined;
-  const queries = deriveMcpDocumentSearchQueries(request.prompt);
-  const seen = new Set<string>();
-  const docs: Awaited<ReturnType<typeof toolGateway.searchDocuments>> = [];
-  for (const query of queries) {
-    const batch = await toolGateway.searchDocuments(query, context).catch(() => []);
-    for (const doc of batch) {
-      if (!doc.id || seen.has(doc.id)) continue;
-      seen.add(doc.id);
-      docs.push(doc);
+  const facade = getMemoryFacade();
+  const trees = await facade.getManagedFolderStructure(request.userId).catch(() => []);
+  const rows: ResourceSummary[] = [];
+  const pushFromNode = (node: { token: string; name: string; files: { token: string; title: string }[]; subFolders: unknown[] }) => {
+    for (const file of node.files.slice(0, 30)) {
+      rows.push(
+        ResourceSummarySchema.parse({
+          resourceId: `ext_doc_${file.token}`,
+          resourceType: "doc_summary",
+          title: file.title,
+          summary: `纳管目录文档：${file.title}（来源文件夹：${node.name}）`,
+          project: "纳管文档",
+          tags: ["hmrs", "managed", `folder_${node.token}`],
+          keywords: `${file.title} ${node.name}`.split(/[，。,\s]/).filter(Boolean).slice(0, 12),
+          updatedAt: new Date().toISOString(),
+          link: `https://jcneyh7qlo8i.feishu.cn/docx/${file.token}`,
+          score: 0.42,
+        }),
+      );
     }
-  }
-  return docs.slice(0, 10).map(toResourceSummary);
+    for (const sub of node.subFolders as Array<{ token: string; name: string; files: { token: string; title: string }[]; subFolders: unknown[] }>) {
+      pushFromNode(sub);
+    }
+  };
+  for (const tree of trees) pushFromNode(tree);
+  return rows;
 }
 
 export async function hmrsSummaryNode(
@@ -124,22 +111,19 @@ export async function hmrsSummaryNode(
     wings: ["projects_wing", "resources_wing", "people_wing", "templates_wing"],
     limit: 10,
   });
-  const l1ResourceIds = new Set(l1.slice(0, 8).map((item) => item.id.replace(/^l1_/, "")));
-  const hmrsCandidates = resourcePool
-    .filter((item) => l1ResourceIds.has(item.resourceId))
-    .map(ensureNonEmptySummary);
+  const screening = await screenResources({
+    request,
+    resourcePool,
+  });
   const candidateResources = CandidateResourceListSchema.parse({
-    candidates:
-      hmrsCandidates.length > 0
-        ? hmrsCandidates
-        : resourcePool.slice(0, 8).map(ensureNonEmptySummary),
-    usedLlmFallback: false,
+    ...screening,
     screeningReason: [
       `hmrs_cloud_docs=${cloudResources.length}`,
       `hmrs_inline=${inlineResources.length}`,
       `hmrs_l1=${l1.length}`,
       `hmrs_managed_folders=${refreshResult?.managedFolderCount ?? 0}`,
       `hmrs_ingested_docs=${refreshResult?.ingestedDocCount ?? 0}`,
+      ...screening.screeningReason,
     ],
   });
 
@@ -161,6 +145,13 @@ export async function hmrsSummaryNode(
       l1Count: l1.length,
       candidateCount: candidateResources.candidates.length,
       cloudDocCount: cloudResources.length,
+      selectionDecision: candidateResources.selectionDecision
+        ? {
+            selected: candidateResources.selectionDecision.selectedResourceIds.length,
+            allowGlobalSupplement: candidateResources.selectionDecision.allowGlobalSupplement,
+            insufficient: candidateResources.selectionDecision.insufficient,
+          }
+        : undefined,
     },
   });
 
@@ -168,7 +159,7 @@ export async function hmrsSummaryNode(
     resourcePool,
     candidateResources,
     debugTrace: [
-      `[hmrs_summary] taskType=${readHmrsTaskType(request)} l1=${l1.length} candidates=${candidateResources.candidates.length}`,
+      `[hmrs_summary] taskType=${readHmrsTaskType(request)} l1=${l1.length} candidates=${candidateResources.candidates.length} insufficient=${candidateResources.selectionDecision?.insufficient ?? false} allowGlobal=${candidateResources.selectionDecision?.allowGlobalSupplement ?? false}`,
     ],
   };
 }

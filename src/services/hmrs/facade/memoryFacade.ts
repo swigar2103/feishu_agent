@@ -10,6 +10,7 @@ import { fetchDetailByExpansion } from "../expand/detailRetrievalService.js";
 import { MemoryWritebackService } from "../writeback/memoryWritebackService.js";
 import type { Draft, MemoryUpdate } from "../../../schemas/agentContracts.js";
 import { HmrsRefreshService } from "../hmrsRefreshService.js";
+import type { FolderNode } from "../hmrsRepository.js";
 
 export class MemoryFacade {
   private readonly queryService: SummaryQueryService;
@@ -66,6 +67,10 @@ export class MemoryFacade {
     return this.queryService.queryRoomIndexes(input);
   }
 
+  async getManagedFolderStructure(userId: string): Promise<FolderNode[]> {
+    return this.queryService.getManagedFolderStructure(userId);
+  }
+
   async refreshManagedFolders(input: { userId: string; nickname?: string }): Promise<{
     rootFolderToken: string;
     managedFolderCount: number;
@@ -91,11 +96,13 @@ export class MemoryFacade {
     request: UserRequest;
     expansion: ExpansionDecision;
     screened: CandidateResourceList;
+    targetFolderTokens?: string[];
   }) {
     return fetchDetailByExpansion({
       request: input.request,
       expandedL2Ids: input.expansion.finalResourceIds,
       screened: input.screened,
+      targetFolderTokens: input.targetFolderTokens ?? [],
     });
   }
 

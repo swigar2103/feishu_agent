@@ -110,15 +110,35 @@ export class HmrsIngestService {
         }
       }
 
-      viewed.push({
-        id: doc.token,
-        title: doc.title,
-        summary: detail?.summary ?? detail?.content?.slice(0, 240),
-        content: detail?.content,
-        url: detail?.url,
-        source: detail?.source,
-        structureSummary,
-      });
+      const rawSummary = detail?.summary ?? detail?.content?.slice(0, 240);
+      // 过滤：不允许将 API 错误响应存为摘要，避免污染 HMRS 检索
+      const isSummaryError =
+        rawSummary &&
+        (rawSummary.includes("VALIDATION:") ||
+          rawSummary.includes("Document ID cannot be empty") ||
+          rawSummary.trimStart().startsWith('{"error":'));
+      if (isSummaryError) {
+        // 用标题作为最小摘要，而不是错误 JSON
+        viewed.push({
+          id: doc.token,
+          title: doc.title,
+          summary: doc.title,
+          content: undefined,
+          url: detail?.url,
+          source: detail?.source,
+          structureSummary,
+        });
+      } else {
+        viewed.push({
+          id: doc.token,
+          title: doc.title,
+          summary: rawSummary,
+          content: detail?.content,
+          url: detail?.url,
+          source: detail?.source,
+          structureSummary,
+        });
+      }
     }
 
     const folderSummary = buildFolderSummary({

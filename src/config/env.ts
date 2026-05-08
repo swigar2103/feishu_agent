@@ -15,6 +15,12 @@ const EnvSchema = z.object({
     .default("https://dashscope.aliyuncs.com/compatible-mode/v1"),
   BAILIAN_MODEL_ORCHESTRATOR: z.string().default("qwen2.5-vl-72b-instruct"),
   BAILIAN_MODEL_WRITER: z.string().default("qwen2.5-7b-instruct"),
+  /** Writer 备用模型；主模型超时/失败时尝试 */
+  BAILIAN_MODEL_WRITER_FALLBACK: z.string().default(""),
+  /** Analyst 专用模型；为空时回退 BAILIAN_MODEL_ORCHESTRATOR */
+  BAILIAN_MODEL_ANALYST: z.string().default(""),
+  /** Analyst 备用模型；主模型超时/失败时尝试 */
+  BAILIAN_MODEL_ANALYST_FALLBACK: z.string().default(""),
   BAILIAN_MODEL_EMBEDDING: z.string().min(1).optional(),
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default("0.0.0.0"),
@@ -34,6 +40,18 @@ const EnvSchema = z.object({
   LLM_HTTP_RETRIES: z.coerce.number().int().nonnegative().default(2),
   /** 重试前等待基数（毫秒），实际等待 = backoff * 已尝试次数 */
   LLM_RETRY_BACKOFF_MS: z.coerce.number().int().nonnegative().default(4_000),
+  /** Analyst 单次 LLM 调用超时（毫秒） */
+  ANALYST_LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  /** Writer 单次 LLM 调用超时（毫秒） */
+  WRITER_LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  /** Analyst Prompt 压缩：最多注入多少条事实 */
+  ANALYST_PROMPT_MAX_FACTS: z.coerce.number().int().positive().default(24),
+  /** Analyst Prompt 压缩：最多注入多少条 sourceDetails */
+  ANALYST_PROMPT_MAX_SOURCE_DETAILS: z.coerce.number().int().positive().default(12),
+  /** Analyst Prompt 压缩：单条 fact 最大字符数 */
+  ANALYST_PROMPT_MAX_FACT_CHARS: z.coerce.number().int().positive().default(700),
+  /** Analyst Prompt 压缩：单条 source detail 最大字符数 */
+  ANALYST_PROMPT_MAX_DETAIL_CHARS: z.coerce.number().int().positive().default(1000),
   // Phase1 飞书主链路（未配置时 /api/phase1/mvp 会报错，但不影响 /generate-report）
   FEISHU_BASE_URL: z.string().url().default("https://open.feishu.cn"),
   FEISHU_APP_ID: z.string().default(""),

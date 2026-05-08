@@ -10,6 +10,13 @@ import type {
   HmrsRefreshStatus,
 } from "./model/memPalaceTree.js";
 
+export type FolderNode = {
+  token: string;
+  name: string;
+  files: { token: string; title: string }[];
+  subFolders: FolderNode[];
+};
+
 type FeishuFolderItem = {
   token: string;
   name: string;
@@ -50,12 +57,15 @@ async function uploadObjectToFolder(input: {
   kind: WriteObjectKind;
 }): Promise<void> {
   const token = await getUserAccessToken(input.userId);
+  const bytes = toUploadBuffer(input.content);
+  const mime = input.kind === "json" ? "application/json" : "text/markdown";
   const form = new FormData();
   form.append("file_name", input.fileName);
   form.append("parent_type", "explorer");
   form.append("parent_node", input.parentFolderToken);
-  const mime = input.kind === "json" ? "application/json" : "text/markdown";
-  form.append("file", new Blob([toUploadBuffer(input.content)], { type: mime }), input.fileName);
+  // Feishu upload_all 必须提供 size（字节数），否则返回 params error
+  form.append("size", String(bytes.byteLength));
+  form.append("file", new Blob([bytes], { type: mime }), input.fileName);
   const resp = await feishuHttpFetch(`${env.FEISHU_BASE_URL}/open-apis/drive/v1/files/upload_all`, {
     method: "POST",
     headers: {
@@ -65,7 +75,7 @@ async function uploadObjectToFolder(input: {
   });
   const body = (await resp.json()) as { code?: number; msg?: string };
   if (!resp.ok || body.code !== 0) {
-    throw new Error(`upload_all failed: ${body.msg ?? resp.status}`);
+    throw new Error(`upload_all failed: ${body.msg ?? resp.status} (code=${body.code})`);
   }
 }
 
@@ -78,7 +88,8 @@ export class HmrsRepository {
     const items = await this.listFolderItems(userId, folderToken);
     const sameName = items.filter((item) => item.name === fileName && !item.type.toLowerCase().includes("folder"));
     for (const item of sameName) {
-      await this.deleteFile(userId, item.token).catch((error) => {
+      // HMRS 自身只写 JSON/Markdown 上传文件，type 统一为 "file"
+      await this.deleteFile(userId, item.token, "file").catch((error) => {
         logger.warn("hmrs remove same name file failed", {
           userId,
           folderToken,
@@ -423,8 +434,9 @@ export class HmrsRepository {
   async deleteFile(
     userId: string,
     fileToken: string,
+    fileType = "file",
   ): Promise<{ ticket: string; status: "pending" | "success" | "failed" } | null> {
-    const task = await toolGateway.deleteFile({ fileToken }, toGatewayContext(userId));
+    const task = await toolGateway.deleteFile({ fileToken, fileType }, toGatewayContext(userId));
     if (!task) return null;
     const settled = await this.waitForTaskCompletion({
       userId,
@@ -463,6 +475,46 @@ export class HmrsRepository {
       lastRefreshAt: new Date().toISOString(),
     };
     await this.writeJsonObject(userId, systemFolderToken, "refresh_status.json", status);
+  }
+
+  /**
+   * 递归扫描文件夹结构，返回带层级的 FolderNode 树。
+   * 供 Planner Agent 感知文件夹结构后动态选择目标子文件夹。
+   */
+  async listFolderStructure(
+    userId: string,
+    folderToken: string,
+    maxDepth = 2,
+  ): Promise<FolderNode> {
+    return this._buildFolderNode(userId, folderToken, "(root)", maxDepth, 0);
+  }
+
+  private async _buildFolderNode(
+    userId: string,
+    folderToken: string,
+    folderName: string,
+    maxDepth: number,
+    currentDepth: number,
+  ): Promise<FolderNode> {
+    const items = await this.listFolderItems(userId, folderToken).catch(() => []);
+    const files: { token: string; title: string }[] = [];
+    const subFolders: FolderNode[] = [];
+    for (const item of items) {
+      const t = item.type.toLowerCase();
+      if (t.includes("folder")) {
+        if (currentDepth < maxDepth) {
+          const child = await this._buildFolderNode(userId, item.token, item.name, maxDepth, currentDepth + 1).catch(
+            () => ({ token: item.token, name: item.name, files: [], subFolders: [] }),
+          );
+          subFolders.push(child);
+        } else {
+          subFolders.push({ token: item.token, name: item.name, files: [], subFolders: [] });
+        }
+      } else if (t.includes("doc") || t.includes("docx") || t.includes("file")) {
+        files.push({ token: item.token, title: item.name });
+      }
+    }
+    return { token: folderToken, name: folderName, files, subFolders };
   }
 
   async readJsonObjectByName<T>(

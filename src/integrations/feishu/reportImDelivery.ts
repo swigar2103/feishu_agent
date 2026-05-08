@@ -153,15 +153,20 @@ function extractResultLinks(deliverable?: FinalDeliverable): Array<{
 }> {
   if (!deliverable?.publishedArtifacts?.length) return [];
   return deliverable.publishedArtifacts.map((item) => {
-    const placeholder =
+    const noUrl =
       item.status === "fallback" ||
       item.status === "mock_published" ||
       item.url.includes("mock.feishu.local");
+    // quality_reject 文档有真实 URL，显示时加注释说明质量未达标
+    const isQualityReject = item.status === "quality_reject";
+    const label = isQualityReject
+      ? `${mapArtifactLabel(item.type)}（自检稿·内容待完善）`
+      : mapArtifactLabel(item.type);
     return {
-      label: mapArtifactLabel(item.type),
-      url: placeholder ? "" : item.url,
+      label,
+      url: noUrl ? "" : item.url,
       artifactSource: item.artifactSource,
-      unavailable: placeholder,
+      unavailable: noUrl,
     };
   });
 }

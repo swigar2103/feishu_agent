@@ -1,6 +1,300 @@
 # 项目变更记录
 
+## 2026-05-09（LLM 自主资源选择改造：managed-first）
+
+### 改造目标
+
+- 将“规则主导 + LLM fallback”升级为“LLM 主导资源选择器”
+- 保持边界：纳管目录优先，证据不足时才受控放开全局补充
+- 每次选择输出可解释理由，并在 pipeline telemetry 中可审计
+
+### 关键改造
+
+1. **新增资源选择契约**
+- `src/schemas/agentContracts.ts` 新增 `ResourceSelectionDecisionSchema`
+- `CandidateResourceListSchema` 增加 `selectionDecision` 字段
+- 结构包含：`selectedResourceIds`、`sectionResourceMapping`、`insufficient`、`allowGlobalSupplement`、`decisionReasons`、预算建议等
+
+2. **screening 改为 LLM 主控**
+- `src/services/resourcePool/screening.ts`
+  - `LlmScreeningSchema` 升级为资源选择决策契约
+  - 新增两阶段决策：
+    - `managed_only`：只在 managed 候选中选
+    - `managed_plus_global`：仅证据不足时，才把 global_mcp 补充加入复选
+  - 外部补充结果统一打 `global_mcp` 标签
+  - 候选返回中携带 `selectionDecision`
+
+3. **主图入口改为 managed-first 宇宙**
+- `src/graph/nodes/hmrsSummaryNode.ts`
+  - 去掉“直接按 prompt 全局 search-doc 构建候选池”的路径
+  - 改为从 `facade.getManagedFolderStructure(userId)` 展开纳管目录文档构建候选 universe（`tags` 含 `managed`）
+  - 调用 `screenResources()` 由 LLM 自主选择资源
+  - `debugTrace` 与 `pipeline progress` 增加 `insufficient/allowGlobalSupplement` 诊断
+
+4. **Prompt/Skill 策略强化**
+- `src/prompts/agentPrompts.ts`
+  - Planner system prompt 增加硬规则：先纳管后外部、章节必须关联证据、证据不足需说明缺口
+- `src/services/agent/templateSkillStore.ts`
+  - 命中模板技能后自动注入 managed-first 风格规则，避免模板写作时忽略资源边界
+
+5. **检索执行与诊断强化**
+- `src/services/retrieval/deepRetriever.ts`
+  - expansion fallback 先用 `plan.prioritizedResourceIds`，再用 `screened.selectionDecision.selectedResourceIds`
+- `src/services/hmrs/expand/detailRetrievalService.ts`
+  - 修复 `folderCount` 统计使用 `resolvedFolderTokens`
+  - 增加 retrieval diagnostics 日志：folder/L2 事实数、token 数、展开规模
+
+6. **Pipeline telemetry 增强**
+- `src/services/reportPipeline.ts`
+  - 新增 `managedCandidateCount`、`globalSupplementCount`
+  - 新增 `selectionDecisionReasons`、`selectionInsufficient`、`fallbackTriggeredBy`
+
+### 当前项目结构变化（本次相关）
+
+```
+
+## 2026-05-09（验证与故障定位修复）
+
+### 本次目标
+- 执行真实链路回放，验证“纳管优先 + 子文件夹读取 + 严格真实模式”是否可稳定产出
+- 定位当前仍失败的根因并给出可复现实证
+
+### 代码修改
+
+- **`src/services/hmrs/expand/detailRetrievalService.ts`**
+  - 修复纳管目录读取深度：`fetchDocsFromFolders` 从“仅根目录文档”改为“递归读取 3 层子文件夹文档”
+  - 新增 `flattenDocs`，确保 `DP4...` 根目录下 `TZON...` 等子目录文档可被纳入事实证据
+
+- **`src/services/resourcePool/memPalace.ts`**
+  - 修复 `memPalace.json` 缺失导致的硬崩溃（ENOENT）
+  - `loadMemPalace()` 新增 `existsSync` 容错：文件不存在时降级为 `{ rooms: [] }`，不再中断主流程
+
+### 真实回放结论
+
+- **首轮失败根因（已修）**
+  - 报错：`ENOENT: ... src/data/memPalace.json`
+  - 原因：旧文件已清理，但筛选环节仍强依赖读取
+  - 处理：已改为缺失容错降级
+
+- **二轮回放核心指标（修复后）**
+  - `retrieval diagnostics`：`facts=8`、`folderFactCount=8`、`resolvedFolderTokenCount=1`
+  - 说明：已不再是“读取不到纳管素材”，递归读取已生效
+  - 日志可见多条 `detailRetrieval 子文件夹文档读取成功`，并命中真实业务文档正文（非占位）
+
+- **当前仍失败根因（待下一步）**
+  - 失败点从“检索为空”转移到“Analyst LLM 超时”
+  - 错误：`严格真实模式：Analyst 解析失败，拒绝回退到规则化分析。原始原因：LLM 调用超时`
+  - 影响：请求约 371s 后返回 500，流程未发布文档
+
+### 验证命令
+- `npx tsc --noEmit`：通过
+- `POST /generate-report`（session: `verify_managedfirst_fix_002`）：检索成功、分析超时失败
+
+## 2026-05-09（严格模式抗超时增强）
+
+### 目标
+- 保留 `AGENT_STRICT_FACT_MODE=true`，不允许规则化/占位兜底稿
+- 解决 Analyst/Writer 的 LLM 超时，确保“真实证据驱动写作”
+
+### 代码改造
+
+- **`src/config/env.ts`**
+  - 新增 Analyst/Writer 的独立配置：
+    - `BAILIAN_MODEL_ANALYST`
+    - `BAILIAN_MODEL_ANALYST_FALLBACK`
+    - `ANALYST_LLM_TIMEOUT_MS`
+    - `ANALYST_PROMPT_MAX_FACTS`
+    - `ANALYST_PROMPT_MAX_SOURCE_DETAILS`
+    - `ANALYST_PROMPT_MAX_FACT_CHARS`
+    - `ANALYST_PROMPT_MAX_DETAIL_CHARS`
+    - `BAILIAN_MODEL_WRITER_FALLBACK`
+    - `WRITER_LLM_TIMEOUT_MS`
+
+- **`src/llm/jsonModel.ts`**
+  - `invokeJsonModel` 增加 `timeoutMs` 参数透传到底层调用
+
+- **`src/services/agent/analystAgent.ts`**
+  - 新增 Analyst prompt 压缩策略（按条数与字符预算截断事实与 sourceDetails）
+  - 新增模型候选切换策略（主模型失败自动尝试候选模型）
+  - Analyst 调用改为独立超时 `ANALYST_LLM_TIMEOUT_MS`
+  - 严格模式仍保持：失败即报错，不回退规则分析
+
+- **`src/services/agent/writerAgent.ts`**
+  - Writer 调用改为模型候选策略 + 独立超时 `WRITER_LLM_TIMEOUT_MS`
+  - 严格模式下禁止任何 Writer 兜底（包括超时场景），直接失败并返回真实错误
+  - 修复图表结构归一化：`dataSemantic.metric/dimension/periodHint` 支持数组转字符串，避免 `invalid_type` 触发严格失败
+
+- **`.env`**
+  - 配置为：
+    - `BAILIAN_MODEL_ANALYST=qwen-plus`
+    - `BAILIAN_MODEL_ANALYST_FALLBACK=qwen3.6-plus`
+    - `BAILIAN_MODEL_WRITER=qwen-plus`
+    - `BAILIAN_MODEL_WRITER_FALLBACK=qwen3.6-plus`
+    - `ANALYST_LLM_TIMEOUT_MS=120000`
+    - `WRITER_LLM_TIMEOUT_MS=120000`
+    - 以及 Analyst prompt 压缩预算参数
+
+### 回放验证
+
+- 会话 `verify_strict_timeout_fix_001`
+  - `retrieval diagnostics`: `facts=8, sourceDetails=8`
+  - 已进入 Writer（`analysisFactCount=8`），说明 Analyst 超时问题已明显缓解
+  - 但 Writer 仍在旧配置下超时并走非严格兜底日志（后续已在代码中移除严格兜底）
+
+- 会话 `verify_strict_timeout_fix_002`
+  - 全程严格模式，未使用占位兜底
+  - 失败原因已从“超时”转移为结构校验：
+    - `chartSlots[].dataSemantic.metric` 收到 array（已在 `coerceChartDataSemantic` 修复）
+
+### 验证
+
+- `npx tsc --noEmit` 通过（多轮）
+src/
+  schemas/agentContracts.ts                    # ResourceSelectionDecision + CandidateResourceList.selectionDecision
+  services/resourcePool/screening.ts           # LLM 主控选择 + managed_only / managed_plus_global
+  graph/nodes/hmrsSummaryNode.ts               # managed-first universe 构建 + 接入 screenResources
+  prompts/agentPrompts.ts                      # 资源选择硬规则
+  services/agent/templateSkillStore.ts         # 模板技能注入 managed-first 规则
+  services/retrieval/deepRetriever.ts          # 优先使用 selectionDecision / prioritizedResourceIds
+  services/hmrs/expand/detailRetrievalService.ts # retrieval diagnostics
+  services/reportPipeline.ts                   # 选择链路 telemetry
+```
+
+## 2026-05-09（补丁：Writer超时降级 + env兜底纳管文件夹）
+
+### 修复 Writer LLM 超时在严格模式下直接中止问题
+
+- **根因**：`writerAgent.ts` 的 catch 块在 `AGENT_STRICT_FACT_MODE=true` 时无条件 throw，包括 LLM 超时这类基础设施错误
+- **修复**：检测 errMsg 是否包含 "超时"/"timeout"/"Abort"；若是超时则始终允许 fallback，不受严格模式限制
+
+### 修复 queryFeishuManagedL1/L2 和 getManagedFolderStructure 依赖 HMRS 刷新状态导致 0 条事实
+
+- **根因**：上述方法只从 `HmrsRefreshService.getRefreshStatus` 读取 `managedFolderTokens`，若 HMRS 尚未完成初次刷新，tokens 为空，导致无法扫描文件夹、事实为 0
+- **修复**：新增 `resolveManagedFolderTokens(userId)` 方法，合并刷新状态中的 tokens 与 `env.HMRS_MANAGED_FOLDER_TOKENS` 中的配置；三个查询方法均改用此方法
+- **修复**：`detailRetrievalService.ts` 中当 `targetFolderTokens` 为空时，同样兜底使用 env 中的纳管文件夹 tokens
+
+**修改文件**：
+- `src/services/agent/writerAgent.ts`：超时不触发严格模式 throw
+- `src/services/hmrs/query/summaryQueryService.ts`：新增 `resolveManagedFolderTokens`，三处 managed 读取改用此方法
+- `src/services/hmrs/expand/detailRetrievalService.ts`：targetFolderTokens 为空时兜底扫描 env 配置的纳管文件夹
+
+## 2026-05-08（动态资源读取与文档内容修复）
+
+### 动态资源读取与高质量文档生成修复
+
+**三个根因及修复方案：**
+
+**根因1：document.view 被错误过滤掉 openapi 适配器**
+- `gateway.ts` 中 `shouldSkipOpenApiForUserScopedRead` 把 `document.view` 也纳入了跳过范围，导致只剩 MCP（返回 ~200 字元数据）而非 openapi（raw_content + UAT，可拿真实正文）
+- **修复**：`shouldSkipOpenApiForUserScopedRead` 中移除 `document.view`，只保留 `document.fileContent` 的跳过逻辑
+- **同步**：`priority.ts` 中 `document.view` 顺序从 `["mcp", "lark_cli", "openapi"]` 改为 `["openapi", "mcp", "lark_cli"]`
+
+**根因2：子文件夹不扫描**
+- `listDocsInFolder` 只做单层扫描，用户放在子文件夹里的文件完全看不到
+- **修复**：`hmrsRepository.ts` 新增 `listFolderStructure(userId, folderToken, maxDepth=2)` 返回带层级的 `FolderNode` 树，以及配套 `FolderNode` 类型导出
+- **同步**：`summaryQueryService.ts` 新增 `flattenFolderToL1`、`flattenFolderToL2` 递归平铺方法；`queryFeishuManagedL1` 和 `queryFeishuManagedL2` 改用 `listFolderStructure` 以覆盖子文件夹；每个子文件夹作为独立 L1 Room 条目（`roomId: "subfolder_<token>"`）暴露给 Planner；新增 `getManagedFolderStructure` 供 Planner 注入 prompt
+- **同步**：`layerSchemas.ts` 的 `sourceType` 枚举新增 `"folder"` 值
+
+**根因3：无动态文件选择（MemPalace 思想）**
+- Agent 不知道文件夹结构，无法按任务意图选择合适的子文件夹/文件
+- **修复**：`plannerAgent.ts` 调用 `facade.getManagedFolderStructure` 获取文件夹树，注入到 `buildPlannerUserPrompt` 的 `managedFolderStructure` 字段；LLM 根据任务意图（周报选近期文件夹、项目分析选项目文件夹等）输出 `expansionDecision.targetFolderTokens`
+- **同步**：`agentContracts.ts` 的 `expansionDecision` 对象新增 `targetFolderTokens: string[]` 字段
+- **同步**：`agentPrompts.ts` 更新 `buildPlannerSystemPrompt`（LLM 按意图选文件夹指引）和 `buildPlannerUserPrompt`（接受 `managedFolderStructure` 参数）
+- **同步**：`plannerAgent.ts` 在 `attachHmrsExpansion` 中保留 `targetFolderTokens`
+- **同步**：`deepRetriever.ts` 将 `plan.expansionDecision.targetFolderTokens` 传入 `facade.retrieveDetails`
+- **同步**：`memoryFacade.ts` 的 `retrieveDetails` 接受并传递 `targetFolderTokens`
+- **同步**：`detailRetrievalService.ts` 新增 `fetchDocsFromFolders` 方法（Step A：先读目标文件夹文档正文）和更新 `fetchDetailByExpansion` 签名，两阶段读取（文件夹优先 + L2 展开候选补充）
+
+**修改文件列表**：
+- `src/services/toolGateway/gateway.ts`：移除 document.view 的 openapi 过滤
+- `src/services/toolGateway/priority.ts`：document.view 改为 openapi 优先
+- `src/services/hmrs/hmrsRepository.ts`：新增 `FolderNode` 类型、`listFolderStructure`、`_buildFolderNode` 方法
+- `src/services/hmrs/model/layerSchemas.ts`：sourceType 枚举添加 "folder"
+- `src/services/hmrs/query/summaryQueryService.ts`：新增 `flattenFolderToL1`、`flattenFolderToL2`、`getManagedFolderStructure`；改用递归文件夹扫描
+- `src/services/hmrs/facade/memoryFacade.ts`：新增 `getManagedFolderStructure`；`retrieveDetails` 接受 `targetFolderTokens`
+- `src/schemas/agentContracts.ts`：`expansionDecision` 添加 `targetFolderTokens` 字段
+- `src/prompts/agentPrompts.ts`：planner prompt 添加文件夹结构选择指引和 `managedFolderStructure` 参数
+- `src/services/agent/plannerAgent.ts`：拉取文件夹结构并注入 prompt；保留 `targetFolderTokens`
+- `src/services/retrieval/deepRetriever.ts`：传递 `targetFolderTokens` 给 facade
+- `src/services/hmrs/expand/detailRetrievalService.ts`：新增 `fetchDocsFromFolders`；两阶段读取
+
+**当前项目结构**：
+```
+src/
+  config/env.ts
+  schemas/agentContracts.ts        ← expansionDecision.targetFolderTokens 新增
+  prompts/agentPrompts.ts          ← planner prompt 支持文件夹结构注入
+  services/
+    agent/plannerAgent.ts          ← 文件夹结构感知 + targetFolderTokens
+    retrieval/deepRetriever.ts     ← 传递 targetFolderTokens
+    toolGateway/
+      gateway.ts                   ← document.view 不再过滤 openapi
+      priority.ts                  ← document.view: openapi 优先
+    hmrs/
+      hmrsRepository.ts            ← FolderNode + listFolderStructure
+      model/layerSchemas.ts        ← sourceType: folder 新增
+      query/summaryQueryService.ts ← 子文件夹递归扫描 + getManagedFolderStructure
+      facade/memoryFacade.ts       ← getManagedFolderStructure + targetFolderTokens
+      expand/
+        detailRetrievalService.ts  ← fetchDocsFromFolders 两阶段读取
+```
+
 ## 2026-05-08
+
+### 修复发布门控过严 + deleteFile type 参数缺失
+
+**问题1：发布门控与 HMRS 回写门控混用导致内容被错误拦截**
+- `publisher.ts` 直接调用 `evaluateDraftQuality`（HMRS 回写专用的严格门控），对每篇文档内容做污染词分析，导致 Writer 使用正常措辞写出的内容（含 "todo"/"fallback" 等）也被拦截
+- **修复**：新增 `evaluateDraftForPublish`（宽松门控），只检查摘要是否为空、所有章节是否全空；HMRS 回写继续使用 `evaluateDraftQuality` 的严格版本；`publisher.ts` 改用宽松门控
+
+**问题2：deleteFile 缺少 `type` 参数**
+- Feishu `DELETE /drive/v1/files/{token}` 需要 `?type=file|doc|...` 参数，不传会 400/403
+- **修复**：`feishuOpenApiAdapter.ts` 的 `deleteFile` 在路径中追加 `?type={fileType}` 参数，默认 `"file"`；`gateway.ts`、`types.ts`、`feishuMcpAdapter.ts`、`larkCliAdapter.ts` 同步更新签名；`hmrsRepository.ts` 删除 HMRS 自身 JSON/MD 文件时传 `fileType="file"`
+
+**修改文件**：
+- `src/services/hmrs/writeback/memoryWritebackService.ts`：新增 `evaluateDraftForPublish`
+- `src/services/output/publisher.ts`：改用 `evaluateDraftForPublish`
+- `src/services/toolGateway/feishuOpenApiAdapter.ts`：deleteFile 追加 type 参数
+- `src/services/toolGateway/gateway.ts`、`types.ts`、`feishuMcpAdapter.ts`、`larkCliAdapter.ts`：同步签名
+
+### 修复 HMRS 检索污染 + upload_all 参数缺失 + quality gate 误拦截
+
+**背景**：用户在文件夹 `DP4QfdXQYlBiHIdydVmcg2O9n3c` 中放置了真实业务文档，但生成结果仍然显示"没有主成果"。
+
+**根因1：HMRS catalog 污染**
+- 历史 ingest 时，文档读取返回 `{"error":"[VALIDATION:1002] Document ID cannot be empty..."}` 的 API 错误，被直接存为 L1 摘要
+- 检索时这些错误 JSON 被当做"业务事实"传给 Analyst，Writer 生成了"文档验证失败""Document ID 为空"等内容
+- **修复**：`hmrsIngestService.ts` 在写摘要前检测是否为错误响应，是则降级为文档标题；手动清理 catalog/index 中 10+7 条已污染条目
+
+**根因2：upload_all API 缺少 size 参数**
+- HMRS refresh 尝试将 JSON 索引文件上传到用户飞书云盘时，调用 `drive/v1/files/upload_all` 时**缺少必填的 `size` 字段**，导致飞书返回 `params error`，bootstrap 始终失败，用户文件夹永远无法被 ingest
+- **修复**：`hmrsRepository.ts` `uploadObjectToFolder` 函数增加 `form.append("size", String(bytes.byteLength))`
+
+**根因3：用户文件夹未注册**
+- `.env` 中 `HMRS_MANAGED_FOLDER_TOKENS` 为空，系统无法知道要扫描哪个文件夹
+- **修复**：`.env` 中填入 `HMRS_MANAGED_FOLDER_TOKENS=DP4QfdXQYlBiHIdydVmcg2O9n3c`；手动触发 refresh，成功摄入 7 篇文档
+
+**修改文件**：
+- `src/services/hmrs/hmrsIngestService.ts`：ingest 时过滤 API 错误响应不写入摘要
+- `src/services/hmrs/hmrsRepository.ts`：`uploadObjectToFolder` 补充 `size` 参数
+- `.env`：`HMRS_MANAGED_FOLDER_TOKENS=DP4QfdXQYlBiHIdydVmcg2O9n3c`
+- `src/data/hmrs/hmrs-catalog.json` & `hmrs-index.json`：手动清理污染条目（已运行清理脚本后删除）
+
+### 修复 quality gate 误拦截导致"主成果：暂无"问题
+
+**根因**：
+1. `publisher.ts` 在 quality gate 拒绝时把产物 status 设为 `"fallback"`，`extractResultLinks` 对所有 `fallback` 状态清空 URL 并标记 `unavailable`，导致 IM 卡片显示"主成果：暂无"，而实际文档已成功创建。
+2. `POLLUTION_PATTERN` 包含 `缺失`、`为空`、`无法获取` 等常见业务用语，导致周报正文被误判为污染，5个章节全部被拦截。
+3. `summary_too_short` 阈值 80 字对简短周报过于严格。
+
+**修复内容**：
+- `src/schemas/agentContracts.ts`：`PublishedArtifact.status` 枚举增加 `"quality_reject"`
+- `src/services/output/publisher.ts`：quality gate 拒绝时使用 `status: "quality_reject"` 而非 `"fallback"`，区分"有 URL 但内容待完善"与"无 URL 的真正回退"
+- `src/integrations/feishu/reportImDelivery.ts`：`extractResultLinks` 只对 `fallback`/`mock_published` 清空 URL；`quality_reject` 文档正常显示 URL，label 后附注"（自检稿·内容待完善）"
+- `src/services/hmrs/writeback/memoryWritebackService.ts`：
+  - 移除 `缺失`、`为空`、`无法获取` 等常用词，保留明确系统术语（`无法加载`、`无法访问`、`占位`、`fallback`、`VALIDATION:1002`）
+  - `summary_too_short` 阈值从 80 降至 40
+  - `section_polluted` 改为超过半数章节被污染才触发整体拒绝
 
 ### 高保真样式推进到 dotx 母版级
 

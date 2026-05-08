@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 import { env } from "../../config/env.js";
 import { invokeJsonModel } from "../../llm/jsonModel.js";
-import { buildAnalystSystemPrompt, buildAnalystUserPrompt } from "../../prompts/agentPrompts.js";
+import { buildAnalystSystemPrompt } from "../../prompts/agentPrompts.js";
 import { logger } from "../../shared/logger.js";
 import { getErrorMessage, summarizeError } from "../../shared/errorSummary.js";
 
@@ -67,6 +67,70 @@ function toStringArray(value: unknown): string[] {
     .map((item) => toText(item))
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+function clipText(text: string, maxChars: number): string {
+  const value = text.trim();
+  if (!value) return value;
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, maxChars)}…`;
+}
+
+function buildCompactAnalystUserPrompt(input: {
+  plan: ExecutionPlan;
+  context: DetailedContext;
+}): string {
+  const compactPlan = {
+    targetSections: input.plan.targetSections,
+    targetTone: input.plan.targetTone,
+    reportType: input.plan.reportType,
+    prioritizedResourceIds: input.plan.prioritizedResourceIds.slice(0, 12),
+    expansionDecision: input.plan.expansionDecision
+      ? {
+          targetFolderTokens: input.plan.expansionDecision.targetFolderTokens.slice(0, 8),
+          reason: input.plan.expansionDecision.reason,
+        }
+      : undefined,
+  };
+
+  const compactFacts = input.context.facts
+    .slice(0, env.ANALYST_PROMPT_MAX_FACTS)
+    .map((item) => ({
+      sourceId: item.sourceId,
+      fact: clipText(item.fact, env.ANALYST_PROMPT_MAX_FACT_CHARS),
+      evidence: item.evidence ? clipText(item.evidence, env.ANALYST_PROMPT_MAX_FACT_CHARS) : undefined,
+    }));
+
+  const compactSourceDetails = input.context.sourceDetails
+    .slice(0, env.ANALYST_PROMPT_MAX_SOURCE_DETAILS)
+    .map((item) => ({
+      resourceId: item.resourceId,
+      detail: clipText(item.detail, env.ANALYST_PROMPT_MAX_DETAIL_CHARS),
+    }));
+
+  const contextSummary = {
+    factCount: input.context.facts.length,
+    sourceDetailCount: input.context.sourceDetails.length,
+    selectedFacts: compactFacts,
+    selectedSourceDetails: compactSourceDetails,
+  };
+
+  return [
+    "请产出分析结果（严格基于以下真实证据，不得臆造）。",
+    `plan=${JSON.stringify(compactPlan)}`,
+    `contextSummary=${JSON.stringify(contextSummary)}`,
+  ].join("\n");
+}
+
+function buildAnalystModelCandidates(): string[] {
+  const values = [
+    env.BAILIAN_MODEL_ANALYST,
+    env.BAILIAN_MODEL_ORCHESTRATOR,
+    env.BAILIAN_MODEL_ANALYST_FALLBACK,
+  ]
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+  return [...new Set(values)];
 }
 
 function normalizeAnalysisOutput(raw: unknown, input: {
@@ -145,14 +209,39 @@ export async function analyzeContext(input: {
   context: DetailedContext;
 }): Promise<AnalysisResult> {
   if (env.AGENT_STRICT_FACT_MODE && input.context.facts.length === 0) {
-    throw new Error("严格真实模式：检索阶段未获得任何事实证据，已中止分析与生成。");
+    // 无证据时不再直接中止，改为降级：注入提示让 Writer 明确告知用户需要补充素材
+    logger.warn("[analyst] 严格模式：0 条事实，降级为素材缺失提示而非中止");
+    return AnalysisResultSchema.parse({
+      normalizedFacts: ["（当前未检索到相关业务文档，请补充本周具体事项或在消息中附上参考文档链接后重试）"],
+      metricDefinitions: [],
+      keyInsights: ["素材缺失：Agent 未能从纳管目录中获取相关数据"],
+      chartSuggestions: [],
+    });
   }
   try {
-    const result = await invokeJsonModel(z.unknown(), {
-      systemPrompt: buildAnalystSystemPrompt(),
-      userPrompt: buildAnalystUserPrompt(input),
-    });
-    return normalizeAnalysisOutput(result, input);
+    const modelCandidates = buildAnalystModelCandidates();
+    const userPrompt = buildCompactAnalystUserPrompt(input);
+    let lastError: unknown = null;
+
+    for (const model of modelCandidates) {
+      try {
+        const result = await invokeJsonModel(z.unknown(), {
+          systemPrompt: buildAnalystSystemPrompt(),
+          userPrompt,
+          model,
+          timeoutMs: env.ANALYST_LLM_TIMEOUT_MS,
+        });
+        return normalizeAnalysisOutput(result, input);
+      } catch (error) {
+        lastError = error;
+        logger.warn("[analyst] model attempt failed, try next candidate", {
+          model,
+          timeoutMs: env.ANALYST_LLM_TIMEOUT_MS,
+          error: summarizeError(error),
+        });
+      }
+    }
+    throw lastError ?? new Error("Analyst LLM 调用失败");
   } catch (error) {
     logger.error("[analyst] analyzeContext failed", {
       strictMode: env.AGENT_STRICT_FACT_MODE,

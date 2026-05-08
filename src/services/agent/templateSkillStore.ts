@@ -159,9 +159,19 @@ export function matchTemplateSkill(input: {
 
   const hit = ranked[0];
   if (!hit || hit.confidence < 0.45) return null;
+  const selectedSkill = SkillSchema.parse({
+    ...hit.selectedSkill,
+    styleRules: [
+      ...(hit.selectedSkill.styleRules ?? []),
+      "资源选择遵循 managed-first：先纳管目录，再在证据不足时补充外部来源。",
+      "章节写作必须有证据锚点，优先引用近一周相关文档。",
+    ],
+  });
 
   return {
-    ...hit,
+    template: hit.template,
+    selectedSkill,
+    confidence: hit.confidence,
     dotxRelativePath: getDotxRelativePath(hit.template.id) ?? undefined,
     assetDataSnapshots: hit.template.assetDataSnapshots ?? [],
   };
