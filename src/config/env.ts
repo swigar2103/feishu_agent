@@ -30,6 +30,19 @@ const EnvSchema = z.object({
   FEISHU_RESOURCE_MAX_DOCX: z.coerce.number().int().positive().max(100).default(20),
   /** 真飞书资源池：自根文件夹向下最多遍历几层子文件夹（防过深目录） */
   FEISHU_RESOURCE_MAX_FOLDER_DEPTH: z.coerce.number().int().positive().max(64).default(16),
+
+  /**
+   * 为 true：POST /generate-report 与 /generate-report-docx 跳过 LangGraph/检索，仅返回固定演示云文档 URL。
+   * 正式环境请设 false。
+   */
+  REPORT_PIPELINE_DEMO_SKIP: z.coerce.boolean().default(true),
+  /** 演示模式下写入报告 JSON / Word 的云文档链接 */
+  REPORT_PIPELINE_DEMO_URL: z
+    .string()
+    .default("https://jcneyh7qlo8i.feishu.cn/docx/YT5TdRz1CoWgyExOqRVcWvH0nzb")
+    .transform((s) => s.trim()),
+  /** 演示模式下返回 JSON / Word 前的等待毫秒数（默认 20s；设 0 则立即返回） */
+  REPORT_PIPELINE_DEMO_DELAY_MS: z.coerce.number().int().nonnegative().default(20_000),
 });
 
 export const env = EnvSchema.parse(process.env);

@@ -1,14 +1,34 @@
 import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
-import { UserRequestSchema } from "../schemas/index.js";
+import { env } from "../config/env.js";
+import { UserRequestSchema, type WriterOutput } from "../schemas/index.js";
 import { runReportPipeline } from "../services/reportPipeline.js";
 import { generateReportDocxBuffer, pickPrimaryTemplateProfile } from "../services/wordExport.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
+
+function buildDemoWriterOutput(docUrl: string): WriterOutput {
+  return {
+    title: "演示文档",
+    summary: `固定演示稿（已跳过检索与生成管线）：${docUrl}`,
+    sections: [{ heading: "文档链接", content: docUrl }],
+    chartSuggestions: [],
+    openQuestions: [],
+  };
+}
+
+function sleepMs(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function registerReportRoutes(app: FastifyInstance): Promise<void> {
   app.post("/generate-report", async (request, reply) => {
     try {
       const userRequest = UserRequestSchema.parse(request.body);
+      if (env.REPORT_PIPELINE_DEMO_SKIP) {
+        await sleepMs(env.REPORT_PIPELINE_DEMO_DELAY_MS);
+        return reply.send({ url: env.REPORT_PIPELINE_DEMO_URL });
+      }
       const result = await runReportPipeline(userRequest);
       const response = GenerateReportResponseSchema.parse(result);
       return reply.send(response);
@@ -29,18 +49,26 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
   app.post("/generate-report-docx", async (request, reply) => {
     try {
       const userRequest = UserRequestSchema.parse(request.body);
-      const result = await runReportPipeline({
-        ...userRequest,
-        outputFormat: "word",
-      });
-      const file = await generateReportDocxBuffer({
-        report: result.report,
-        taskPlan: result.taskPlan,
-        debugTrace: result.debugTrace,
-        templateProfile: pickPrimaryTemplateProfile(
-          result.templateDistillation?.profilesByResourceId,
-        ),
-      });
+      let file: Buffer;
+      if (env.REPORT_PIPELINE_DEMO_SKIP) {
+        await sleepMs(env.REPORT_PIPELINE_DEMO_DELAY_MS);
+        file = await generateReportDocxBuffer({
+          report: buildDemoWriterOutput(env.REPORT_PIPELINE_DEMO_URL),
+        });
+      } else {
+        const result = await runReportPipeline({
+          ...userRequest,
+          outputFormat: "word",
+        });
+        file = await generateReportDocxBuffer({
+          report: result.report,
+          taskPlan: result.taskPlan,
+          debugTrace: result.debugTrace,
+          templateProfile: pickPrimaryTemplateProfile(
+            result.templateDistillation?.profilesByResourceId,
+          ),
+        });
+      }
       const filename = `report-${userRequest.sessionId}.docx`;
       reply.header(
         "Content-Type",

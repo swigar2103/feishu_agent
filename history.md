@@ -1,5 +1,23 @@
 # 项目变更记录
 
+**日期**：2026-05-08（2）
+
+### `/generate-report` 演示短路
+
+- `src/config/env.ts`：新增 `REPORT_PIPELINE_DEMO_SKIP`（默认 `true`）、`REPORT_PIPELINE_DEMO_URL`（默认 jcney 演示稿）。
+- `src/api/report.ts`：演示开启时不调用 `runReportPipeline`，`POST /generate-report` 仅返回 JSON `{ "url": "<云文档链接>" }`（经 `REPORT_PIPELINE_DEMO_DELAY_MS` 等待后再输出）；`generate-report-docx` 延迟后返回极简 Word。
+- `src/config/env.ts`：`REPORT_PIPELINE_DEMO_DELAY_MS`（默认 20000，0 为不等待）。
+
+---
+
+**日期**：2026-05-08
+
+### 飞书 webhook 演示分支：仅回固定云文档 URL
+
+- `src/api/phase1.ts`：`POST /api/feishu/webhook` 在通过 URL 校验后，若解析到用户 IM（非应用自身）的 `chat_id`，则**异步**向该会话发送纯文本，内容为固定演示稿链接 `https://jcneyh7qlo8i.feishu.cn/docx/YT5TdRz1CoWgyExOqRVcWvH0nzb`，不调用 `handleBotMessageText` / Phase1 流水线。
+
+---
+
 **日期**：2026-05-05
 
 ## 本次更改摘要
