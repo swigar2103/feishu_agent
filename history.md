@@ -244,6 +244,29 @@
   - `hasVisualSource = true`
   - `hasSourceLink = true`
   - 说明「可视化来源」区块与原文链接已进入最终文档
+
+## 2026-05-09（周报体验修复：近一周文档优先 + 表格补全 + 文档内图片二次渲染）
+
+### 修改
+
+- **`src/services/hmrs/expand/detailRetrievalService.ts`**
+  - 在子文件夹读取时过滤运维元文档：
+    - `纳管记录_已纳管文档房间*`
+    - `说明_纳管文档索引*`
+  - `maxDocsPerFolder` 从 `8` 提升到 `16`，降低“真实业务文档被元文档挤占”的概率
+
+- **`src/services/output/publisher.ts`**
+  - `renderDraftAsTemplateMarkdown` 新增 `## 图表数据表`：
+    - 对有 `categories + series` 的 chart slot 自动渲染 markdown 表格
+  - 文档创建成功后，新增一次“绑定当前 `documentId` 的二次渲染”：
+    - 优先使用 post-create 渲染结果附图
+    - 降低“外部云盘可见、文档内长时间 loading”概率
+  - 保留失败回退日志，便于定位渲染/插图异常
+
+### 预期收益
+- 周报默认更聚焦“近一周真实工作文档”，减少说明类/索引类文档干扰
+- 输出不再只有图，正文会附可读的数据表
+- 文档内图片加载稳定性提升（不再仅依赖预渲染 token）
 src/
   schemas/agentContracts.ts                    # ResourceSelectionDecision + CandidateResourceList.selectionDecision
   services/resourcePool/screening.ts           # LLM 主控选择 + managed_only / managed_plus_global
@@ -2117,4 +2140,53 @@ d:\飞书办公Agent\
 │   └── data/hmrs/       hmrs-catalog.json, hmrs-index.json（本地 L1/L2 存储）
 ├── history.md           变更日志（本文件）
 └── package.json
+```
+
+---
+
+## v0.7 — 模板知识库文件夹自动提取接入（2026-05-09）
+
+### 本次目标
+
+- 将你指定的模板知识库文件夹（`I3MtffOLplEQ0pd7gumcs7acncg`）接入 HMRS refresh 后的**自动模板提取源**，不再依赖手工调用 `/api/hmrs/extract-template`。
+
+### 代码改动
+
+- **`src/config/env.ts`**
+  - 新增 `HMRS_TEMPLATE_KB_FOLDER_TOKENS`（逗号分隔模板知识库目录 token）
+  - 新增 `HMRS_TEMPLATE_AUTO_EXTRACT_MAX_DOCS`（单次 refresh 自动抽取上限，默认 30）
+
+- **`src/services/hmrs/hmrsRefreshService.ts`**
+  - 新增 `readTemplateKnowledgeFolderTokens`：读取模板知识库 token 配置
+  - 新增 `autoExtractTemplatesFromKnowledgeFolders`：
+    - 递归扫描模板目录（深度 3）
+    - 过滤运维元文档（`纳管记录_已纳管文档房间`、`说明_纳管文档索引`、`.json/.md`）
+    - 文档去重后按上限抽取
+    - 对每篇文档调用 `TemplateExtractionService.extractAndStore` 写入 `hmrs-template-skills.json`
+  - 在 `refreshForUser` 中新增异步触发：
+    - 来源 = `HMRS_TEMPLATE_KB_FOLDER_TOKENS` + 动态发现的 `template_example` 桶
+    - 不阻塞 refresh 主流程，失败仅告警日志
+
+- **`.env`**
+  - 新增并设置：
+    - `HMRS_TEMPLATE_KB_FOLDER_TOKENS=I3MtffOLplEQ0pd7gumcs7acncg`
+    - `HMRS_TEMPLATE_AUTO_EXTRACT_MAX_DOCS=30`
+
+### 验证结果
+
+- `npx tsc --noEmit` 通过。
+
+### 当前项目结构（本次变更相关）
+
+```
+d:\飞书办公Agent\
+├── src/
+│   ├── config/
+│   │   └── env.ts                         # 新增模板知识库自动提取配置项
+│   └── services/
+│       └── hmrs/
+│           ├── hmrsRefreshService.ts      # refresh 后自动抽取模板源
+│           └── templateExtractionService.ts
+├── .env                                    # 已配置模板知识库 token
+└── history.md                              # 本次记录
 ```

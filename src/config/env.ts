@@ -191,6 +191,10 @@ const EnvSchema = z.object({
   HMRS_RECALL_MAX_CHARS: z.coerce.number().int().positive().default(30_000),
   /** HMRS：纳管飞书目录 token 覆盖列表（逗号分隔）；为空时 refresh 自动发现 */
   HMRS_MANAGED_FOLDER_TOKENS: z.string().default(""),
+  /** HMRS：模板知识库目录 token 列表（逗号分隔）；refresh 后自动抽取模板技能 */
+  HMRS_TEMPLATE_KB_FOLDER_TOKENS: z.string().default(""),
+  /** HMRS：每次自动模板抽取最多处理文档数（防止 refresh 过慢） */
+  HMRS_TEMPLATE_AUTO_EXTRACT_MAX_DOCS: z.coerce.number().int().positive().default(30),
   /** HMRS：refresh 最小间隔（秒），避免每次请求都全量扫描 */
   HMRS_REFRESH_MIN_INTERVAL_SECONDS: z.coerce.number().int().positive().default(900),
   /** 严格真实模式：无事实证据时禁止生成“占位化”初稿 */

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-08T21:02:19.562Z",
+  "updatedAt": "2026-05-08T23:15:17.385Z",
   "items": [
     {
       "id": "l1_ext_doc_U20XdQENzoggJDxedflc5Mrpn0e",
@@ -698,21 +698,21 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "default",
       "timeRange": {
-        "end": "2026-05-08T20:56:09.401Z"
+        "end": "2026-05-08T23:01:04.563Z"
       },
       "keywords": [
-        "一、门店销售概况",
-        "二、商品销售概括",
-        "三、新业务开展进度",
-        "一、业务经营情况",
-        "四、 库存周转与供应链健康度诊断"
+        "本周摘要",
+        "完成情况",
+        "问题与风险",
+        "下周计划",
+        "协作需求"
       ],
-      "qualityScore": 0.8,
+      "qualityScore": 0.9,
       "sourceRef": {
         "sourceType": "unknown"
       },
       "title": "风格身份摘要",
-      "summary": "本周全域经营显著回暖，全门店销售量达4972单（同比+44.6%），销售总额￥75,640（同比+31.7%）；华东区域3C与家居家电双品类合计贡献24,864单、约￥1.85亿元，结构持续升级——华为Mate 60 Pro销量环比+15.2%、巨幕电视与平嵌冰箱成主力，线下渠道占比达68%–92%；蛇口百草堂店筹备进度已达70%，当前无风险；库存周转整体优化至18.5天，但防晒类目库存仅支撑不足5天，iPhone 14 Pro等长库龄商品沉淀资金超690万元，需紧急干预。"
+      "summary": "本周聚焦四门课程作业并行推进：完成IOT302TC无线传感器网络课程设计与仿真（CW2），进入ENT302TC BESV项目5终稿整合阶段，同步开展IOT303TC RFID理论分析与DTS304TC机器学习模型验证。所有作业均由学生ID 2146093（Zonghan Li）独立完成，未使用AI工具；BESV项目为7人协作交付，需于2025年12月15日17:00前提交5997词终稿。"
     },
     {
       "id": "l1_ext_doc_TayxdBgmJomrNKxcBWKca1aanrb",
@@ -753,7 +753,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "纳管文档",
       "timeRange": {
-        "end": "2026-05-08T21:02:19.558Z"
+        "end": "2026-05-08T23:15:17.381Z"
       },
       "keywords": [
         "Zonghan.Li_BESV",
@@ -1259,7 +1259,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "纳管文档",
       "timeRange": {
-        "end": "2026-05-08T21:02:19.558Z"
+        "end": "2026-05-08T23:15:17.381Z"
       },
       "keywords": [
         "IOT302TC_Zonghan.Li_2146093_cw2",
@@ -1287,7 +1287,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "纳管文档",
       "timeRange": {
-        "end": "2026-05-08T21:02:19.558Z"
+        "end": "2026-05-08T23:15:17.381Z"
       },
       "keywords": [
         "IOT303TC_zonghan.li_2146093",
@@ -1315,7 +1315,7 @@
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "projectTag": "纳管文档",
       "timeRange": {
-        "end": "2026-05-08T21:02:19.558Z"
+        "end": "2026-05-08T23:15:17.381Z"
       },
       "keywords": [
         "DTS304TC_Assessment1_2146093",
@@ -2225,6 +2225,230 @@
         "sourceType": "doc",
         "docToken": "CCVybqGX5oLfjUxZZYAci3Uvnob",
         "url": "https://jcneyh7qlo8i.feishu.cn/docx/CCVybqGX5oLfjUxZZYAci3Uvnob"
+      },
+      "title": "说明_纳管文档索引.md",
+      "summary": "纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_CiBSbT2uHoxA2lxGZ6BcKaHcnYg",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T21:32:29.986Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "CiBSbT2uHoxA2lxGZ6BcKaHcnYg",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/CiBSbT2uHoxA2lxGZ6BcKaHcnYg"
+      },
+      "title": "纳管记录_已纳管文档房间.json",
+      "summary": "纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_TCSVbQoP2olhmNxHU3QcfNZYnfd",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T21:32:29.986Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "TCSVbQoP2olhmNxHU3QcfNZYnfd",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/TCSVbQoP2olhmNxHU3QcfNZYnfd"
+      },
+      "title": "说明_纳管文档索引.md",
+      "summary": "纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_LlgDbSQs3o7W5CxNEdocJZ7tnvc",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T21:49:43.585Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "LlgDbSQs3o7W5CxNEdocJZ7tnvc",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/LlgDbSQs3o7W5CxNEdocJZ7tnvc"
+      },
+      "title": "纳管记录_已纳管文档房间.json",
+      "summary": "纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_PjLUbapTGoUmtIxPmzKcm4VQn7f",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T21:49:43.585Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "PjLUbapTGoUmtIxPmzKcm4VQn7f",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/PjLUbapTGoUmtIxPmzKcm4VQn7f"
+      },
+      "title": "说明_纳管文档索引.md",
+      "summary": "纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_C7GgbEMe1odEDkxbeeNchVSonsb",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T22:41:15.107Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "C7GgbEMe1odEDkxbeeNchVSonsb",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/C7GgbEMe1odEDkxbeeNchVSonsb"
+      },
+      "title": "纳管记录_已纳管文档房间.json",
+      "summary": "纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_LEgybhrSjo1QHLxU0SOcL0LQngh",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T22:41:15.107Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "LEgybhrSjo1QHLxU0SOcL0LQngh",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/LEgybhrSjo1QHLxU0SOcL0LQngh"
+      },
+      "title": "说明_纳管文档索引.md",
+      "summary": "纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_P9whb77nTo5khjxHNHCcToW9nDg",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T23:15:17.381Z"
+      },
+      "keywords": [
+        "纳管记录_已纳管文档房间.json",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "P9whb77nTo5khjxHNHCcToW9nDg",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/P9whb77nTo5khjxHNHCcToW9nDg"
+      },
+      "title": "纳管记录_已纳管文档房间.json",
+      "summary": "纳管目录文档：纳管记录_已纳管文档房间.json（来源文件夹：(root)）"
+    },
+    {
+      "id": "l1_ext_doc_X94fbHDM0oCMYfxLSQwcehVvnWu",
+      "type": "doc_summary",
+      "layer": "L1",
+      "wingId": "resources_wing",
+      "roomId": "imported_docs_room",
+      "drawerId": "docs_drawer",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "projectTag": "纳管文档",
+      "timeRange": {
+        "end": "2026-05-08T23:15:17.381Z"
+      },
+      "keywords": [
+        "说明_纳管文档索引.md",
+        "(root)",
+        "hmrs",
+        "managed",
+        "folder_DP4QfdXQYlBiHIdydVmcg2O9n3c"
+      ],
+      "qualityScore": 0.42,
+      "sourceRef": {
+        "sourceType": "doc",
+        "docToken": "X94fbHDM0oCMYfxLSQwcehVvnWu",
+        "url": "https://jcneyh7qlo8i.feishu.cn/docx/X94fbHDM0oCMYfxLSQwcehVvnWu"
       },
       "title": "说明_纳管文档索引.md",
       "summary": "纳管目录文档：说明_纳管文档索引.md（来源文件夹：(root)）"

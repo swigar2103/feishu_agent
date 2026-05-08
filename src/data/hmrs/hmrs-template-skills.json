@@ -1,6 +1,289 @@
 {
   "templates": [
     {
+      "id": "tpl_1778282125232",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "业务经营周报",
+      "sourceDocumentRef": "Q5UodFXuvo98IuxW69Ecdqcanwh",
+      "sourceTitle": "Q5UodFXuvo98IuxW69Ecdqcanwh",
+      "extractedAt": "2026-05-08T23:15:25.232Z",
+      "sections": [
+        "门店销售概况",
+        "商品销售概括",
+        "新业务开展进度"
+      ],
+      "templateHints": [
+        "优先使用表格表达关键事项与状态。",
+        "包含时间线或里程碑段落。",
+        "包含任务排期/甘特图槽位。"
+      ],
+      "chartRules": [
+        "趋势类指标建议折线图",
+        "对比类指标建议柱状图或饼图",
+        "项目计划建议甘特图",
+        "关键事件建议时间线图"
+      ],
+      "layoutBlocks": [],
+      "embeddedAssets": [
+        {
+          "kind": "gantt_marker"
+        },
+        {
+          "kind": "chart_marker"
+        }
+      ],
+      "assetDataSnapshots": [],
+      "skillDraft": {
+        "skillId": "user-template-1778282125232",
+        "name": "用户模板-业务经营周报",
+        "industry": "通用",
+        "reportType": "weekly_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "门店销售概况",
+          "商品销售概括",
+          "新业务开展进度"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "趋势类指标建议折线图",
+          "对比类指标建议柱状图或饼图",
+          "项目计划建议甘特图",
+          "关键事件建议时间线图"
+        ],
+        "terminology": []
+      }
+    },
+    {
+      "id": "tpl_1778282124385",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "团队工作周报",
+      "sourceDocumentRef": "O7J7dxZSKo72uGx3MCrcdElinlb",
+      "sourceTitle": "O7J7dxZSKo72uGx3MCrcdElinlb",
+      "extractedAt": "2026-05-08T23:15:24.385Z",
+      "sections": [
+        "本周摘要",
+        "完成情况",
+        "问题与风险",
+        "下周计划",
+        "协作需求"
+      ],
+      "templateHints": [
+        "行动项必须包含负责人和截止时间。"
+      ],
+      "chartRules": [
+        "趋势类指标建议折线图",
+        "对比类指标建议柱状图"
+      ],
+      "layoutBlocks": [],
+      "embeddedAssets": [],
+      "assetDataSnapshots": [],
+      "skillDraft": {
+        "skillId": "user-template-1778282124385",
+        "name": "用户模板-团队工作周报",
+        "industry": "通用",
+        "reportType": "weekly_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "本周摘要",
+          "完成情况",
+          "问题与风险",
+          "下周计划",
+          "协作需求"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "趋势类指标建议折线图",
+          "对比类指标建议柱状图"
+        ],
+        "terminology": []
+      }
+    },
+    {
+      "id": "tpl_1778282123360",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "个人工作日报",
+      "sourceDocumentRef": "WnMedEcrqonh3kxZIIAcAp20nvc",
+      "sourceTitle": "WnMedEcrqonh3kxZIIAcAp20nvc",
+      "extractedAt": "2026-05-08T23:15:23.360Z",
+      "sections": [
+        "本周摘要",
+        "完成情况",
+        "问题与风险",
+        "下周计划",
+        "协作需求"
+      ],
+      "templateHints": [
+        "章节标题和顺序需严格贴合模板骨架。"
+      ],
+      "chartRules": [
+        "趋势类指标建议折线图",
+        "对比类指标建议柱状图"
+      ],
+      "layoutBlocks": [],
+      "embeddedAssets": [],
+      "assetDataSnapshots": [],
+      "skillDraft": {
+        "skillId": "user-template-1778282123360",
+        "name": "用户模板-个人工作日报",
+        "industry": "通用",
+        "reportType": "daily_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "本周摘要",
+          "完成情况",
+          "问题与风险",
+          "下周计划",
+          "协作需求"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "趋势类指标建议折线图",
+          "对比类指标建议柱状图"
+        ],
+        "terminology": []
+      }
+    },
+    {
+      "id": "tpl_1778282122268",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "会议记录 (简洁版)",
+      "sourceDocumentRef": "ZAN8d9jSUoc0FXxf91xcjIVVnOf",
+      "sourceTitle": "ZAN8d9jSUoc0FXxf91xcjIVVnOf",
+      "extractedAt": "2026-05-08T23:15:22.268Z",
+      "sections": [
+        "本周摘要",
+        "完成情况",
+        "问题与风险",
+        "下周计划",
+        "协作需求"
+      ],
+      "templateHints": [
+        "章节标题和顺序需严格贴合模板骨架。"
+      ],
+      "chartRules": [
+        "趋势类指标建议折线图",
+        "对比类指标建议柱状图"
+      ],
+      "layoutBlocks": [],
+      "embeddedAssets": [],
+      "assetDataSnapshots": [],
+      "skillDraft": {
+        "skillId": "user-template-1778282122268",
+        "name": "用户模板-会议记录 (简洁版)",
+        "industry": "通用",
+        "reportType": "analysis_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "本周摘要",
+          "完成情况",
+          "问题与风险",
+          "下周计划",
+          "协作需求"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "趋势类指标建议折线图",
+          "对比类指标建议柱状图"
+        ],
+        "terminology": []
+      }
+    },
+    {
+      "id": "tpl_1778282121212",
+      "owner": "ou_b7e1ded69f1528003929f526273b7443",
+      "templateName": "长期项目方案与执行（含里程碑看板）",
+      "sourceDocumentRef": "BOQ0dW7Z7oMaTzxGvB7cAoYBnxc",
+      "sourceTitle": "BOQ0dW7Z7oMaTzxGvB7cAoYBnxc",
+      "extractedAt": "2026-05-08T23:15:21.212Z",
+      "sections": [
+        "项目介绍",
+        "项目目标",
+        "月度里程碑",
+        "任务拆解",
+        "项目例会",
+        "项目物料汇总"
+      ],
+      "templateHints": [
+        "优先使用表格表达关键事项与状态。",
+        "包含时间线或里程碑段落。",
+        "包含任务排期/甘特图槽位。",
+        "行动项必须包含负责人和截止时间。"
+      ],
+      "chartRules": [
+        "项目计划建议甘特图",
+        "关键事件建议时间线图"
+      ],
+      "layoutBlocks": [],
+      "embeddedAssets": [
+        {
+          "kind": "gantt_marker"
+        }
+      ],
+      "assetDataSnapshots": [],
+      "skillDraft": {
+        "skillId": "user-template-1778282121212",
+        "name": "用户模板-长期项目方案与执行（含里程碑看板）",
+        "industry": "通用",
+        "reportType": "analysis_report",
+        "requiredInputs": [
+          "时间范围",
+          "关键事实",
+          "行动项"
+        ],
+        "sections": [
+          "项目介绍",
+          "项目目标",
+          "月度里程碑",
+          "任务拆解",
+          "项目例会",
+          "项目物料汇总"
+        ],
+        "styleRules": [
+          "沿用模板章节标题",
+          "结论先行",
+          "每节保留事实依据"
+        ],
+        "chartRules": [
+          "项目计划建议甘特图",
+          "关键事件建议时间线图"
+        ],
+        "terminology": []
+      }
+    },
+    {
       "id": "tpl_1778105636617",
       "owner": "ou_b7e1ded69f1528003929f526273b7443",
       "templateName": "长期项目方案与执行（含里程碑看板）",

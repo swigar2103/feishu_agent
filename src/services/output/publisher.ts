@@ -6,6 +6,7 @@ import { getFeishuMvpConfig } from "../../integrations/feishu/feishuConfig.js";
 import { listAllDocumentBlocks } from "../../integrations/feishu/docxBlocks.js";
 import type { GatewayDocument } from "../toolGateway/types.js";
 import type { RenderedArtifact } from "../render/artifactRenderer.js";
+import { renderDraftArtifacts } from "../render/artifactRenderer.js";
 import { evaluateDraftForPublish } from "../hmrs/writeback/memoryWritebackService.js";
 
 export type PublishedArtifact = {
@@ -74,6 +75,26 @@ function renderDraftAsTemplateMarkdown(draft: Draft, renderedArtifacts?: Rendere
         ),
       ].join("\n")
     : "";
+  const chartDataTableBlock = draft.chartSlots.length > 0
+    ? [
+        "## 图表数据表",
+        ...draft.chartSlots
+          .filter((slot) => slot.data && slot.data.categories.length > 0 && slot.data.series.length > 0)
+          .map((slot) => {
+            const categories = slot.data!.categories;
+            const series = slot.data!.series[0]!;
+            const rows = categories
+              .map((c, idx) => `| ${c} | ${series.values[idx] ?? ""} |`)
+              .join("\n");
+            return [
+              `### ${slot.title}`,
+              "| 维度 | 数值 |",
+              "|---|---:|",
+              rows,
+            ].join("\n");
+          }),
+      ].join("\n\n")
+    : "";
   const openQuestions = draft.openQuestions.length > 0
     ? ["## 待确认事项", ...draft.openQuestions.map((item) => `- ${item}`)].join("\n")
     : "";
@@ -134,6 +155,7 @@ function renderDraftAsTemplateMarkdown(draft: Draft, renderedArtifacts?: Rendere
     chartBlock,
     readyChartHintBlock,
     chartSlotBlock,
+    chartDataTableBlock,
     openQuestions,
     visualSourceBlock,
   ]
@@ -474,10 +496,30 @@ async function publishFeishuDoc(input: {
     throw error;
   }
 
-  if (renderedArtifactsForAttach.length > 0) {
+  let finalArtifactsForAttach = renderedArtifactsForAttach;
+  // 文档创建后做一次“绑定到当前 docx 的二次渲染”，避免出现外部可见但文档内长期 loading 的图片。
+  if (!isQualityReject && input.userId) {
+    try {
+      const rerender = await renderDraftArtifacts({
+        userId: input.userId,
+        documentId: doc.id,
+        draft: input.draft,
+      });
+      if (rerender.artifacts.length > 0) {
+        finalArtifactsForAttach = rerender.artifacts;
+      }
+    } catch (error) {
+      logger.warn("post-create artifact rerender failed, fallback to pre-rendered artifacts", {
+        documentId: doc.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (finalArtifactsForAttach.length > 0) {
     const attachStat = await attachRenderedArtifactsToDocx({
       documentId: doc.id,
-      artifacts: renderedArtifactsForAttach,
+      artifacts: finalArtifactsForAttach,
       userId: input.userId,
       preferUserScope: input.preferUserScope,
     });
@@ -488,7 +530,7 @@ async function publishFeishuDoc(input: {
       inserted: attachStat.inserted,
       skipped: attachStat.skipped,
       failed: attachStat.failed,
-      total: renderedArtifactsForAttach.length,
+      total: finalArtifactsForAttach.length,
     });
   }
   await toolGateway.addComment({
@@ -514,7 +556,7 @@ async function publishFeishuDoc(input: {
     adapter: doc.source ?? viewed?.source,
     documentId: doc.id,
     sessionId: input.sessionId,
-    artifactCount: renderedArtifactsForAttach.length,
+    artifactCount: finalArtifactsForAttach.length,
   });
   return {
     type: "feishu_doc",

@@ -10,6 +10,7 @@ import { FileCatalogRepository } from "./repo/file/fileCatalogRepository.js";
 import { FileIndexRepository } from "./repo/file/fileIndexRepository.js";
 import type { L1CatalogObject, L2IndexObject } from "./model/layerSchemas.js";
 import { createHash } from "node:crypto";
+import { TemplateExtractionService } from "./templateExtractionService.js";
 
 type DiscoveredBucketSource = {
   folderToken: string;
@@ -171,6 +172,87 @@ function readManagedFolderTokens(): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function readTemplateKnowledgeFolderTokens(): string[] {
+  return env.HMRS_TEMPLATE_KB_FOLDER_TOKENS
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function flattenDocFiles(
+  node: { files: { token: string; title: string }[]; subFolders: unknown[] },
+): Array<{ token: string; title: string }> {
+  const docs = [...node.files];
+  for (const sub of node.subFolders as Array<{ files: { token: string; title: string }[]; subFolders: unknown[] }>) {
+    docs.push(...flattenDocFiles(sub));
+  }
+  return docs;
+}
+
+function shouldSkipTemplateDoc(title: string): boolean {
+  const t = title.trim();
+  if (!t) return true;
+  // 过滤运维/索引元文档，避免污染模板库
+  if (t.includes("纳管记录_已纳管文档房间")) return true;
+  if (t.includes("说明_纳管文档索引")) return true;
+  if (t.endsWith(".json") || t.endsWith(".md")) return true;
+  return false;
+}
+
+async function autoExtractTemplatesFromKnowledgeFolders(input: {
+  userId: string;
+  repo: HmrsRepository;
+  folderTokens: string[];
+}): Promise<void> {
+  if (input.folderTokens.length === 0) return;
+  const extractor = new TemplateExtractionService();
+  const maxDocs = env.HMRS_TEMPLATE_AUTO_EXTRACT_MAX_DOCS;
+  const candidates: Array<{ token: string; title: string }> = [];
+
+  for (const folderToken of input.folderTokens) {
+    const tree = await input.repo.listFolderStructure(input.userId, folderToken, 3).catch(() => null);
+    if (!tree) continue;
+    const docs = flattenDocFiles(tree).filter((d) => !shouldSkipTemplateDoc(d.title));
+    candidates.push(...docs);
+  }
+
+  const dedup = new Map<string, { token: string; title: string }>();
+  for (const doc of candidates) {
+    if (!dedup.has(doc.token)) dedup.set(doc.token, doc);
+  }
+  const toExtract = [...dedup.values()].slice(0, maxDocs);
+  let success = 0;
+  let failed = 0;
+
+  for (const doc of toExtract) {
+    try {
+      await extractor.extractAndStore({
+        userId: input.userId,
+        documentRef: doc.token,
+        templateName: doc.title,
+      });
+      success += 1;
+    } catch (error) {
+      failed += 1;
+      logger.warn("hmrs auto template extract skipped for doc", {
+        userId: input.userId,
+        docToken: doc.token,
+        title: doc.title,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  logger.info("hmrs auto template extract completed", {
+    userId: input.userId,
+    folderCount: input.folderTokens.length,
+    candidateCount: candidates.length,
+    extracted: success,
+    failed,
+    maxDocs,
+  });
 }
 
 /**
@@ -403,6 +485,24 @@ export class HmrsRefreshService {
     }).catch((error) => {
       logger.warn("syncTemplateArtifacts failed", {
         userId: input.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    // 自动模板提取：模板知识库（env 指定） + templates_wing 的示例抽屉来源
+    const envTemplateFolders = readTemplateKnowledgeFolderTokens();
+    const discoveredTemplateFolders = bucketSources
+      .filter((s) => s.bucketRole === "template_example")
+      .map((s) => s.folderToken);
+    const templateFolderTokens = [...new Set([...envTemplateFolders, ...discoveredTemplateFolders])];
+    void autoExtractTemplatesFromKnowledgeFolders({
+      userId: input.userId,
+      repo: this.repo,
+      folderTokens: templateFolderTokens,
+    }).catch((error) => {
+      logger.warn("hmrs auto template extract failed", {
+        userId: input.userId,
+        folderCount: templateFolderTokens.length,
         error: error instanceof Error ? error.message : String(error),
       });
     });

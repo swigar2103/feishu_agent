@@ -144,10 +144,20 @@ async function fetchDocsFromFolders(input: {
     return docs;
   }
 
+  function isOperationalMetaDoc(title: string): boolean {
+    const t = title.trim();
+    return (
+      t.includes("纳管记录_已纳管文档房间") ||
+      t.includes("说明_纳管文档索引")
+    );
+  }
+
   for (const folderToken of input.targetFolderTokens) {
     // 递归读取：支持“近一周”子文件夹放在纳管根目录下的场景
     const tree = await hmrsRepo.listFolderStructure(input.userId, folderToken, 3).catch(() => null);
-    const docs = tree ? flattenDocs(tree).slice(0, maxDocs) : [];
+    const docs = tree
+      ? flattenDocs(tree).filter((d) => !isOperationalMetaDoc(d.title)).slice(0, maxDocs)
+      : [];
     for (const doc of docs) {
       const viewed = await toolGateway.viewDocument(doc.token, context).catch(() => null);
       const content = viewed?.content?.trim();
@@ -218,7 +228,7 @@ export async function fetchDetailByExpansion(input: {
     const folderDocs = await fetchDocsFromFolders({
       userId: input.request.userId,
       targetFolderTokens: resolvedFolderTokens,
-      maxDocsPerFolder: 8,
+      maxDocsPerFolder: 16,
       maxCharsPerDoc: 12_000,
     });
     for (const doc of folderDocs) {
