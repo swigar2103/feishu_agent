@@ -10,6 +10,21 @@ import { toolGateway } from "../services/toolGateway/gateway.js";
 import { logger } from "../shared/logger.js";
 import { listUserOAuthSummaries } from "../storage/userOAuthStore.js";
 
+function extractUrlVerificationChallenge(body: Record<string, unknown>): string | null {
+  if (typeof body.challenge === "string" && body.challenge.length > 0) {
+    return body.challenge;
+  }
+  if (body.type === "url_verification" && typeof body.challenge === "string") {
+    return body.challenge;
+  }
+  const ev = body.event;
+  if (ev && typeof ev === "object" && ev !== null && "challenge" in ev) {
+    const c = (ev as { challenge?: unknown }).challenge;
+    if (typeof c === "string" && c.length > 0) return c;
+  }
+  return null;
+}
+
 const MvpBodySchema = z.object({
   userText: z.string().min(1, "userText 不能为空"),
   /** 发群/会话消息时填 chat_id；不传则看环境变量 FEISHU_IM_NOTIFY_CHAT_ID */
@@ -118,8 +133,9 @@ export async function registerPhase1Routes(app: FastifyInstance): Promise<void> 
       return reply.status(400).send({ message: "invalid card callback" });
     }
     const body = parsed.data;
-    if (body.challenge) {
-      return reply.send({ challenge: body.challenge });
+    const challenge = extractUrlVerificationChallenge(body as Record<string, unknown>);
+    if (challenge) {
+      return reply.send({ challenge });
     }
 
     const messageId = body.event?.open_message_id ?? body.open_message_id ?? "";

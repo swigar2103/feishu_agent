@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
-import { UserRequestSchema } from "../schemas/index.js";
+import { env } from "../config/env.js";
+import { UserRequestSchema, type WriterOutput } from "../schemas/index.js";
 import { GenerateReportResponseSchema } from "../types/contracts.js";
 import { createFeishuUserAuthorizeSession } from "../integrations/feishu/userOAuthAuthorizeFlow.js";
 import { getErrorMessage, summarizeError } from "../shared/errorSummary.js";
@@ -19,6 +20,21 @@ function maybeBuildOAuthHint(error: unknown, userId?: string): { oauthRequired: 
   } catch {
     return null;
   }
+}
+
+function buildDemoWriterOutput(docUrl: string): WriterOutput {
+  return {
+    title: "演示文档",
+    summary: `固定演示稿（已跳过检索与生成管线）：${docUrl}`,
+    sections: [{ heading: "文档链接", content: docUrl }],
+    chartSuggestions: [],
+    openQuestions: [],
+  };
+}
+
+function sleepMs(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function registerReportRoutes(app: FastifyInstance): Promise<void> {
@@ -55,6 +71,10 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     try {
       const userRequest = UserRequestSchema.parse(request.body);
       parsedUserId = userRequest.userId;
+      if (env.REPORT_PIPELINE_DEMO_SKIP) {
+        await sleepMs(env.REPORT_PIPELINE_DEMO_DELAY_MS);
+        return reply.send({ url: env.REPORT_PIPELINE_DEMO_URL });
+      }
       const { runReportPipeline } = await import("../services/reportPipeline.js");
       const result = await runReportPipeline(userRequest);
       const response = GenerateReportResponseSchema.parse(result);
@@ -86,37 +106,51 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
     try {
       const userRequest = UserRequestSchema.parse(request.body);
       parsedUserId = userRequest.userId;
-      const { runReportPipeline } = await import("../services/reportPipeline.js");
-      const { generateReportDocxBuffer, pickPrimaryTemplateProfile } = await import(
-        "../services/wordExport.js"
-      );
-      const { matchTemplateSkill } = await import(
-        "../services/agent/templateSkillStore.js"
-      );
-      const result = await runReportPipeline({
-        ...userRequest,
-        outputFormat: "word",
-      });
 
-      // 匹配用户模板，获取 dotxRelativePath 与 assetDataSnapshots
-      const tplMatch = matchTemplateSkill({
-        intent: result.intent ?? { taskIntent: "analysis_report", reportType: "analysis_report", industry: "general", outputKind: "doc", initialGaps: [], confidence: 0.5 },
-        prompt: userRequest.prompt,
-        userId: userRequest.userId,
-      });
+      let file: Buffer;
+      if (env.REPORT_PIPELINE_DEMO_SKIP) {
+        await sleepMs(env.REPORT_PIPELINE_DEMO_DELAY_MS);
+        const { generateReportDocxBuffer } = await import("../services/wordExport.js");
+        file = await generateReportDocxBuffer({
+          report: buildDemoWriterOutput(env.REPORT_PIPELINE_DEMO_URL),
+        });
+      } else {
+        const { runReportPipeline } = await import("../services/reportPipeline.js");
+        const { generateReportDocxBuffer, pickPrimaryTemplateProfile } = await import(
+          "../services/wordExport.js"
+        );
+        const { matchTemplateSkill } = await import("../services/agent/templateSkillStore.js");
+        const result = await runReportPipeline({
+          ...userRequest,
+          outputFormat: "word",
+        });
 
-      const file = await generateReportDocxBuffer({
-        report: result.report,
-        draft: result.draft,
-        taskPlan: result.taskPlan,
-        debugTrace: result.debugTrace,
-        templateProfile: pickPrimaryTemplateProfile(
-          result.templateDistillation?.profilesByResourceId,
-        ),
-        templateId: tplMatch?.template.id,
-        reportType: tplMatch?.selectedSkill.reportType ?? result.taskPlan?.reportType,
-        assetDataSnapshots: tplMatch?.assetDataSnapshots ?? [],
-      });
+        const tplMatch = matchTemplateSkill({
+          intent: result.intent ?? {
+            taskIntent: "analysis_report",
+            reportType: "analysis_report",
+            industry: "general",
+            outputKind: "doc",
+            initialGaps: [],
+            confidence: 0.5,
+          },
+          prompt: userRequest.prompt,
+          userId: userRequest.userId,
+        });
+
+        file = await generateReportDocxBuffer({
+          report: result.report,
+          draft: result.draft,
+          taskPlan: result.taskPlan,
+          debugTrace: result.debugTrace,
+          templateProfile: pickPrimaryTemplateProfile(
+            result.templateDistillation?.profilesByResourceId,
+          ),
+          templateId: tplMatch?.template.id,
+          reportType: tplMatch?.selectedSkill.reportType ?? result.taskPlan?.reportType,
+          assetDataSnapshots: tplMatch?.assetDataSnapshots ?? [],
+        });
+      }
       const filename = `report-${userRequest.sessionId}.docx`;
       reply.header(
         "Content-Type",

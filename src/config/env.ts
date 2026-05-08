@@ -183,6 +183,19 @@ const EnvSchema = z.object({
   HMRS_REFRESH_MIN_INTERVAL_SECONDS: z.coerce.number().int().positive().default(900),
   /** 严格真实模式：无事实证据时禁止生成“占位化”初稿 */
   AGENT_STRICT_FACT_MODE: z.coerce.boolean().default(true),
+
+  /**
+   * 为 true：POST /generate-report 与 /generate-report-docx 跳过 LangGraph/检索，仅返回固定演示云文档 URL。
+   * 正式环境请设 false。
+   */
+  REPORT_PIPELINE_DEMO_SKIP: z.coerce.boolean().default(true),
+  /** 演示模式下写入报告 JSON / Word 的云文档链接 */
+  REPORT_PIPELINE_DEMO_URL: z
+    .string()
+    .default("https://jcneyh7qlo8i.feishu.cn/docx/YT5TdRz1CoWgyExOqRVcWvH0nzb")
+    .transform((s) => s.trim()),
+  /** 演示模式下返回 JSON / Word 前的等待毫秒数（默认 20s；设 0 则立即返回） */
+  REPORT_PIPELINE_DEMO_DELAY_MS: z.coerce.number().int().nonnegative().default(20_000),
 });
 
 export const env = EnvSchema.parse(process.env);

@@ -2,6 +2,10 @@
 
 ## 2026-05-08
 
+### 分支合并：HEAD 与 clientB（冲突清除）
+
+合并 `env.example`、`src/config/env.ts`：**HMRS** 与 **REPORT_PIPELINE_DEMO_\*** 环境项并存；`src/api/report.ts`：演示短路 + 沿用 dotx/template 匹配的完整 Word 导出；`src/api/phase1.ts`：卡片回调保留 `mark_done` 等交互，challenge 沿用多形态解析；撤回误放在 `/api/feishu/card-callback` 的 IM 演示发链（用户 IM 由 `imTextPipelineDispatch` 处理）。
+
 ### README：§9.1 增补 demo-status 备用路径与 404 说明
 
 **修改**：`GET /api/feishu/webhook/demo-status` 与 `/api/feishu/demo-status` 共用同一响应；README §9.1 写明 Fastify 404 表示线上需重新构建/部署。
@@ -1108,6 +1112,16 @@ feishu_agent/
 ---
 
 **日期**：2026-05-05（资源层 clientB 并入）
+
+**日期**：2026-05-08（2）
+
+### `/generate-report` 演示短路（与 HMRS / IM 演示并存）
+
+- `src/config/env.ts`：新增 `REPORT_PIPELINE_DEMO_SKIP`、`REPORT_PIPELINE_DEMO_URL`、`REPORT_PIPELINE_DEMO_DELAY_MS`。
+- `src/api/report.ts`：演示开启时不调用完整 `runReportPipeline`，`POST /generate-report` 经延迟后返回 JSON `{ "url": "<云文档链接>" }`；`generate-report-docx` 经延迟后返回极简 Word。
+- 用户 IM 侧固定演示以 `imDemoConfig.ts` / `imTextPipelineDispatch.ts`（及上文「飞书 IM：imDemoConfig」条目）为准，**非** `/api/feishu/card-callback`。
+
+---
 
 ## 本次更改摘要
 
