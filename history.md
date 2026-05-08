@@ -1,5 +1,47 @@
 # 项目变更记录
 
+## 2026-05-08
+
+### 高保真样式推进到 dotx 母版级
+
+**目标**：将 Word 导出从"程序化白纸文档"升级为"与飞书模板视觉风格匹配的 dotx 母版驱动输出"。
+
+**新增文件**：
+- `src/services/dotxStyleRegistry.ts`：定义 4 种报告类型的色调主题（TemplatePalette），包含飞书品牌蓝/绿/深蓝/紫等，涵盖标题颜色、表头背景、callout 样式、字体等。
+- `src/services/wordTableRenderer.ts`：将 bitable/sheet 数据快照（`assetDataSnapshots`）渲染为真实的 Word Table（含表头行样式、边框、单元格宽度适配）。
+- `src/services/dotxMasterGenerator.ts`：为每个模板生成 `.dotx` 母版文件，文件存入 `src/data/templates/dotx/`。母版包含完整的段落样式（Normal/Heading1-3/CalloutBlock/ChecklistItem/TableCaption/GanttSlot）、模板章节占位标题、bitable 真实表格、甘特/时间线/图表槽占位框。
+
+**已生成的 dotx 母版**（4 份）：
+- `tpl_1778105636617.dotx`（长期项目方案与执行）— 紫色主题，含甘特/时间线槽
+- `tpl_1778105636232.dotx`（业务经营周报）— 飞书蓝主题，含 callout/图表占位
+- `tpl_1778105635849.dotx`（团队工作周报）— 飞书蓝主题，含 bitable 真实表格
+- `tpl_1778105632230.dotx`（个人工作日报）— 绿色主题，含 sheet/bitable 表格
+
+**修改文件**：
+- `src/services/wordExport.ts`：
+  - 完全重写：按 `reportType` 选择 TemplatePalette，注入自定义 Document styles
+  - 标题加下划线 border（品牌色）、摘要用 CalloutBlock 样式
+  - 甘特槽用 GanttSlot 样式、图表槽渲染为虚线占位框 Table
+  - 接入 `assetDataSnapshots` 参数，将 bitable/sheet 数据渲染为真实 Word Table
+  - 新增 `ensureDotxMasters` 懒加载触发函数
+  - 导出 `getDotxRelativePath` 供外部使用
+- `src/services/agent/templateSkillStore.ts`：
+  - 扩展 `StoredTemplate` 加入 `embeddedAssets`、`assetDataSnapshots` 字段
+  - `matchTemplateSkill` 返回值新增 `dotxRelativePath`（已生成时）和 `assetDataSnapshots`
+- `src/api/report.ts`：
+  - `/generate-report-docx` 端点调用 `matchTemplateSkill` 获取匹配模板，将 `templateId`、`reportType`、`assetDataSnapshots` 传入 `generateReportDocxBuffer`
+- `src/api/hmrs.ts`：
+  - 新增 `POST /api/hmrs/generate-dotx`：按需生成/强制刷新 dotx 母版
+  - 新增 `GET /api/hmrs/dotx-status`：查询各模板的 dotx 生成状态
+
+**项目结构**（新增目录）：
+```
+src/data/templates/dotx/          # dotx 母版文件（二进制，gitignore 可选）
+src/services/dotxStyleRegistry.ts # 色调主题注册表
+src/services/wordTableRenderer.ts # bitable/sheet → Word Table 转换
+src/services/dotxMasterGenerator.ts # dotx 母版生成器
+```
+
 ## 2026-05-07
 
 ### 高质量产物升级（Phase 1-5 一次落地）

@@ -125,5 +125,69 @@ export async function registerHmrsRoutes(app: FastifyInstance): Promise<void> {
     const list = templateSvc.listByUser(parsed.data.userId);
     return reply.send({ ok: true, count: list.length, templates: list });
   });
+
+  // ──────────────────────────────────────────────
+  // POST /api/hmrs/generate-dotx
+  // 为所有已提取模板生成 dotx 母版文件
+  // ──────────────────────────────────────────────
+  const GenerateDotxBodySchema = z.object({
+    force: z.boolean().optional().default(false),
+  });
+
+  app.post("/api/hmrs/generate-dotx", async (request, reply) => {
+    const parsed = GenerateDotxBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ message: "参数错误", issues: parsed.error.issues });
+    }
+    try {
+      const { readJsonFile } = await import("../services/hmrs/repo/file/fileStorage.js");
+      const { generateDotxMasters } = await import("../services/dotxMasterGenerator.js");
+      const store = readJsonFile<{ templates: unknown[] }>("hmrs-template-skills.json", { templates: [] });
+      const results = await generateDotxMasters(
+        store.templates as Parameters<typeof generateDotxMasters>[0],
+        { force: parsed.data.force },
+      );
+      return reply.send({
+        ok: true,
+        count: results.length,
+        results: results.map((r) => ({
+          templateId: r.templateId,
+          templateName: r.templateName,
+          dotxRelativePath: r.dotxRelativePath,
+        })),
+      });
+    } catch (error) {
+      request.log.error({ error }, "generate-dotx failed");
+      return reply.status(500).send({
+        message: error instanceof Error ? error.message : "dotx 生成失败",
+      });
+    }
+  });
+
+  // GET /api/hmrs/dotx-status — 查询 dotx 母版文件是否已生成
+  app.get("/api/hmrs/dotx-status", async (_request, reply) => {
+    try {
+      const { readJsonFile } = await import("../services/hmrs/repo/file/fileStorage.js");
+      const { getDotxRelativePath } = await import("../services/dotxMasterGenerator.js");
+      const store = readJsonFile<{ templates: Array<{ id: string; templateName: string }> }>(
+        "hmrs-template-skills.json",
+        { templates: [] },
+      );
+      const status = store.templates.map((tpl) => {
+        const rel = getDotxRelativePath(tpl.id);
+        return {
+          templateId: tpl.id,
+          templateName: tpl.templateName,
+          dotxReady: !!rel,
+          dotxRelativePath: rel ?? null,
+        };
+      });
+      return reply.send({ ok: true, status });
+    } catch (error) {
+      return reply.status(500).send({
+        message: error instanceof Error ? error.message : "查询失败",
+      });
+    }
+  });
 }
 

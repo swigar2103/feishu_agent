@@ -90,10 +90,21 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
       const { generateReportDocxBuffer, pickPrimaryTemplateProfile } = await import(
         "../services/wordExport.js"
       );
+      const { matchTemplateSkill } = await import(
+        "../services/agent/templateSkillStore.js"
+      );
       const result = await runReportPipeline({
         ...userRequest,
         outputFormat: "word",
       });
+
+      // 匹配用户模板，获取 dotxRelativePath 与 assetDataSnapshots
+      const tplMatch = matchTemplateSkill({
+        intent: result.intent ?? { taskIntent: "analysis_report", reportType: "analysis_report", industry: "general", outputKind: "doc", initialGaps: [], confidence: 0.5 },
+        prompt: userRequest.prompt,
+        userId: userRequest.userId,
+      });
+
       const file = await generateReportDocxBuffer({
         report: result.report,
         draft: result.draft,
@@ -102,6 +113,9 @@ export async function registerReportRoutes(app: FastifyInstance): Promise<void> 
         templateProfile: pickPrimaryTemplateProfile(
           result.templateDistillation?.profilesByResourceId,
         ),
+        templateId: tplMatch?.template.id,
+        reportType: tplMatch?.selectedSkill.reportType ?? result.taskPlan?.reportType,
+        assetDataSnapshots: tplMatch?.assetDataSnapshots ?? [],
       });
       const filename = `report-${userRequest.sessionId}.docx`;
       reply.header(

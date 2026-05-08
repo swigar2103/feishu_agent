@@ -1,6 +1,21 @@
 import { SkillSchema, type Skill } from "../../schemas/index.js";
 import type { IntentResult } from "../../schemas/agentContracts.js";
 import { readJsonFile } from "../hmrs/repo/file/fileStorage.js";
+import { getDotxRelativePath } from "../wordExport.js";
+
+export type AssetField = { id: string; name: string; type: string };
+
+export type AssetDataSnapshot = {
+  kind: string;
+  token?: string;
+  id?: string;
+  data: {
+    fields?: AssetField[];
+    sampleRows?: unknown[][];
+    sampleValues?: unknown[][];
+    [key: string]: unknown;
+  };
+};
 
 type StoredTemplate = {
   id: string;
@@ -11,6 +26,8 @@ type StoredTemplate = {
   templateHints?: string[];
   chartRules?: string[];
   layoutBlocks?: Array<{ tag: string; count: number }>;
+  embeddedAssets?: Array<{ kind: string; token?: string; id?: string }>;
+  assetDataSnapshots?: AssetDataSnapshot[];
   skillDraft?: Skill;
 };
 
@@ -101,6 +118,10 @@ export function matchTemplateSkill(input: {
   template: StoredTemplate;
   selectedSkill: Skill;
   confidence: number;
+  /** dotx 母版相对路径（已生成时存在） */
+  dotxRelativePath?: string;
+  /** bitable/sheet 数据快照，用于生成真实 Word 表格 */
+  assetDataSnapshots?: AssetDataSnapshot[];
 } | null {
   const templates = loadTemplates();
   if (templates.length === 0) return null;
@@ -138,6 +159,11 @@ export function matchTemplateSkill(input: {
 
   const hit = ranked[0];
   if (!hit || hit.confidence < 0.45) return null;
-  return hit;
+
+  return {
+    ...hit,
+    dotxRelativePath: getDotxRelativePath(hit.template.id) ?? undefined,
+    assetDataSnapshots: hit.template.assetDataSnapshots ?? [],
+  };
 }
 
