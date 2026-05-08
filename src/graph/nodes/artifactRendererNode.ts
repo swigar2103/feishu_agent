@@ -12,11 +12,23 @@ export async function artifactRendererNode(
     };
   }
   const userId = state.taskRequest.userRequest.userId;
+  const sourceLinks = [
+    ...new Set(
+      (state.detailedContext?.sourceDetails ?? [])
+        .flatMap((item) => {
+          const hits = item.detail.match(/https?:\/\/[^\s)\]）】]+/g);
+          return hits ?? [];
+        })
+        .map((url) => url.trim())
+        .filter(Boolean),
+    ),
+  ];
   const startedAt = Date.now();
   try {
     const result = await renderDraftArtifacts({
       userId,
       draft: state.draft,
+      sourceLinks,
     });
     publishPipelineProgress({
       sessionId: state.taskRequest.userRequest.sessionId,

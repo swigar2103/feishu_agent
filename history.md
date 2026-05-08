@@ -149,6 +149,101 @@
 ### 验证
 
 - `npx tsc --noEmit` 通过（多轮）
+
+## 2026-05-09（索引来源可追溯：补充原文链接）
+
+### 目标
+- 让“被索引/被深读”的文档在证据层可直接追溯到原文链接，便于人工核验
+
+### 修改
+
+- **`src/services/hmrs/expand/detailRetrievalService.ts`**
+  - `fetchDocsFromFolders` 返回结构新增 `url`
+  - 子文件夹文档读取成功日志新增 `url` 字段
+  - 写入 `facts.evidence` 时补入「原文链接」
+  - 写入 `sourceDetails.detail` 时在正文前追加 `原文链接：...`
+  - L2 展开命中与回退摘要两种路径均补齐原文链接提示
+
+### 效果
+- 后续 Analyst/Writer 消费的 `sourceDetails` 已自带原文链接
+- 排障时可从日志与事实证据直接定位具体文档，无需二次反查 token
+
+## 2026-05-09（图表渲染链路：Windows Mermaid CLI 兼容修复）
+
+### 问题
+- Writer 已产出 ready 图表槽位，但渲染阶段出现 `mermaid cli probe failed`，最终 `artifactCount=0`
+- 根因：Windows 下 `mmdc.cmd` 通过 `spawnSync(..., shell:false)` 调用会失败（EINVAL），导致误判 Mermaid 不可用
+
+### 修改
+- **`src/services/render/artifactRenderer.ts`**
+  - `isMermaidCliAvailable`：在 `win32` 上改为 `shell: true`
+  - `renderMermaidToPng`：在 `win32` 上改为 `shell: true`
+  - 保持 Linux/macOS 仍为 `shell: false`
+
+### 效果
+- Windows 本地可正常探测并执行 `mmdc.cmd`
+- 图表/时间线/甘特的 Mermaid -> PNG 渲染链路恢复，后续可进入上传与文档插图流程
+
+## 2026-05-09（图表入文档闭环修复：Docx 图片插入 + Timeline 语法）
+
+### 问题
+- 全链路回归中 `artifact_renderer` 已产图，但发布阶段 `artifact_attach.inserted=0`，`insertDocxImageBlock` 返回 `invalid param`
+- Timeline Mermaid 在含 `2025-11-30T23:59:00+08:00` 等时区格式时出现解析错误
+
+### 修改
+
+- **`src/services/toolGateway/feishuOpenApiAdapter.ts`**
+  - `insertDocxImageBlock` 改为多 payload 兼容重试：
+    - `image.token`（最小字段）
+    - `image.file_token`（兼容写法）
+    - `image.token + caption`（字符串 caption）
+  - 每次失败输出结构化尝试日志（`tag/status/code/msg`），便于定位参数差异
+
+- **`src/services/render/artifactRenderer.ts`**
+  - Timeline 渲染前增加 `when` 规范化：
+    - 优先抽取 `YYYY-MM-DD`
+    - 兜底将 `:` 转为 `-`
+  - `label/note` 同步做冒号清洗，规避 Mermaid timeline 语法冲突
+
+### 回归验证
+- 会话：`verify_full_chain_fix_1778269764`
+- 结果：
+  - `report graph ok=true`
+  - `artifact_renderer` 产物参与发布（总数 4）
+  - `publish-telemetry.artifact_attach`: `inserted=4, failed=0, total=4`
+  - 发布文档：`https://www.feishu.cn/docx/I0NjdxhSxoSBYtxvn3QczbV9nrb`
+
+## 2026-05-09（可视化来源追溯：来源链接落文档）
+
+### 目标
+- 为图表/时间线/甘特提供可追溯来源，不再只靠日志排查
+
+### 修改
+
+- **`src/services/render/artifactRenderer.ts`**
+  - 新增 `RenderInput.sourceLinks`
+  - 新增 `buildProvenanceCaption`（统一构建来源说明文本）
+  - 各类可视化槽位生成 artifact 时携带来源信息（用于下游文档展示）
+
+- **`src/graph/nodes/artifactRendererNode.ts`**
+  - 从 `state.detailedContext.sourceDetails` 自动抽取 URL，传给 `renderDraftArtifacts`
+
+- **`src/services/output/publisher.ts`**
+  - 在发布 markdown 中新增「`## 可视化来源`」区块
+  - 按已渲染 artifact 汇总来源链接，写入正文（即使 docx 图片接口不支持 caption，也能在文档内追溯）
+
+- **`src/services/toolGateway/feishuOpenApiAdapter.ts`**
+  - `insertDocxImageBlock` 改为仅使用稳定最小参数（避免 caption 参数类型不兼容导致失败）
+  - 对 `429` 增加指数退避重试
+  - 响应解析改为 `res.text()` + 安全 JSON 解析，避免空响应导致 `Unexpected end of JSON input`
+
+### 回归验证
+- 会话：`verify_visual_sources_retry_1778271442`
+- 发布文档：`https://www.feishu.cn/docx/CntfdYLn6oLCefxtQXwcegm7nOh`
+- 通过脚本二次读取文档正文校验：
+  - `hasVisualSource = true`
+  - `hasSourceLink = true`
+  - 说明「可视化来源」区块与原文链接已进入最终文档
 src/
   schemas/agentContracts.ts                    # ResourceSelectionDecision + CandidateResourceList.selectionDecision
   services/resourcePool/screening.ts           # LLM 主控选择 + managed_only / managed_plus_global

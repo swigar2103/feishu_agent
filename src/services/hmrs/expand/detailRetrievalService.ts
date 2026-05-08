@@ -126,7 +126,7 @@ async function fetchDocsFromFolders(input: {
   targetFolderTokens: string[];
   maxDocsPerFolder?: number;
   maxCharsPerDoc?: number;
-}): Promise<Array<{ token: string; title: string; content: string }>> {
+}): Promise<Array<{ token: string; title: string; content: string; url?: string }>> {
   if (!input.targetFolderTokens.length) return [];
   const hmrsRepo = new HmrsRepository();
   const context = hasValidUserOAuth(input.userId)
@@ -134,7 +134,7 @@ async function fetchDocsFromFolders(input: {
     : undefined;
   const maxDocs = input.maxDocsPerFolder ?? 8;
   const maxChars = input.maxCharsPerDoc ?? 12_000;
-  const results: Array<{ token: string; title: string; content: string }> = [];
+  const results: Array<{ token: string; title: string; content: string; url?: string }> = [];
 
   function flattenDocs(node: { files: { token: string; title: string }[]; subFolders: unknown[] }): Array<{ token: string; title: string }> {
     const docs = [...node.files];
@@ -151,13 +151,15 @@ async function fetchDocsFromFolders(input: {
     for (const doc of docs) {
       const viewed = await toolGateway.viewDocument(doc.token, context).catch(() => null);
       const content = viewed?.content?.trim();
+      const url = viewed?.url?.trim() || `https://jcneyh7qlo8i.feishu.cn/docx/${doc.token}`;
       if (content) {
-        results.push({ token: doc.token, title: doc.title, content: content.slice(0, maxChars) });
+        results.push({ token: doc.token, title: doc.title, content: content.slice(0, maxChars), url });
         logger.info("[detailRetrieval] 子文件夹文档读取成功", {
           userId: input.userId,
           folderToken,
           docToken: doc.token,
           title: doc.title,
+          url,
           contentLen: content.length,
         });
       } else {
@@ -220,8 +222,14 @@ export async function fetchDetailByExpansion(input: {
       maxCharsPerDoc: 12_000,
     });
     for (const doc of folderDocs) {
-      facts.push(toFact(`folder_doc_${doc.token}`, doc.content, `飞书子文件夹文档：${doc.title}`));
-      sourceDetails.push({ resourceId: `folder_doc_${doc.token}`, detail: `【${doc.title}】\n${doc.content}` });
+      const evidence = doc.url
+        ? `飞书子文件夹文档：${doc.title}（原文链接：${doc.url}）`
+        : `飞书子文件夹文档：${doc.title}`;
+      facts.push(toFact(`folder_doc_${doc.token}`, doc.content, evidence));
+      sourceDetails.push({
+        resourceId: `folder_doc_${doc.token}`,
+        detail: `【${doc.title}】\n原文链接：${doc.url ?? "（未知）"}\n${doc.content}`,
+      });
     }
     if (folderDocs.length > 0) {
       logger.info("[detailRetrieval] 从目标子文件夹读取文档完成", {
@@ -244,12 +252,24 @@ export async function fetchDetailByExpansion(input: {
     const content = viewed?.content?.trim();
     if (content) {
       const clipped = content.slice(0, 12_000);
-      facts.push(toFact(item.resourceId, clipped, "HMRS L3 按需展开正文摘录"));
-      sourceDetails.push({ resourceId: item.resourceId, detail: content });
+      const evidence = item.link
+        ? `HMRS L3 按需展开正文摘录（原文链接：${item.link}）`
+        : "HMRS L3 按需展开正文摘录";
+      facts.push(toFact(item.resourceId, clipped, evidence));
+      sourceDetails.push({
+        resourceId: item.resourceId,
+        detail: `原文链接：${item.link ?? "（未知）"}\n${content}`,
+      });
       continue;
     }
-    facts.push(toFact(item.resourceId, item.summary, "HMRS L3 展开失败，回退摘要"));
-    sourceDetails.push({ resourceId: item.resourceId, detail: `${item.title}\n${item.summary}` });
+    const fallbackEvidence = item.link
+      ? `HMRS L3 展开失败，回退摘要（原文链接：${item.link}）`
+      : "HMRS L3 展开失败，回退摘要";
+    facts.push(toFact(item.resourceId, item.summary, fallbackEvidence));
+    sourceDetails.push({
+      resourceId: item.resourceId,
+      detail: `【${item.title}】\n原文链接：${item.link ?? "（未知）"}\n${item.summary}`,
+    });
   }
 
   // 检测 TemplateStructureIndex 候选，自动构建 TemplateProfile 注入 templateDistillation

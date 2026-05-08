@@ -10,6 +10,7 @@ import { getTenantAccessToken } from "../../integrations/feishu/token.js";
 import { ensureUserOAuthReady } from "../../integrations/feishu/userOAuthRefresh.js";
 import { parseJsonFromMd } from "../retrieval/mdParser.js";
 import { ResourcePoolStore } from "../../storage/resourcePoolStore.js";
+import { logger } from "../../shared/logger.js";
 import { ToolGatewayError } from "./errors.js";
 import type {
   AddCommentInput,
@@ -655,43 +656,88 @@ export class FeishuOpenApiAdapter implements FeishuToolGatewayApi {
       ? await this.getUserAccessToken(context)
       : await getTenantAccessToken(c);
     const url = `${c.baseUrl}/open-apis/docx/v1/documents/${encodeURIComponent(input.documentId)}/blocks/${encodeURIComponent(input.parentBlockId)}/children`;
-    const payload: Record<string, unknown> = {
-      children: [
-        {
-          block_type: 27,
-          image: {
-            token: input.mediaToken,
-            ...(input.caption ? { caption: { text: input.caption } } : {}),
-          },
-        },
-      ],
-    };
-    if (typeof input.index === "number") {
-      payload.index = input.index;
-    }
-    const res = await feishuHttpFetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json; charset=utf-8",
+    const attempts: Array<{
+      tag: string;
+      buildPayload: () => Record<string, unknown>;
+    }> = [
+      {
+        // 官方文档演进中，兜底最小字段集合。
+        tag: "token_minimal",
+        buildPayload: () => ({
+          ...(typeof input.index === "number" ? { index: input.index } : {}),
+          children: [
+            {
+              block_type: 27,
+              image: {
+                token: input.mediaToken,
+              },
+            },
+          ],
+        }),
       },
-      body: JSON.stringify(payload),
-    });
-    const body = (await res.json()) as {
-      code?: number;
-      msg?: string;
-      data?: { children?: Array<{ block_id?: string }> };
-    };
-    if (!res.ok || body.code !== 0) {
-      return {
-        ok: false,
-        warning: `docx image block insert 失败: ${body.msg ?? res.status}`,
-        source: "openapi",
-      };
+      {
+        // 部分环境返回 image.file_token 语义。
+        tag: "file_token_minimal",
+        buildPayload: () => ({
+          ...(typeof input.index === "number" ? { index: input.index } : {}),
+          children: [
+            {
+              block_type: 27,
+              image: {
+                file_token: input.mediaToken,
+              },
+            },
+          ],
+        }),
+      },
+    ];
+
+    let lastWarning = "docx image block insert 失败: unknown";
+    for (const attempt of attempts) {
+      for (let retry = 0; retry < 3; retry++) {
+        const payload = attempt.buildPayload();
+        const res = await feishuHttpFetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json; charset=utf-8",
+          },
+          body: JSON.stringify(payload),
+        });
+        const raw = await res.text();
+        const body = (raw
+          ? (JSON.parse(raw) as {
+              code?: number;
+              msg?: string;
+              data?: { children?: Array<{ block_id?: string }> };
+            })
+          : {}) as {
+          code?: number;
+          msg?: string;
+          data?: { children?: Array<{ block_id?: string }> };
+        };
+        if (res.ok && body.code === 0) {
+          return {
+            ok: true,
+            blockId: body.data?.children?.[0]?.block_id,
+            source: "openapi",
+          };
+        }
+        lastWarning = `docx image block insert 失败: ${body.msg ?? res.status}`;
+        logger.warn("docx image block insert attempt failed", {
+          tag: attempt.tag,
+          retry,
+          status: res.status,
+          code: body.code,
+          msg: body.msg,
+        });
+        if (res.status !== 429 || retry >= 2) break;
+        await new Promise((resolve) => setTimeout(resolve, 350 * (retry + 1)));
+      }
     }
     return {
-      ok: true,
-      blockId: body.data?.children?.[0]?.block_id,
+      ok: false,
+      warning: lastWarning,
       source: "openapi",
     };
   }

@@ -77,6 +77,18 @@ function renderDraftAsTemplateMarkdown(draft: Draft, renderedArtifacts?: Rendere
   const openQuestions = draft.openQuestions.length > 0
     ? ["## 待确认事项", ...draft.openQuestions.map((item) => `- ${item}`)].join("\n")
     : "";
+  const sourceLinkRe = /https?:\/\/[^\s)\]）】]+/g;
+  const visualSourceBlock = (() => {
+    const rows = (renderedArtifacts ?? [])
+      .map((a) => {
+        const links = (a.caption?.match(sourceLinkRe) ?? []).slice(0, 3);
+        if (links.length === 0) return null;
+        return `- ${a.sectionHeading}：${links.join(" ; ")}`;
+      })
+      .filter((x): x is string => Boolean(x));
+    if (rows.length === 0) return "";
+    return ["## 可视化来源", ...rows].join("\n");
+  })();
   const readyTimelineHintBlock =
     timelineRendered.length > 0
       ? [
@@ -123,6 +135,7 @@ function renderDraftAsTemplateMarkdown(draft: Draft, renderedArtifacts?: Rendere
     readyChartHintBlock,
     chartSlotBlock,
     openQuestions,
+    visualSourceBlock,
   ]
     .filter(Boolean)
     .join("\n\n")

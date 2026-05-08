@@ -24,6 +24,7 @@ export type RenderInput = {
   userId: string;
   documentId?: string;
   draft: Draft;
+  sourceLinks?: string[];
 };
 
 export type RenderOutput = {
@@ -63,10 +64,19 @@ function buildGanttMermaid(slot: Draft["ganttSlots"][number]): string | null {
 function buildTimelineMermaid(slot: Draft["timelineSlots"][number]): string | null {
   const data = slot.data ?? [];
   if (!Array.isArray(data) || data.length === 0) return null;
+  const normalizeWhen = (raw: string): string => {
+    const t = raw.trim();
+    // Mermaid timeline 对含时区冒号（如 +08:00）兼容较差，优先抽取 YYYY-MM-DD。
+    const dateLike = t.match(/\d{4}-\d{1,2}-\d{1,2}/)?.[0];
+    if (dateLike) return dateLike;
+    return t.replace(/[:]/g, "-");
+  };
   const lines: string[] = ["timeline", `    title ${slot.title}`];
   for (const item of data) {
     const safeLabel = item.label.replace(/:/g, "-");
-    lines.push(`    ${item.when} : ${safeLabel}${item.note ? ` - ${item.note}` : ""}`);
+    const safeWhen = normalizeWhen(item.when);
+    const safeNote = item.note?.replace(/:/g, "-");
+    lines.push(`    ${safeWhen} : ${safeLabel}${safeNote ? ` - ${safeNote}` : ""}`);
   }
   return lines.join("\n");
 }
@@ -101,6 +111,15 @@ function buildChartMermaid(slot: Draft["chartSlots"][number]): string | null {
 
 type MermaidExecResult = { ok: boolean; png?: Uint8Array; stderr?: string };
 
+function buildProvenanceCaption(base: string | undefined, sourceLinks?: string[]): string | undefined {
+  const title = (base ?? "").trim();
+  const links = [...new Set((sourceLinks ?? []).map((s) => s.trim()).filter(Boolean))].slice(0, 2);
+  if (links.length === 0) return title || undefined;
+  const provenance = `来源：${links.join(" ; ")}`;
+  const out = title ? `${title} | ${provenance}` : provenance;
+  return out.length <= 380 ? out : `${out.slice(0, 360)}...`;
+}
+
 /**
  * 优先使用项目本地 node_modules/.bin/mmdc，避免 npx 触发联网下载、卡住主链路。
  * 找不到本地二进制再回退 npx mmdc。
@@ -130,7 +149,8 @@ function isMermaidCliAvailable(): boolean {
   try {
     const result = spawnSync(cli.cmd, [...cli.args, "--version"], {
       encoding: "utf8",
-      shell: false,
+      // Windows 下 .cmd 不能以 shell:false 直接执行（会 EINVAL），需启用 shell。
+      shell: process.platform === "win32",
       timeout: 10_000,
     });
     mermaidCliAvailable = result.status === 0;
@@ -166,7 +186,8 @@ function renderMermaidToPng(diagram: string): MermaidExecResult {
       [...cli.args, "-i", inputPath, "-o", outputPath, "-b", "white"],
       {
         encoding: "utf8",
-        shell: false,
+        // 同上：确保 win32 能正常调用 mmdc.cmd 产图。
+        shell: process.platform === "win32",
         timeout: 45_000,
       },
     );
@@ -191,6 +212,7 @@ function renderMermaidToPng(diagram: string): MermaidExecResult {
 async function tryWhiteboardForGantt(input: {
   userId: string;
   slot: Draft["ganttSlots"][number];
+  sourceLinks?: string[];
 }): Promise<RenderedArtifact | null> {
   const plantuml = buildGanttPlantUml(input.slot);
   if (!plantuml) return null;
@@ -209,6 +231,7 @@ async function tryWhiteboardForGantt(input: {
       kind: "whiteboard",
       embedToken: result.whiteboardToken,
       url: result.url,
+      caption: buildProvenanceCaption(input.slot.task, input.sourceLinks),
       source: result.source ?? "lark_cli",
     };
   } catch (error) {
@@ -271,7 +294,11 @@ export async function renderDraftArtifacts(input: RenderInput): Promise<RenderOu
 
   for (const slot of input.draft.ganttSlots ?? []) {
     if (slot.status !== "ready" || !slot.data || slot.data.length === 0) continue;
-    const native = await tryWhiteboardForGantt({ userId: input.userId, slot });
+    const native = await tryWhiteboardForGantt({
+      userId: input.userId,
+      slot,
+      sourceLinks: input.sourceLinks,
+    });
     if (native) {
       out.push(native);
       continue;
@@ -284,7 +311,7 @@ export async function renderDraftArtifacts(input: RenderInput): Promise<RenderOu
         slotId: slot.slotId,
         sectionHeading: slot.task,
         diagram: mermaid,
-        caption: slot.task,
+        caption: buildProvenanceCaption(slot.task, input.sourceLinks),
       });
       if (img.artifact) {
         out.push(img.artifact);
@@ -305,7 +332,7 @@ export async function renderDraftArtifacts(input: RenderInput): Promise<RenderOu
       slotId: slot.slotId,
       sectionHeading: slot.title,
       diagram: mermaid,
-      caption: slot.title,
+      caption: buildProvenanceCaption(slot.title, input.sourceLinks),
     });
     if (img.artifact) {
       out.push(img.artifact);
@@ -325,7 +352,7 @@ export async function renderDraftArtifacts(input: RenderInput): Promise<RenderOu
       slotId: slot.slotId,
       sectionHeading: slot.title,
       diagram: mermaid,
-      caption: slot.title,
+      caption: buildProvenanceCaption(slot.title, input.sourceLinks),
     });
     if (img.artifact) {
       out.push(img.artifact);
