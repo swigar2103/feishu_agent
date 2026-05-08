@@ -105,6 +105,12 @@ const EnvSchema = z.object({
    * - phase1：复制云文档模板并按锚点填小节，回交互卡片链
    */
   FEISHU_BOT_PIPELINE: z.enum(["full", "phase1"]).default("full"),
+  /**
+   * IM 源码级演示（见 `imDemoConfig.FEISHU_IM_PIPELINE_BYPASS_DEMO`）为 true 时：
+   * 若非空则作为演示文档链接，否则可与内置演示稿 URL 配合使用。
+   * 绕过关闭且此项留空时走真实发布链接。
+   */
+  FEISHU_DEMO_FIXED_REPORT_URL: z.string().default("").transform((s) => s.trim()),
   /** webhook 事件最大可接受延迟（秒）；超出视为历史重投事件并忽略 */
   FEISHU_WEBHOOK_MAX_EVENT_AGE_SECONDS: z.coerce.number().int().positive().default(180),
   /**

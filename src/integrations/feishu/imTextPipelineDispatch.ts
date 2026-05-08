@@ -1,5 +1,9 @@
 import { env } from "../../config/env.js";
 import { assertFeishuMvpConfig, type FeishuMvpConfig } from "./feishuConfig.js";
+import {
+  FEISHU_IM_BUILTIN_DEMO_DOCX_URL,
+  FEISHU_IM_PIPELINE_BYPASS_DEMO,
+} from "./imDemoConfig.js";
 import { buildFallbackGeneratedDocCard, buildUserOAuthRequiredCard } from "./cards.js";
 import { sendCardMessage, sendTextMessage } from "./imMessage.js";
 import type { ParsedFeishuImTextEvent } from "./webhookMessageParse.js";
@@ -43,6 +47,48 @@ function releaseChatPipelineLock(chatId: string, messageId: string): void {
   chatPipelineLocks.delete(chatId);
 }
 
+/** 源码开关 + 内置 URL：`FEISHU_IM_PIPELINE_BYPASS_DEMO` 关闭时永远不短路。 */
+function resolveImBypassDemoDocUrl(): string {
+  if (!FEISHU_IM_PIPELINE_BYPASS_DEMO) return "";
+  return env.FEISHU_DEMO_FIXED_REPORT_URL.trim() || FEISHU_IM_BUILTIN_DEMO_DOCX_URL;
+}
+
+function imBypassSessionId(imEvent: ParsedFeishuImTextEvent): string {
+  const safeSession = imEvent.messageId.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 120);
+  return `im_${safeSession}`;
+}
+
+/** LangGraph / Phase1 均不跑：仅投递一张「演示文档」卡片（或纯文本兜底）。 */
+async function trySendImPipelineDemoBypass(
+  c: FeishuMvpConfig,
+  imEvent: ParsedFeishuImTextEvent,
+): Promise<boolean> {
+  const docUrl = resolveImBypassDemoDocUrl();
+  if (!docUrl) return false;
+  const sessionId = imBypassSessionId(imEvent);
+  logger.info("feishu im bypass: demo doc card only", {
+    chatId: imEvent.chatId,
+    userId: imEvent.userId,
+    sessionId,
+  });
+  try {
+    await sendCardMessage(c, {
+      receiveId: imEvent.chatId,
+      card: buildFallbackGeneratedDocCard({
+        title: "演示文档",
+        docUrl,
+        sessionId,
+      }),
+    });
+  } catch {
+    await sendTextMessage(c, {
+      receiveId: imEvent.chatId,
+      text: docUrl,
+    });
+  }
+  return true;
+}
+
 async function notifyOAuthRequired(
   c: FeishuMvpConfig,
   imEvent: ParsedFeishuImTextEvent,
@@ -82,8 +128,10 @@ export function runImTextPipelineFireAndForget(
   imEvent: ParsedFeishuImTextEvent,
   pipeline: "full" | "phase1",
 ): void {
-  if (pipeline === "phase1") {
-    void (async () => {
+  void (async () => {
+    if (await trySendImPipelineDemoBypass(c, imEvent)) return;
+
+    if (pipeline === "phase1") {
       try {
         assertFeishuMvpConfig();
         const { handleBotMessageText } = await import("../../phase1/botHandler.js");
@@ -118,31 +166,31 @@ export function runImTextPipelineFireAndForget(
           logger.error("im pipeline phase1 error notify failed", { error: notifyErr });
         }
       }
-    })();
-    return;
-  }
+      return;
+    }
 
-  logger.info("webhook full pipeline accepted", {
-    chatId: imEvent.chatId,
-    userId: imEvent.userId,
-    messageId: imEvent.messageId,
-    identityMode: env.FEISHU_IDENTITY_MODE,
-  });
-  if (!tryAcquireChatPipelineLock(imEvent.chatId, imEvent.messageId)) {
-    logger.info("webhook full pipeline skipped: chat pipeline is busy", {
+    logger.info("webhook full pipeline accepted", {
       chatId: imEvent.chatId,
       userId: imEvent.userId,
       messageId: imEvent.messageId,
+      identityMode: env.FEISHU_IDENTITY_MODE,
     });
-    void sendTextMessage(c, {
-      receiveId: imEvent.chatId,
-      text: "上一条任务仍在处理中，为避免重复受理，本条已暂不启动。请等待上一条完成后再发新需求。",
-    }).catch((notifyErr) => {
-      logger.error("im pipeline busy notify failed", { error: notifyErr });
-    });
-    return;
-  }
-  void (async () => {
+    if (!tryAcquireChatPipelineLock(imEvent.chatId, imEvent.messageId)) {
+      logger.info("webhook full pipeline skipped: chat pipeline is busy", {
+        chatId: imEvent.chatId,
+        userId: imEvent.userId,
+        messageId: imEvent.messageId,
+      });
+      try {
+        await sendTextMessage(c, {
+          receiveId: imEvent.chatId,
+          text: "上一条任务仍在处理中，为避免重复受理，本条已暂不启动。请等待上一条完成后再发新需求。",
+        });
+      } catch (notifyErr) {
+        logger.error("im pipeline busy notify failed", { error: notifyErr });
+      }
+      return;
+    }
     try {
       const { runFullPipelineAndNotifyChat } = await import("./reportImDelivery.js");
       await runFullPipelineAndNotifyChat(c, imEvent);
@@ -168,4 +216,18 @@ export function runImTextPipelineFireAndForget(
       releaseChatPipelineLock(imEvent.chatId, imEvent.messageId);
     }
   })();
+}
+
+/**
+ * 自检：与当前进程的 IM 短路逻辑一致。**飞书上看到的卡片由「实际收到 webhook 的那一个服务」生成**，
+ * 须在「事件订阅里填的请求地址」上访问或通过隧道 curl 校验，而不是仅凭本机是否重启 npm。
+ */
+export function describeImPipelineDemoConfig(): {
+  bypassDemo: boolean;
+  effectiveBypassDocUrl: string;
+} {
+  return {
+    bypassDemo: FEISHU_IM_PIPELINE_BYPASS_DEMO,
+    effectiveBypassDocUrl: resolveImBypassDemoDocUrl(),
+  };
 }

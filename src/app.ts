@@ -5,6 +5,10 @@ import { registerFeishuWebhookRoutes } from "./api/feishuWebhook.js";
 import { registerFeishuAuthRoutes } from "./api/feishuAuth.js";
 import { env } from "./config/env.js";
 import { registerChatRoutes } from "./api/chat.js";
+import {
+  FEISHU_IM_BUILTIN_DEMO_DOCX_URL,
+  FEISHU_IM_PIPELINE_BYPASS_DEMO,
+} from "./integrations/feishu/imDemoConfig.js";
 import { logger } from "./shared/logger.js";
 
 async function buildApp() {
@@ -83,6 +87,11 @@ async function start(): Promise<void> {
     app = await buildApp();
     await app.listen({ host: env.HOST, port: env.PORT });
     logger.info("server started", { host: env.HOST, port: env.PORT });
+    logger.info("feishu im demo bypass (本进程)", {
+      FEISHU_IM_PIPELINE_BYPASS_DEMO,
+      FEISHU_IM_BUILTIN_DEMO_DOCX_URL,
+      tip: '若飞书仍为长篇成果卡，请 curl「事件订阅请求地址同源」下的 /api/feishu/demo-status 核对是否为同一进程。',
+    });
   } catch (error) {
     logger.error("server failed to start（含 webhook / 路由注册阶段）", {
       error: error instanceof Error ? error.message : String(error),

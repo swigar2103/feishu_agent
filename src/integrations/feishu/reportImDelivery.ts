@@ -10,7 +10,7 @@ import {
   ensureChatSession,
   setLatestReport,
 } from "../../services/chat/sessionStore.js";
-import { buildPipelineProgressCard, buildPipelineResultCard } from "./cards.js";
+import { buildPipelineProgressCard, buildPipelineResultCard, type PipelineResultLink } from "./cards.js";
 import { sendCardMessage, sendTextMessage, updateCardMessage } from "./imMessage.js";
 import type { ParsedFeishuImTextEvent } from "./webhookMessageParse.js";
 
@@ -145,12 +145,7 @@ function buildStructuredSummary(input: Awaited<ReturnType<typeof runReportPipeli
   return items.slice(0, 5);
 }
 
-function extractResultLinks(deliverable?: FinalDeliverable): Array<{
-  label: string;
-  url: string;
-  artifactSource?: string;
-  unavailable?: boolean;
-}> {
+function extractResultLinks(deliverable?: FinalDeliverable): PipelineResultLink[] {
   if (!deliverable?.publishedArtifacts?.length) return [];
   return deliverable.publishedArtifacts.map((item) => {
     const placeholder =

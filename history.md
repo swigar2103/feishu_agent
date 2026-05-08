@@ -2,6 +2,29 @@
 
 ## 2026-05-08
 
+### README：§9.1 增补 demo-status 备用路径与 404 说明
+
+**修改**：`GET /api/feishu/webhook/demo-status` 与 `/api/feishu/demo-status` 共用同一响应；README §9.1 写明 Fastify 404 表示线上需重新构建/部署。
+
+### README：§9.1 事件订阅链路与自检说明
+
+**修改**：在 `README.md`「§9 飞书后台配置核对清单」下新增 **§9.1**，说明开放平台请求地址与实际进程的关系、`trycloudflare` 更换子域时需同步改订阅、以及如何用 `GET /api/feishu/demo-status` 做同源自检。
+
+### 飞书 IM：`imDemoConfig` 短路仅发演示文档卡片（内置 jcney… 稿件）
+
+**目标**：IM 文本到达后**不执行** Phase1 / LangGraph，只回一张「演示文档」卡片并可点击跳到固定云文档；避免因线上漏配 `.env` 仍跑出 MCP 产物链接。
+
+**实现**：
+- `src/integrations/feishu/imDemoConfig.ts`：`FEISHU_IM_PIPELINE_BYPASS_DEMO` 默认 `true`（**正式上线务必改为 `false`**）；`FEISHU_IM_BUILTIN_DEMO_DOCX_URL` 内置演示链接。
+- `src/integrations/feishu/imTextPipelineDispatch.ts`：入口最先 `trySendImPipelineDemoBypass`；演示 URL = `FEISHU_DEMO_FIXED_REPORT_URL` 或非空则用内置常量。
+- `src/integrations/feishu/reportImDelivery.ts`、`src/integrations/feishu/cards.ts`：`forcedPrimaryDocUrl` 与成果链注入保留为可选字段/历史兼容，正常短路时不会再跑此文件。
+- `src/app.ts`：启动后打一条 `feishu im demo bypass` 日志，便于确认**本机进程**配置。
+- `src/api/feishuWebhook.ts`：新增 `GET /api/feishu/demo-status` 与同响应的 `GET /api/feishu/webhook/demo-status`。
+
+**恢复真实链路**：将 `FEISHU_IM_PIPELINE_BYPASS_DEMO` 设为 `false` 并重启进程。
+
+---
+
 ### 高保真样式推进到 dotx 母版级
 
 **目标**：将 Word 导出从"程序化白纸文档"升级为"与飞书模板视觉风格匹配的 dotx 母版驱动输出"。

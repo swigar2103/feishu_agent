@@ -151,6 +151,8 @@ export function buildPipelineResultCard(input: {
   links: PipelineResultLink[];
   sessionId: string;
   workbenchUrl?: string;
+  /** 演示：强制覆盖「快速入口 · 主成果」展示的 URL */
+  forcedPrimaryDocUrl?: string;
 }): Record<string, unknown> {
   const unavailableHintFor = (label: string): string => {
     if (label.includes("报告文档")) {
@@ -185,8 +187,9 @@ export function buildPipelineResultCard(input: {
   const summaryLines =
     input.summary.length > 0 ? input.summary.map((item) => `- ${item}`).join("\n") : "- 无";
   const primary = input.links.find((l) => l.url?.trim() && !l.unavailable);
-  const primaryLine = primary?.url
-    ? `主成果：${primary.url}`
+  const primaryUrl = input.forcedPrimaryDocUrl?.trim() || primary?.url?.trim();
+  const primaryLine = primaryUrl
+    ? `主成果：${primaryUrl}`
     : "主成果：暂无（见上「未生成可访问链接」说明）";
   const workbenchLine = input.workbenchUrl?.trim()
     ? `- [进入在线编辑工作台](${input.workbenchUrl})`

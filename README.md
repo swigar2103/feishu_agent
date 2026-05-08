@@ -293,6 +293,32 @@ npm test
 6. 开通所需权限（至少包括消息收发、docx 读写、drive 文件能力）
 7. 应用发布到可测试范围（企业成员/测试成员）
 
+### 9.1 事件订阅链路（为什么改了代码飞书还是旧行为）
+
+飞书只会向 **开放平台 → 事件配置 → 请求地址** 里填写的那一个 **公网 HTTPS** 发 `POST /api/feishu/webhook`，**不会**访问你本机的 `http://localhost:3000`。因此仅重启本机 `npm run dev` 不能保证飞书命中当前进程。
+
+**按下面顺序修复链路：**
+
+1. **内网穿透必须指到当前 dev 进程**  
+   用 Cloudflare Tunnel、ngrok 等时，确保转发目标为 **`http://127.0.0.1:<PORT>`**（与本机 `npm run dev` 监听端口一致，`PORT` 见 `.env`）。
+
+2. **TryCloudflare 每次启动子域会变**  
+   `*.trycloudflare.com` 随机域名：**每次新开隧道**，都要回到飞书开放平台，把 **事件订阅请求地址** 更新为 **`https://<当前隧道域名>/api/feishu/webhook`**。旧域名上的请求会打到已过期的隧道或别的机器。
+
+3. **同源自检（推荐）**  
+   浏览器或 curl 访问（域名必须与事件订阅里填的 **协议+主机完全一致**）：  
+   - `https://<你的公网域名>/api/feishu/demo-status`  
+   - 若网关/Nginx **只配置了** `location` 指向 `/api/feishu/webhook`，可改用：`https://<你的公网域名>/api/feishu/webhook/demo-status`  
+   期望看到 `bypassDemo`、`effectiveBypassDocUrl` 与当前仓库配置一致。  
+
+   **`Route GET:/api/feishu/demo-status not found`（Fastify 404）**：对外进程仍是 **不含该路由的旧构建**。在 `oauth.zhongshu-sheng.com`（或等价主机）对应服务上：**拉最新代码、`npm run build`（若用 `dist`）、重启 Node/容器**，deploy 后再测。
+
+4. **关掉多余的接收端**  
+   云上若还跑着旧版 Node / Docker / Vercel 预览，飞书 URL 仍可能指向那边。临时调试请 **只保留一条** 指向本机穿透的订阅地址，或下线旧实例。
+
+5. **OAuth 与 Webhook 用同一「当前环境」**  
+   `.env` 里 `FEISHU_USER_OAUTH_REDIRECT_URI` 若也用了隧道根地址，**换隧道时请同步改** 飞书开放平台里的重定向 URL，避免出现「OAuth 回本机 A、Webhook 却进云端 B」。
+
 ---
 
 ## 10. 联调顺序（推荐）
